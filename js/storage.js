@@ -1,17 +1,34 @@
 /* Persistência em localStorage: configurações e histórico. */
 const Storage = {
   KEYS: {
-    apiKey: 'profe_api_key',
-    model: 'profe_model',
+    provider: 'profe_provider',
+    apiKey: 'profe_api_key_',   // sufixado pelo provedor
+    model: 'profe_model_',      // sufixado pelo provedor
     nome: 'profe_nome',
     history: 'profe_history',
   },
 
-  getApiKey() { return localStorage.getItem(this.KEYS.apiKey) || ''; },
-  setApiKey(v) { localStorage.setItem(this.KEYS.apiKey, v); },
+  DEFAULT_MODELS: {
+    gemini: 'gemini-2.5-flash',
+    openai: 'gpt-4o-mini',
+  },
 
-  getModel() { return localStorage.getItem(this.KEYS.model) || 'gpt-4o-mini'; },
-  setModel(v) { localStorage.setItem(this.KEYS.model, v); },
+  getProvider() { return localStorage.getItem(this.KEYS.provider) || 'gemini'; },
+  setProvider(v) { localStorage.setItem(this.KEYS.provider, v); },
+
+  getApiKey(provider = this.getProvider()) {
+    return localStorage.getItem(this.KEYS.apiKey + provider) || '';
+  },
+  setApiKey(v, provider = this.getProvider()) {
+    localStorage.setItem(this.KEYS.apiKey + provider, v);
+  },
+
+  getModel(provider = this.getProvider()) {
+    return localStorage.getItem(this.KEYS.model + provider) || this.DEFAULT_MODELS[provider];
+  },
+  setModel(v, provider = this.getProvider()) {
+    localStorage.setItem(this.KEYS.model + provider, v);
+  },
 
   getNome() { return localStorage.getItem(this.KEYS.nome) || ''; },
   setNome(v) { localStorage.setItem(this.KEYS.nome, v); },

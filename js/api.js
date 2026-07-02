@@ -1,12 +1,40 @@
-/* Chamada à API da OpenAI direto do navegador, com streaming (SSE).
-   A chave vem do localStorage e só é enviada para api.openai.com. */
+/* Chamadas às APIs de IA direto do navegador, com streaming (SSE).
+   A chave vem do localStorage e só é enviada para o provedor escolhido. */
 const Api = {
-  async *stream(userPrompt) {
-    const apiKey = Storage.getApiKey();
-    if (!apiKey) {
-      throw new Error('SEM_CHAVE');
-    }
+  PROVIDERS: {
+    gemini: {
+      nome: 'Google Gemini',
+      keyHint: 'Grátis, sem cartão. Crie a sua em <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. A chave fica salva apenas neste navegador.',
+      keyPlaceholder: 'AIza...',
+      models: [
+        { id: 'gemini-2.5-flash', label: 'gemini-2.5-flash (recomendado)' },
+        { id: 'gemini-2.5-flash-lite', label: 'gemini-2.5-flash-lite (mais rápido)' },
+        { id: 'gemini-2.5-pro', label: 'gemini-2.5-pro (melhor qualidade, limite menor)' },
+      ],
+    },
+    openai: {
+      nome: 'OpenAI',
+      keyHint: 'Requer crédito pré-pago. Crie a sua em <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a>. A chave fica salva apenas neste navegador.',
+      keyPlaceholder: 'sk-...',
+      models: [
+        { id: 'gpt-4o-mini', label: 'gpt-4o-mini (rápido e barato)' },
+        { id: 'gpt-4o', label: 'gpt-4o (melhor qualidade)' },
+        { id: 'gpt-4.1-mini', label: 'gpt-4.1-mini' },
+        { id: 'gpt-4.1', label: 'gpt-4.1' },
+      ],
+    },
+  },
 
+  stream(userPrompt) {
+    const apiKey = Storage.getApiKey();
+    if (!apiKey) throw new Error('SEM_CHAVE');
+    const provider = Storage.getProvider();
+    return provider === 'gemini'
+      ? this._streamGemini(apiKey, userPrompt)
+      : this._streamOpenai(apiKey, userPrompt);
+  },
+
+  async *_streamOpenai(apiKey, userPrompt) {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -22,18 +50,55 @@ const Api = {
         ],
       }),
     });
+    await this._checkResponse(res);
 
-    if (!res.ok) {
-      let detail = '';
+    for await (const data of this._sseLines(res)) {
+      if (data === '[DONE]') return;
       try {
-        const err = await res.json();
-        detail = err.error?.message || '';
-      } catch { /* corpo não é JSON */ }
-      if (res.status === 401) throw new Error('CHAVE_INVALIDA');
-      if (res.status === 429) throw new Error('LIMITE: ' + detail);
-      throw new Error(`Erro ${res.status}: ${detail}`);
+        const text = JSON.parse(data).choices?.[0]?.delta?.content;
+        if (text) yield text;
+      } catch { /* linha parcial, ignora */ }
     }
+  },
 
+  async *_streamGemini(apiKey, userPrompt) {
+    const model = Storage.getModel();
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: Prompts.system }] },
+        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+      }),
+    });
+    await this._checkResponse(res);
+
+    for await (const data of this._sseLines(res)) {
+      try {
+        const text = JSON.parse(data).candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) yield text;
+      } catch { /* linha parcial, ignora */ }
+    }
+  },
+
+  async _checkResponse(res) {
+    if (res.ok) return;
+    let detail = '';
+    try {
+      const err = await res.json();
+      detail = err.error?.message || '';
+    } catch { /* corpo não é JSON */ }
+    if (res.status === 401 || res.status === 403) throw new Error('CHAVE_INVALIDA');
+    if (res.status === 429) throw new Error('LIMITE: ' + detail);
+    throw new Error(`Erro ${res.status}: ${detail}`);
+  },
+
+  /* Lê um corpo SSE e emite o conteúdo de cada linha "data: ...". */
+  async *_sseLines(res) {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
@@ -43,31 +108,23 @@ const Api = {
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
 
-      // eventos SSE são separados por linha; cada dado vem como "data: {...}"
       const lines = buffer.split('\n');
       buffer = lines.pop(); // última linha pode estar incompleta
 
       for (const line of lines) {
         const trimmed = line.trim();
-        if (!trimmed.startsWith('data:')) continue;
-        const payload = trimmed.slice(5).trim();
-        if (payload === '[DONE]') return;
-        try {
-          const chunk = JSON.parse(payload);
-          const text = chunk.choices?.[0]?.delta?.content;
-          if (text) yield text;
-        } catch { /* linha parcial, ignora */ }
+        if (trimmed.startsWith('data:')) yield trimmed.slice(5).trim();
       }
     }
   },
 
   friendlyError(err) {
     if (err.message === 'SEM_CHAVE')
-      return 'Configure sua chave da API OpenAI em ⚙️ Configurações antes de gerar.';
+      return 'Configure sua chave de API em ⚙️ Configurações antes de gerar.';
     if (err.message === 'CHAVE_INVALIDA')
       return 'Chave da API inválida. Verifique em ⚙️ Configurações.';
     if (err.message.startsWith('LIMITE'))
-      return 'Limite de uso da API atingido. Verifique seu saldo em platform.openai.com. ' + err.message;
+      return 'Limite de uso da API atingido. Aguarde alguns minutos e tente de novo. ' + err.message;
     if (err instanceof TypeError)
       return 'Falha de conexão. Verifique sua internet.';
     return 'Erro ao gerar: ' + err.message;

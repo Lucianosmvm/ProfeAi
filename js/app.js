@@ -208,19 +208,35 @@
   }
 
   /* ===== Configurações ===== */
+  function fillProviderFields(provider) {
+    const form = $('#form-config');
+    const info = Api.PROVIDERS[provider];
+    $('#key-hint').innerHTML = info.keyHint;
+    form.elements.apiKey.placeholder = info.keyPlaceholder;
+    form.elements.apiKey.value = Storage.getApiKey(provider);
+    form.elements.model.innerHTML = info.models
+      .map(m => `<option value="${m.id}">${m.label}</option>`).join('');
+    form.elements.model.value = Storage.getModel(provider);
+  }
+
   function loadConfig() {
     const form = $('#form-config');
     form.elements.nome.value = Storage.getNome();
-    form.elements.apiKey.value = Storage.getApiKey();
-    form.elements.model.value = Storage.getModel();
+    form.elements.provider.value = Storage.getProvider();
+    fillProviderFields(Storage.getProvider());
   }
+
+  $('#form-config').elements.provider.addEventListener('change', e => {
+    fillProviderFields(e.target.value);
+  });
 
   $('#form-config').addEventListener('submit', e => {
     e.preventDefault();
     const d = formToObj(e.target);
     Storage.setNome(d.nome);
-    Storage.setApiKey(d.apiKey);
-    Storage.setModel(d.model);
+    Storage.setProvider(d.provider);
+    Storage.setApiKey(d.apiKey, d.provider);
+    Storage.setModel(d.model, d.provider);
     updateKeyStatus();
     const msg = $('#config-saved');
     msg.hidden = false;

@@ -16,10 +16,12 @@ Plataforma web para professores gerarem **planos de aula, atividades, provas e r
 ## Como usar
 
 1. Abra o site.
-2. Vá em **⚙️ Configurações** e cole sua chave da API OpenAI ([crie aqui](https://platform.openai.com/api-keys)).
+2. Vá em **⚙️ Configurações** e cole sua chave de API:
+   - **Google Gemini** (padrão) — grátis, sem cartão: [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+   - **OpenAI** — pago, pré-pago: [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
 3. Escolha um fluxo, preencha os campos e clique em **✨ Gerar**.
 
-A chave fica salva **apenas no seu navegador** (localStorage) e é enviada somente para a API da OpenAI. Nenhum dado passa por servidor próprio.
+A chave fica salva **apenas no seu navegador** (localStorage) e é enviada somente para o provedor de IA escolhido. Nenhum dado passa por servidor próprio.
 
 ## Publicar no GitHub Pages
 

@@ -212,19 +212,18 @@
           <label>Seu nome (para a saudação)
             <input type="text" name="nome" placeholder="Ex.: Luciano">
           </label>
-          <label>Chave da API OpenAI
-            <input type="password" name="apiKey" placeholder="sk-..." autocomplete="off">
-            <small>A chave fica salva apenas neste navegador (localStorage) e é enviada
-            somente para a API da OpenAI. Crie a sua em
-            <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a>.</small>
+          <label>Provedor de IA
+            <select name="provider">
+              <option value="gemini" selected>Google Gemini (grátis, sem cartão)</option>
+              <option value="openai">OpenAI (pago)</option>
+            </select>
+          </label>
+          <label>Chave da API
+            <input type="password" name="apiKey" autocomplete="off">
+            <small id="key-hint"></small>
           </label>
           <label>Modelo
-            <select name="model">
-              <option value="gpt-4o-mini" selected>gpt-4o-mini (rápido e barato)</option>
-              <option value="gpt-4o">gpt-4o (melhor qualidade)</option>
-              <option value="gpt-4.1-mini">gpt-4.1-mini</option>
-              <option value="gpt-4.1">gpt-4.1</option>
-            </select>
+            <select name="model"></select>
           </label>
           <button type="submit" class="btn-primary">💾 Salvar</button>
           <p id="config-saved" class="saved-msg" hidden>✅ Salvo!</p>
