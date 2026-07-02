@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Professor+ AI — Planeje aulas em minutos</title>
+  <meta name="description" content="Plataforma para professores gerarem planos de aula, atividades, provas e rubricas com IA. Preencha um formulário, receba material pronto.">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+</head>
+<body>
+  <div class="layout">
+    <!-- ===== Sidebar ===== -->
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <span class="brand-icon">🎓</span>
+        <span class="brand-name">Professor<span class="brand-plus">+</span> AI</span>
+      </div>
+      <nav class="nav">
+        <a href="#/" class="nav-link" data-route="home">🏠 Início</a>
+        <a href="#/plano" class="nav-link" data-route="plano">📚 Plano de Aula</a>
+        <a href="#/atividade" class="nav-link" data-route="atividade">📝 Gerar Atividade</a>
+        <a href="#/prova" class="nav-link" data-route="prova">📄 Gerar Prova</a>
+        <a href="#/rubrica" class="nav-link" data-route="rubrica">📊 Rubrica</a>
+        <a href="#/historico" class="nav-link" data-route="historico">📂 Histórico</a>
+        <a href="#/config" class="nav-link" data-route="config">⚙️ Configurações</a>
+      </nav>
+      <div class="sidebar-footer">
+        <span id="key-status" class="key-status">🔑 sem chave</span>
+      </div>
+    </aside>
+
+    <!-- ===== Main ===== -->
+    <main class="main">
+      <button class="menu-toggle" id="menu-toggle" aria-label="Menu">☰</button>
+
+      <!-- Home -->
+      <section class="view" id="view-home">
+        <h1 id="greeting">👋 Olá, Professor!</h1>
+        <p class="subtitle">O que vamos preparar hoje?</p>
+        <div class="cards">
+          <a href="#/plano" class="card">
+            <span class="card-icon">📚</span>
+            <h3>Plano de Aula</h3>
+            <p>Plano completo com metodologia, cronograma e avaliação.</p>
+          </a>
+          <a href="#/atividade" class="card">
+            <span class="card-icon">📝</span>
+            <h3>Gerar Atividade</h3>
+            <p>Exercícios, projetos e desafios com gabarito.</p>
+          </a>
+          <a href="#/prova" class="card">
+            <span class="card-icon">📄</span>
+            <h3>Gerar Prova</h3>
+            <p>Prova pronta com gabarito separado.</p>
+          </a>
+          <a href="#/rubrica" class="card">
+            <span class="card-icon">📊</span>
+            <h3>Rubrica</h3>
+            <p>Critérios de avaliação com pesos para trabalhos.</p>
+          </a>
+        </div>
+        <div id="home-recent"></div>
+      </section>
+
+      <!-- Plano de Aula -->
+      <section class="view" id="view-plano">
+        <h1>📚 Plano de Aula</h1>
+        <p class="subtitle">Preencha os campos e receba um plano completo.</p>
+        <form class="gen-form" id="form-plano">
+          <div class="grid-2">
+            <label>Curso / Série
+              <input type="text" name="curso" placeholder="Ex.: Técnico em Informática" required>
+            </label>
+            <label>Unidade Curricular / Disciplina
+              <input type="text" name="disciplina" placeholder="Ex.: Programação Web" required>
+            </label>
+            <label>Carga horária da aula
+              <input type="text" name="carga" placeholder="Ex.: 4 horas" required>
+            </label>
+            <label>Tema da aula
+              <input type="text" name="tema" placeholder="Ex.: Formulários em HTML" required>
+            </label>
+          </div>
+          <label>Objetivo geral
+            <textarea name="objetivo" rows="2" placeholder="Ex.: Capacitar o aluno a criar formulários acessíveis"></textarea>
+          </label>
+          <label>Competências trabalhadas (opcional)
+            <textarea name="competencias" rows="2" placeholder="Ex.: Desenvolver interfaces conforme especificação"></textarea>
+          </label>
+          <button type="submit" class="btn-primary">✨ Gerar Plano</button>
+        </form>
+      </section>
+
+      <!-- Atividade -->
+      <section class="view" id="view-atividade">
+        <h1>📝 Gerar Atividade</h1>
+        <p class="subtitle">Exercícios prontos para usar, sem escrever prompt.</p>
+        <form class="gen-form" id="form-atividade">
+          <div class="grid-2">
+            <label>Disciplina
+              <input type="text" name="disciplina" placeholder="Ex.: Banco de Dados" required>
+            </label>
+            <label>Tema
+              <input type="text" name="tema" placeholder="Ex.: Comandos SELECT" required>
+            </label>
+            <label>Quantidade de questões
+              <input type="number" name="quantidade" value="5" min="1" max="30" required>
+            </label>
+            <label>Nível
+              <select name="nivel">
+                <option>Básico</option>
+                <option selected>Intermediário</option>
+                <option>Avançado</option>
+              </select>
+            </label>
+            <label>Tipo
+              <select name="tipo">
+                <option>Múltipla escolha</option>
+                <option>Dissertativa</option>
+                <option>Verdadeiro ou Falso</option>
+                <option>Projeto prático</option>
+                <option selected>Misto</option>
+              </select>
+            </label>
+            <label>Público
+              <input type="text" name="publico" placeholder="Ex.: Ensino Médio, 2º ano">
+            </label>
+          </div>
+          <label class="check">
+            <input type="checkbox" name="gabarito" checked> Incluir gabarito comentado
+          </label>
+          <button type="submit" class="btn-primary">✨ Gerar Atividade</button>
+        </form>
+      </section>
+
+      <!-- Prova -->
+      <section class="view" id="view-prova">
+        <h1>📄 Gerar Prova</h1>
+        <p class="subtitle">Prova formatada com gabarito separado no final.</p>
+        <form class="gen-form" id="form-prova">
+          <div class="grid-2">
+            <label>Disciplina
+              <input type="text" name="disciplina" placeholder="Ex.: Lógica de Programação" required>
+            </label>
+            <label>Temas cobrados
+              <input type="text" name="tema" placeholder="Ex.: Condicionais, laços, vetores" required>
+            </label>
+            <label>Quantidade de questões
+              <input type="number" name="quantidade" value="10" min="1" max="30" required>
+            </label>
+            <label>Alternativas por questão
+              <select name="alternativas">
+                <option value="4">4 (A–D)</option>
+                <option value="5" selected>5 (A–E)</option>
+              </select>
+            </label>
+            <label>Nível
+              <select name="nivel">
+                <option>Básico</option>
+                <option selected>Intermediário</option>
+                <option>Avançado</option>
+              </select>
+            </label>
+            <label>Valor total
+              <input type="text" name="valor" placeholder="Ex.: 10 pontos" value="10 pontos">
+            </label>
+          </div>
+          <button type="submit" class="btn-primary">✨ Gerar Prova</button>
+        </form>
+      </section>
+
+      <!-- Rubrica -->
+      <section class="view" id="view-rubrica">
+        <h1>📊 Rubrica de Avaliação</h1>
+        <p class="subtitle">Critérios objetivos com pesos e níveis de desempenho.</p>
+        <form class="gen-form" id="form-rubrica">
+          <div class="grid-2">
+            <label>Tipo de trabalho
+              <select name="tipoTrabalho">
+                <option selected>Projeto</option>
+                <option>Apresentação / Seminário</option>
+                <option>Trabalho escrito</option>
+                <option>Atividade prática</option>
+              </select>
+            </label>
+            <label>Disciplina
+              <input type="text" name="disciplina" placeholder="Ex.: Desenvolvimento de Sistemas" required>
+            </label>
+          </div>
+          <label>Descrição do trabalho
+            <textarea name="descricao" rows="3" placeholder="Ex.: Sistema CRUD em C# com banco de dados, apresentado em grupo" required></textarea>
+          </label>
+          <label>Valor total
+            <input type="text" name="valor" placeholder="Ex.: 10 pontos" value="10 pontos">
+          </label>
+          <button type="submit" class="btn-primary">✨ Gerar Rubrica</button>
+        </form>
+      </section>
+
+      <!-- Histórico -->
+      <section class="view" id="view-historico">
+        <h1>📂 Histórico</h1>
+        <p class="subtitle">Tudo o que você gerou fica salvo neste navegador.</p>
+        <div id="history-list"></div>
+      </section>
+
+      <!-- Configurações -->
+      <section class="view" id="view-config">
+        <h1>⚙️ Configurações</h1>
+        <form class="gen-form" id="form-config">
+          <label>Seu nome (para a saudação)
+            <input type="text" name="nome" placeholder="Ex.: Luciano">
+          </label>
+          <label>Chave da API OpenAI
+            <input type="password" name="apiKey" placeholder="sk-..." autocomplete="off">
+            <small>A chave fica salva apenas neste navegador (localStorage) e é enviada
+            somente para a API da OpenAI. Crie a sua em
+            <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a>.</small>
+          </label>
+          <label>Modelo
+            <select name="model">
+              <option value="gpt-4o-mini" selected>gpt-4o-mini (rápido e barato)</option>
+              <option value="gpt-4o">gpt-4o (melhor qualidade)</option>
+              <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+              <option value="gpt-4.1">gpt-4.1</option>
+            </select>
+          </label>
+          <button type="submit" class="btn-primary">💾 Salvar</button>
+          <p id="config-saved" class="saved-msg" hidden>✅ Salvo!</p>
+        </form>
+        <div class="danger-zone">
+          <h3>Dados</h3>
+          <button class="btn-danger" id="btn-clear-history">🗑️ Apagar todo o histórico</button>
+        </div>
+      </section>
+
+      <!-- Resultado -->
+      <section class="view" id="view-resultado">
+        <div class="result-header no-print">
+          <h1 id="result-title">Resultado</h1>
+          <div class="result-actions">
+            <button class="btn-secondary" id="btn-copy">📋 Copiar</button>
+            <button class="btn-secondary" id="btn-print">🖨️ PDF / Imprimir</button>
+            <button class="btn-secondary" id="btn-word">📄 Baixar Word</button>
+            <button class="btn-secondary" id="btn-regenerate">🔄 Gerar novamente</button>
+          </div>
+        </div>
+        <div id="result-status" class="result-status no-print" hidden>
+          <span class="spinner"></span> Gerando…
+        </div>
+        <article class="result-content" id="result-content"></article>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/storage.js"></script>
+  <script src="js/prompts.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
