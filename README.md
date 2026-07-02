@@ -7,10 +7,16 @@ Plataforma web para professores gerarem **planos de aula, atividades, provas e r
 ## Funcionalidades
 
 - 📚 **Plano de Aula** — objetivos, metodologia, cronograma com tempos, avaliação e tarefa de casa
+- 🗺️ **Sequência Didática** — várias aulas encadeadas sobre um tema, com progressão, quadro-resumo e avaliação do conjunto
 - 📝 **Gerar Atividade** — múltipla escolha, dissertativa, V/F, projeto ou misto, com gabarito comentado
 - 📄 **Gerar Prova** — prova formal com cabeçalho, pontuação e gabarito separado
+- 📽️ **Slides** — apresentação pronta para projetar (reveal.js), com notas do apresentador; botão **Apresentar** em tela cheia
+- ♿ **Adaptação Inclusiva** — adapta um material existente para TDAH, dislexia, TEA, baixa visão e outras necessidades, preservando o conteúdo
 - 📊 **Rubrica** — critérios com pesos e níveis de desempenho
+- 🔗 **Encadear materiais** — gere um material a partir de outro (ex.: slides ou prova a partir de um plano), mantendo coerência
+- ✏️ **Editar antes de exportar** — ajuste o resultado direto na tela; edições entram no PDF, Word e cópia
 - 📂 **Histórico** — tudo fica salvo no navegador; duplique e adapte para outra turma
+- 💾 **Backup** — exporte tudo num arquivo `.json` e importe em outro PC/navegador (guarde no Drive, se quiser)
 - ⬇️ **Exportação** — PDF (impressão), Word (.doc) e copiar
 
 ## Como usar

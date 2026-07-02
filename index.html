@@ -6,7 +6,11 @@
   <title>Professor+ AI — Planeje aulas em minutos</title>
   <meta name="description" content="Plataforma para professores gerarem planos de aula, atividades, provas e rubricas com IA. Preencha um formulário, receba material pronto.">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/theme/white.css" id="reveal-theme">
   <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/markdown/markdown.js"></script>
 </head>
 <body>
   <div class="layout">
@@ -19,8 +23,11 @@
       <nav class="nav">
         <a href="#/" class="nav-link" data-route="home">🏠 Início</a>
         <a href="#/plano" class="nav-link" data-route="plano">📚 Plano de Aula</a>
+        <a href="#/sequencia" class="nav-link" data-route="sequencia">🗺️ Sequência Didática</a>
         <a href="#/atividade" class="nav-link" data-route="atividade">📝 Gerar Atividade</a>
         <a href="#/prova" class="nav-link" data-route="prova">📄 Gerar Prova</a>
+        <a href="#/slides" class="nav-link" data-route="slides">📽️ Slides</a>
+        <a href="#/adaptar" class="nav-link" data-route="adaptar">♿ Adaptação Inclusiva</a>
         <a href="#/rubrica" class="nav-link" data-route="rubrica">📊 Rubrica</a>
         <a href="#/historico" class="nav-link" data-route="historico">📂 Histórico</a>
         <a href="#/config" class="nav-link" data-route="config">⚙️ Configurações</a>
@@ -44,6 +51,11 @@
             <h3>Plano de Aula</h3>
             <p>Plano completo com metodologia, cronograma e avaliação.</p>
           </a>
+          <a href="#/sequencia" class="card">
+            <span class="card-icon">🗺️</span>
+            <h3>Sequência Didática</h3>
+            <p>Várias aulas encadeadas sobre um tema, do início ao fim.</p>
+          </a>
           <a href="#/atividade" class="card">
             <span class="card-icon">📝</span>
             <h3>Gerar Atividade</h3>
@@ -53,6 +65,16 @@
             <span class="card-icon">📄</span>
             <h3>Gerar Prova</h3>
             <p>Prova pronta com gabarito separado.</p>
+          </a>
+          <a href="#/slides" class="card">
+            <span class="card-icon">📽️</span>
+            <h3>Slides</h3>
+            <p>Apresentação pronta para projetar em sala.</p>
+          </a>
+          <a href="#/adaptar" class="card">
+            <span class="card-icon">♿</span>
+            <h3>Adaptação Inclusiva</h3>
+            <p>Adapta um material para TDAH, dislexia, TEA e outras necessidades.</p>
           </a>
           <a href="#/rubrica" class="card">
             <span class="card-icon">📊</span>
@@ -89,6 +111,41 @@
             <textarea name="competencias" rows="2" placeholder="Ex.: Desenvolver interfaces conforme especificação"></textarea>
           </label>
           <button type="submit" class="btn-primary">✨ Gerar Plano</button>
+        </form>
+      </section>
+
+      <!-- Sequência Didática -->
+      <section class="view" id="view-sequencia">
+        <h1>🗺️ Sequência Didática</h1>
+        <p class="subtitle">Um conjunto de aulas encadeadas sobre um mesmo tema.</p>
+        <form class="gen-form" id="form-sequencia">
+          <div class="grid-2">
+            <label>Curso / Série
+              <input type="text" name="curso" placeholder="Ex.: Ensino Médio, 1º ano" required>
+            </label>
+            <label>Disciplina
+              <input type="text" name="disciplina" placeholder="Ex.: Biologia" required>
+            </label>
+            <label>Tema / Unidade
+              <input type="text" name="tema" placeholder="Ex.: Ecologia e ecossistemas" required>
+            </label>
+            <label>Nº de aulas
+              <input type="number" name="aulas" value="4" min="2" max="20" required>
+            </label>
+            <label>Carga horária por aula
+              <input type="text" name="carga" placeholder="Ex.: 2 horas" required>
+            </label>
+            <label>Público
+              <input type="text" name="publico" placeholder="Ex.: 35 alunos">
+            </label>
+          </div>
+          <label>Objetivo geral da sequência
+            <textarea name="objetivo" rows="2" placeholder="Ex.: Compreender as relações entre os seres vivos e o ambiente"></textarea>
+          </label>
+          <label>Competências / habilidades (opcional)
+            <textarea name="competencias" rows="2" placeholder="Ex.: BNCC EM13CNT..., ou descrição livre"></textarea>
+          </label>
+          <button type="submit" class="btn-primary">✨ Gerar Sequência</button>
         </form>
       </section>
 
@@ -170,6 +227,65 @@
         </form>
       </section>
 
+      <!-- Slides -->
+      <section class="view" id="view-slides">
+        <h1>📽️ Slides</h1>
+        <p class="subtitle">Apresentação pronta para projetar. Clique em “Apresentar” no resultado.</p>
+        <form class="gen-form" id="form-slides">
+          <div class="grid-2">
+            <label>Disciplina
+              <input type="text" name="disciplina" placeholder="Ex.: Programação Web" required>
+            </label>
+            <label>Tema
+              <input type="text" name="tema" placeholder="Ex.: Formulários em HTML" required>
+            </label>
+            <label>Nº de slides
+              <input type="number" name="quantidade" value="10" min="3" max="30" required>
+            </label>
+            <label>Público
+              <input type="text" name="publico" placeholder="Ex.: Ensino Médio, 2º ano">
+            </label>
+          </div>
+          <label>Objetivo da aula (opcional)
+            <textarea name="objetivo" rows="2" placeholder="Ex.: Apresentar os principais campos de formulário"></textarea>
+          </label>
+          <label class="check">
+            <input type="checkbox" name="notas" checked> Incluir notas do apresentador
+          </label>
+          <button type="submit" class="btn-primary">✨ Gerar Slides</button>
+        </form>
+      </section>
+
+      <!-- Adaptação Inclusiva -->
+      <section class="view" id="view-adaptar">
+        <h1>♿ Adaptação Inclusiva</h1>
+        <p class="subtitle">Cole um material e adapte para uma necessidade específica, sem perder o conteúdo.</p>
+        <form class="gen-form" id="form-adaptar">
+          <div class="grid-2">
+            <label>Necessidade / público
+              <select name="necessidade">
+                <option>TDAH</option>
+                <option>Dislexia</option>
+                <option>TEA (Transtorno do Espectro Autista)</option>
+                <option>Deficiência intelectual</option>
+                <option>Baixa visão</option>
+                <option>Surdez / deficiência auditiva</option>
+                <option>Discalculia</option>
+                <option>Altas habilidades / superdotação</option>
+                <option>Baixa proficiência em leitura</option>
+              </select>
+            </label>
+            <label>Observações (opcional)
+              <input type="text" name="observacoes" placeholder="Ex.: aluno usa leitor de tela">
+            </label>
+          </div>
+          <label>Material a adaptar
+            <textarea name="material" rows="10" placeholder="Cole aqui a atividade, prova ou texto já pronto…" required></textarea>
+          </label>
+          <button type="submit" class="btn-primary">✨ Adaptar Material</button>
+        </form>
+      </section>
+
       <!-- Rubrica -->
       <section class="view" id="view-rubrica">
         <h1>📊 Rubrica de Avaliação</h1>
@@ -228,6 +344,21 @@
           <button type="submit" class="btn-primary">💾 Salvar</button>
           <p id="config-saved" class="saved-msg" hidden>✅ Salvo!</p>
         </form>
+        <div class="usage-box">
+          <h3>Uso</h3>
+          <p id="usage-summary" class="usage-summary"></p>
+          <small>As APIs não informam o saldo/quota restante. Este é o total já consumido neste navegador.</small>
+        </div>
+        <div class="usage-box">
+          <h3>Backup</h3>
+          <p>Salve seus materiais num arquivo e restaure quando quiser — troca de PC, navegador ou guarde no Drive/pen drive.</p>
+          <div class="backup-actions">
+            <button class="btn-secondary" id="btn-export">⬇️ Exportar backup (.json)</button>
+            <button class="btn-secondary" id="btn-import">⬆️ Importar backup</button>
+            <input type="file" id="import-file" accept="application/json,.json" hidden>
+          </div>
+          <small>A chave da API <strong>não</strong> vai no arquivo, por segurança.</small>
+        </div>
         <div class="danger-zone">
           <h3>Dados</h3>
           <button class="btn-danger" id="btn-clear-history">🗑️ Apagar todo o histórico</button>
@@ -239,18 +370,33 @@
         <div class="result-header no-print">
           <h1 id="result-title">Resultado</h1>
           <div class="result-actions">
+            <button class="btn-primary" id="btn-present" hidden>📽️ Apresentar</button>
+            <button class="btn-secondary" id="btn-edit">✏️ Editar</button>
             <button class="btn-secondary" id="btn-copy">📋 Copiar</button>
             <button class="btn-secondary" id="btn-print">🖨️ PDF / Imprimir</button>
             <button class="btn-secondary" id="btn-word">📄 Baixar Word</button>
             <button class="btn-secondary" id="btn-regenerate">🔄 Gerar novamente</button>
           </div>
         </div>
+        <div class="result-chain no-print" id="chain-bar" hidden>
+          <span class="chain-label">➡️ Criar a partir disto:</span>
+          <span id="chain-actions"></span>
+        </div>
         <div id="result-status" class="result-status no-print" hidden>
           <span class="spinner"></span> Gerando…
         </div>
+        <div id="result-usage" class="result-usage no-print" hidden></div>
         <article class="result-content" id="result-content"></article>
       </section>
     </main>
+  </div>
+
+  <!-- Overlay de apresentação (reveal.js) -->
+  <div id="reveal-overlay" class="reveal-overlay" hidden>
+    <button id="btn-close-present" class="btn-close-present" aria-label="Sair">✕ Sair (Esc)</button>
+    <div class="reveal">
+      <div class="slides"></div>
+    </div>
   </div>
 
   <script src="js/storage.js"></script>

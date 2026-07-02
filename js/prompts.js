@@ -28,6 +28,37 @@ Estruture o plano com estas seções:
 9. **Observações para o professor** (dicas práticas, pontos de atenção)`;
   },
 
+  sequencia(d) {
+    return `Crie uma sequência didática completa (conjunto de aulas encadeadas) com os dados abaixo.
+
+- Curso/Série: ${d.curso}
+- Disciplina: ${d.disciplina}
+- Tema/Unidade: ${d.tema}
+- Número de aulas: ${d.aulas}
+- Carga horária por aula: ${d.carga}
+${d.publico ? `- Público: ${d.publico}` : ''}
+${d.objetivo ? `- Objetivo geral: ${d.objetivo}` : ''}
+${d.competencias ? `- Competências/habilidades: ${d.competencias}` : ''}
+
+Estruture assim:
+1. **Apresentação da sequência** (tema, justificativa e a que se propõe)
+2. **Objetivos gerais de aprendizagem**
+3. **Competências e habilidades** desenvolvidas ao longo da sequência
+4. **Conhecimentos prévios** esperados dos alunos
+5. **Quadro-resumo** — tabela com uma linha por aula: Aula (nº), Título, Foco/Conteúdo, Carga horária
+6. **Detalhamento das aulas** — gere exatamente ${d.aulas} aulas, uma seção por aula (\`### Aula N — Título\`), cada uma com:
+   - Objetivos específicos da aula
+   - Conteúdo
+   - Metodologia / estratégias
+   - Recursos necessários
+   - Avaliação/evidência de aprendizagem da aula
+   - Ligação com a próxima aula (progressão)
+7. **Avaliação da sequência** (como avaliar a aprendizagem no conjunto)
+8. **Referências / materiais de apoio**
+
+As aulas devem ter progressão pedagógica: do mais simples ao mais complexo, uma preparando a seguinte.`;
+  },
+
   atividade(d) {
     return `Crie uma atividade com ${d.quantidade} questões.
 
@@ -64,6 +95,40 @@ Regras:
 - Ao final, em seção separada iniciada por "---", inclua o **Gabarito** em tabela (questão × resposta) com justificativa curta de cada resposta. Essa seção será destacada e entregue separadamente.`;
   },
 
+  slides(d) {
+    return `Crie os slides de uma apresentação de aula em Markdown.
+
+- Disciplina: ${d.disciplina}
+- Tema: ${d.tema}
+- Número de slides: ${d.quantidade}
+${d.publico ? `- Público: ${d.publico}` : ''}
+${d.objetivo ? `- Objetivo da aula: ${d.objetivo}` : ''}
+
+Regras de formatação (SIGA EXATAMENTE — o resultado alimenta um apresentador de slides):
+- Separe CADA slide com uma linha contendo apenas três hifens: \`---\`
+- Um único título por slide, iniciado com \`## \`.
+- No máximo 5 tópicos (bullets) por slide, curtos e objetivos. Nada de parágrafos longos.
+- Estrutura sugerida: slide de abertura (título da aula + tema), slide de objetivos, slides de conteúdo, slide de atividade/pergunta e slide de encerramento/resumo.
+- Gere aproximadamente ${d.quantidade} slides.
+${d.notas ? '- Após os tópicos de cada slide, adicione uma linha começando com `Note:` contendo a fala do professor para aquele slide.' : '- NÃO inclua notas do apresentador.'}
+- Não escreva nada fora dos slides (sem introdução nem conclusão fora do formato).`;
+  },
+
+  adaptar(d) {
+    return `Adapte o material didático abaixo para atender estudantes com: ${d.necessidade}.
+${d.observacoes ? `Contexto adicional da turma/aluno: ${d.observacoes}` : ''}
+
+Regras:
+- Mantenha os objetivos de aprendizagem e o conteúdo essencial — adapte a FORMA, não rebaixe o conteúdo.
+- Aplique estratégias específicas para essa necessidade, considerando: linguagem e vocabulário, estrutura e layout, segmentação das tarefas em passos, apoios visuais, clareza das instruções, tempo e forma de avaliação.
+- Entregue o material adaptado pronto para uso.
+- Ao final, inclua a seção **O que foi adaptado e por quê** — lista curta ligando cada mudança à necessidade.
+
+=== MATERIAL ORIGINAL ===
+${d.material}
+=== FIM DO MATERIAL ORIGINAL ===`;
+  },
+
   rubrica(d) {
     return `Crie uma rubrica de avaliação.
 
@@ -83,14 +148,65 @@ Regras:
 /* Título curto para o histórico. */
 Prompts.titulo = {
   plano: d => `Plano: ${d.tema} (${d.disciplina})`,
+  sequencia: d => `Sequência: ${d.tema} (${d.disciplina})`,
   atividade: d => `Atividade: ${d.tema} (${d.disciplina})`,
   prova: d => `Prova: ${d.disciplina}`,
+  slides: d => `Slides: ${d.tema} (${d.disciplina})`,
+  adaptar: d => `Adaptação: ${d.necessidade}`,
   rubrica: d => `Rubrica: ${d.tipoTrabalho} de ${d.disciplina}`,
 };
 
 Prompts.labels = {
   plano: '📚 Plano de Aula',
+  sequencia: '🗺️ Sequência Didática',
   atividade: '📝 Atividade',
   prova: '📄 Prova',
+  slides: '📽️ Slides',
+  adaptar: '♿ Adaptação Inclusiva',
   rubrica: '📊 Rubrica',
+};
+
+/* ===== Encadeamento: gerar um material a partir de outro já pronto ===== */
+
+/* Regras de formatação do material-alvo, sem depender de campos de formulário. */
+const CHAIN_RULES = {
+  slides: `Crie os slides de uma apresentação de aula em Markdown.
+- Separe CADA slide com uma linha contendo apenas três hifens: \`---\`
+- Um único título por slide, iniciado com \`## \`. No máximo 5 tópicos curtos por slide.
+- Gere de 10 a 12 slides: abertura, objetivos, slides de conteúdo, um slide de atividade/pergunta e encerramento/resumo.
+- Após os tópicos de cada slide, adicione uma linha começando com \`Note:\` com a fala do professor.
+- Não escreva nada fora do formato de slides.`,
+
+  atividade: `Crie uma atividade de fixação coerente com o material base.
+- Comece com título, objetivo da atividade e tempo estimado.
+- 8 a 10 questões numeradas, variando entre múltipla escolha (A–D), dissertativa e verdadeiro/falso.
+- Ao final, inclua a seção **Gabarito comentado** com a resposta e uma breve justificativa de cada questão.`,
+
+  prova: `Crie uma prova formal de múltipla escolha coerente com o material base.
+- Comece com cabeçalho (linhas para nome, turma e data) e instruções breves.
+- 10 questões, 5 alternativas (A–E), apenas uma correta, distratores plausíveis.
+- Distribua a pontuação (total 10 pontos) e indique o valor de cada questão.
+- Ao final, após uma linha "---", inclua o **Gabarito** em tabela (questão × resposta) com justificativa curta.`,
+};
+
+/* Quais alvos cada tipo de material pode gerar. */
+Prompts.chainTargets = {
+  plano: ['slides', 'atividade', 'prova', 'adaptar'],
+  sequencia: ['slides', 'atividade', 'prova', 'adaptar'],
+  atividade: ['prova', 'slides', 'adaptar'],
+  prova: ['slides', 'adaptar'],
+  slides: ['atividade', 'adaptar'],
+  adaptar: [],
+  rubrica: ['adaptar'],
+};
+
+Prompts.chain = function (target, srcTipo, srcContent) {
+  return `Você vai criar um NOVO material didático derivado de um material já existente.
+Aproveite o tema, o nível, o público e o conteúdo do material base abaixo, mantendo total coerência com ele.
+
+${CHAIN_RULES[target]}
+
+=== MATERIAL BASE (${Prompts.labels[srcTipo]}) ===
+${srcContent}
+=== FIM DO MATERIAL BASE ===`;
 };

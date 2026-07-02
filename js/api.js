@@ -25,9 +25,13 @@ const Api = {
     },
   },
 
+  // Preenchido durante o stream com { prompt, output, total } tokens da última geração.
+  lastUsage: null,
+
   stream(userPrompt) {
     const apiKey = Storage.getApiKey();
     if (!apiKey) throw new Error('SEM_CHAVE');
+    this.lastUsage = null;
     const provider = Storage.getProvider();
     return provider === 'gemini'
       ? this._streamGemini(apiKey, userPrompt)
@@ -44,6 +48,7 @@ const Api = {
       body: JSON.stringify({
         model: Storage.getModel(),
         stream: true,
+        stream_options: { include_usage: true },
         messages: [
           { role: 'system', content: Prompts.system },
           { role: 'user', content: userPrompt },
@@ -55,8 +60,14 @@ const Api = {
     for await (const data of this._sseLines(res)) {
       if (data === '[DONE]') return;
       try {
-        const text = JSON.parse(data).choices?.[0]?.delta?.content;
+        const obj = JSON.parse(data);
+        const text = obj.choices?.[0]?.delta?.content;
         if (text) yield text;
+        if (obj.usage) this.lastUsage = {
+          prompt: obj.usage.prompt_tokens,
+          output: obj.usage.completion_tokens,
+          total: obj.usage.total_tokens,
+        };
       } catch { /* linha parcial, ignora */ }
     }
   },
@@ -79,8 +90,14 @@ const Api = {
 
     for await (const data of this._sseLines(res)) {
       try {
-        const text = JSON.parse(data).candidates?.[0]?.content?.parts?.[0]?.text;
+        const obj = JSON.parse(data);
+        const text = obj.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) yield text;
+        if (obj.usageMetadata) this.lastUsage = {
+          prompt: obj.usageMetadata.promptTokenCount,
+          output: obj.usageMetadata.candidatesTokenCount,
+          total: obj.usageMetadata.totalTokenCount,
+        };
       } catch { /* linha parcial, ignora */ }
     }
   },

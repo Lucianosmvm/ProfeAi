@@ -296,9 +296,72 @@ input:focus, select:focus, textarea:focus {
   .grid-2 { grid-template-columns: 1fr; }
 }
 
+/* ===== Encadear fluxos ===== */
+.result-chain {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 4px 0 16px;
+}
+.result-chain .chain-label { font-size: .85rem; color: var(--text-muted); }
+.result-chain button { font-size: .85rem; padding: 4px 10px; }
+
+/* ===== Editar resultado ===== */
+.result-content.editing {
+  outline: 2px dashed var(--primary);
+  outline-offset: 6px;
+  background: #fffdf5;
+}
+.result-content.editing:focus { outline-color: var(--primary-dark); }
+
+/* ===== Uso / tokens ===== */
+.result-usage {
+  font-size: .85rem;
+  color: var(--text-muted);
+  margin: 4px 0 12px;
+}
+.usage-box {
+  margin-top: 24px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.usage-box h3 { margin: 0 0 8px; }
+.usage-summary { margin: 0 0 6px; font-weight: 600; }
+.usage-box small { color: var(--text-muted); }
+.usage-box p { margin: 0 0 12px; }
+.backup-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+
+/* ===== Overlay de apresentação (reveal.js) ===== */
+.reveal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: #fff;
+}
+.reveal-overlay[hidden] { display: none; }
+.reveal-overlay .reveal { width: 100%; height: 100%; }
+.btn-close-present {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1001;
+  background: rgba(28, 35, 51, .85);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: .95rem;
+  cursor: pointer;
+}
+.btn-close-present:hover { background: rgba(28, 35, 51, 1); }
+
 /* ===== Impressão (PDF) ===== */
 @media print {
-  .sidebar, .menu-toggle, .no-print { display: none !important; }
+  .sidebar, .menu-toggle, .no-print, .reveal-overlay { display: none !important; }
   body, .main { background: #fff; padding: 0; max-width: none; }
   .result-content { border: none; padding: 0; }
+  .result-content.editing { outline: none; background: none; }
 }
