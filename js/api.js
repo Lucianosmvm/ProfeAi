@@ -114,25 +114,44 @@ const Api = {
     throw new Error(`Erro ${res.status}: ${detail}`);
   },
 
-  /* Lê um corpo SSE e emite o conteúdo de cada linha "data: ...". */
+  /* Lê um corpo SSE e emite o conteúdo de cada linha "data: ...".
+     Idle-timeout: se o stream parar de enviar por mais de IDLE_MS, aborta em vez de
+     travar para sempre (senão o spinner giraria eternamente e bloquearia as próximas gerações). */
   async *_sseLines(res) {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    const IDLE_MS = 60000;
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+    try {
+      while (true) {
+        const { done, value } = await this._readWithTimeout(reader, IDLE_MS);
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
 
-      const lines = buffer.split('\n');
-      buffer = lines.pop(); // última linha pode estar incompleta
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // última linha pode estar incompleta
 
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('data:')) yield trimmed.slice(5).trim();
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('data:')) yield trimmed.slice(5).trim();
+        }
       }
+    } finally {
+      try { reader.releaseLock(); } catch { /* já liberado/cancelado */ }
     }
+  },
+
+  /* reader.read() com corte: se demorar mais que ms, cancela o stream e rejeita. */
+  _readWithTimeout(reader, ms) {
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        reader.cancel().catch(() => {});
+        reject(new Error('TIMEOUT'));
+      }, ms);
+    });
+    return Promise.race([reader.read(), timeout]).finally(() => clearTimeout(timer));
   },
 
   friendlyError(err) {
@@ -142,6 +161,8 @@ const Api = {
       return 'Chave da API inválida. Verifique em ⚙️ Configurações.';
     if (err.message.startsWith('LIMITE'))
       return 'Limite de uso da API atingido. Aguarde alguns minutos e tente de novo. ' + err.message;
+    if (err.message === 'TIMEOUT')
+      return 'A geração travou (sem resposta da IA). Tente gerar novamente.';
     if (err instanceof TypeError)
       return 'Falha de conexão. Verifique sua internet.';
     return 'Erro ao gerar: ' + err.message;

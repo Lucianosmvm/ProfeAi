@@ -11,7 +11,7 @@
   };
 
   /* ===== Roteamento ===== */
-  const routes = ['home', 'plano', 'sequencia', 'atividade', 'prova', 'slides', 'adaptar', 'rubrica', 'historico', 'config', 'resultado'];
+  const routes = ['home', 'curso', 'plano', 'sequencia', 'atividade', 'prova', 'slides', 'adaptar', 'rubrica', 'historico', 'config', 'resultado'];
 
   function route() {
     const hash = location.hash.replace('#/', '') || 'home';
@@ -107,7 +107,7 @@
     return data;
   }
 
-  ['plano', 'sequencia', 'atividade', 'prova', 'slides', 'adaptar', 'rubrica'].forEach(tipo => {
+  ['curso', 'plano', 'sequencia', 'atividade', 'prova', 'slides', 'adaptar', 'rubrica'].forEach(tipo => {
     $(`#form-${tipo}`).addEventListener('submit', e => {
       e.preventDefault();
       generate(tipo, formToObj(e.target));
@@ -379,6 +379,17 @@
     if (target === 'adaptar') {
       $('#form-adaptar').elements.material.value = srcText;
       location.hash = '#/adaptar';
+      return;
+    }
+
+    // Slides: abre o formulário para o professor definir o nº de slides antes de gerar.
+    if (target === 'slides') {
+      const form = $('#form-slides');
+      const p = state.current.params || {};
+      form.elements.basematerial.value = srcText;
+      if (p.disciplina) form.elements.disciplina.value = p.disciplina;
+      if (p.tema) form.elements.tema.value = p.tema;
+      location.hash = '#/slides';
       return;
     }
 

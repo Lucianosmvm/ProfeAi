@@ -22,6 +22,7 @@
       </div>
       <nav class="nav">
         <a href="#/" class="nav-link" data-route="home">🏠 Início</a>
+        <a href="#/curso" class="nav-link" data-route="curso">📋 Plano de Curso</a>
         <a href="#/plano" class="nav-link" data-route="plano">📚 Plano de Aula</a>
         <a href="#/sequencia" class="nav-link" data-route="sequencia">🗺️ Sequência Didática</a>
         <a href="#/atividade" class="nav-link" data-route="atividade">📝 Gerar Atividade</a>
@@ -46,6 +47,11 @@
         <h1 id="greeting">👋 Olá, Professor!</h1>
         <p class="subtitle">O que vamos preparar hoje?</p>
         <div class="cards">
+          <a href="#/curso" class="card">
+            <span class="card-icon">📋</span>
+            <h3>Plano de Curso</h3>
+            <p>Transforma o descritivo do PDT em módulos e aulas prontos.</p>
+          </a>
           <a href="#/plano" class="card">
             <span class="card-icon">📚</span>
             <h3>Plano de Aula</h3>
@@ -85,6 +91,41 @@
         <div id="home-recent"></div>
       </section>
 
+      <!-- Plano de Curso -->
+      <section class="view" id="view-curso">
+        <h1>📋 Plano de Curso</h1>
+        <p class="subtitle">Cole o descritivo da Unidade Curricular (do PDT) e receba o curso dividido em módulos e aulas.</p>
+        <form class="gen-form" id="form-curso">
+          <label>Unidade Curricular
+            <input type="text" name="unidade" placeholder="Ex.: Unidade Curricular 10 — Desenvolver Banco de Dados" required>
+          </label>
+          <div class="grid-2">
+            <label>Carga horária total
+              <input type="text" name="carga" placeholder="Ex.: 72 horas" required>
+            </label>
+            <label>Duração de cada aula
+              <input type="text" name="duracao" placeholder="Ex.: 2h30" required>
+            </label>
+            <label>Nº de aulas
+              <input type="number" name="aulas" value="32" min="1" max="200" required>
+            </label>
+          </div>
+          <label>Indicadores de competência
+            <textarea name="indicadores" rows="4" placeholder="Cole os indicadores do PDT, um por linha…"></textarea>
+          </label>
+          <label>Conhecimentos
+            <textarea name="conhecimentos" rows="6" placeholder="Cole a lista de conhecimentos do PDT…"></textarea>
+          </label>
+          <label>Habilidades
+            <textarea name="habilidades" rows="3" placeholder="Cole as habilidades do PDT…"></textarea>
+          </label>
+          <label>Atitudes / Valores
+            <textarea name="atitudes" rows="3" placeholder="Cole as atitudes/valores do PDT…"></textarea>
+          </label>
+          <button type="submit" class="btn-primary">✨ Gerar Plano de Curso</button>
+        </form>
+      </section>
+
       <!-- Plano de Aula -->
       <section class="view" id="view-plano">
         <h1>📚 Plano de Aula</h1>
@@ -109,6 +150,9 @@
           </label>
           <label>Competências trabalhadas (opcional)
             <textarea name="competencias" rows="2" placeholder="Ex.: Desenvolver interfaces conforme especificação"></textarea>
+          </label>
+          <label>Conteúdo da aula do Plano de Curso (opcional)
+            <textarea name="basecurso" rows="6" placeholder="Cole aqui o recorte da aula (módulo, título e tópicos) gerado no Plano de Curso…"></textarea>
           </label>
           <button type="submit" class="btn-primary">✨ Gerar Plano</button>
         </form>
@@ -248,6 +292,9 @@
           </div>
           <label>Objetivo da aula (opcional)
             <textarea name="objetivo" rows="2" placeholder="Ex.: Apresentar os principais campos de formulário"></textarea>
+          </label>
+          <label>Material base (opcional)
+            <textarea name="basematerial" rows="6" placeholder="Preenchido automaticamente ao criar slides a partir de um plano de aula. Os slides seguem este material."></textarea>
           </label>
           <label class="check">
             <input type="checkbox" name="notas" checked> Incluir notas do apresentador
