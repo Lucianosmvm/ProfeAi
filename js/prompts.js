@@ -7,26 +7,24 @@ bem formatado, pronto para impressão. Seja objetivo e completo — o material d
 estar pronto para uso em sala de aula, sem necessidade de edição.`,
 
   plano(d) {
-    return `Crie um plano de aula completo com os dados abaixo.
+    const abertura = d.tipoaula === 'Abertura de unidade';
+    return `Gere a AULA COMPLETA, pronta para ser ministrada: o CONTEÚDO em si que será ensinado. NÃO é um plano de aula, NÃO é um roteiro de instruções ao professor. É o material da aula — explicações, definições, exemplos, tabelas e atividades — desenvolvido para preencher todo o tempo da aula.
 
-- Curso/Série: ${d.curso}
-- Unidade Curricular/Disciplina: ${d.disciplina}
-- Carga horária: ${d.carga}
-- Tema da aula: ${d.tema}
-${d.objetivo ? `- Objetivo geral: ${d.objetivo}` : ''}
-${d.competencias ? `- Competências: ${d.competencias}` : ''}
-${d.basecurso ? `\nEsta aula faz parte de um plano de curso. Use o recorte abaixo como base: o plano DEVE cobrir exatamente estes tópicos, desenvolvendo cada um em profundidade (explicação, exemplos e prática). Não acrescente tópicos fora deste escopo nem os deixe de fora.\n=== RECORTE DO PLANO DE CURSO ===\n${d.basecurso}\n=== FIM DO RECORTE ===` : ''}
+- Curso / Disciplina: ${d.disciplina}
+- Duração total da aula: ${d.carga}
+${d.tipoaula ? `- Tipo de aula: ${d.tipoaula}` : ''}
 
-Estruture o plano com estas seções:
-1. **Identificação** (curso, disciplina, tema, carga horária)
-2. **Objetivos de aprendizagem** (geral e específicos)
-3. **Conteúdo programático**
-4. **Metodologia** (estratégias didáticas)
-5. **Cronograma da aula** — tabela com atividade, descrição e tempo de cada etapa, somando exatamente a carga horária
-6. **Recursos necessários**
-7. **Avaliação** (como verificar a aprendizagem)
-8. **Tarefa de casa** (opcional, se fizer sentido)
-9. **Observações para o professor** (dicas práticas, pontos de atenção)`;
+Baseie-se no bloco abaixo: derive o TÍTULO da aula dele e desenvolva EXATAMENTE os tópicos listados, em profundidade. O bloco indica o módulo e a posição da aula (ex.: "Aulas 1 a 5", "AULA 1") — comece ${abertura ? 'apresentando o tema novo' : 'retomando em poucas linhas o que foi visto na aula anterior'} e termine conectando com a próxima aula. Não acrescente tópicos fora do escopo nem deixe algum de fora.
+=== AULA (PLANO DE CURSO) ===
+${d.basecurso}
+=== FIM ===
+
+Regras:
+- Comece com o **título da aula** e 2–3 linhas de objetivos de aprendizagem.
+- Divida a aula em SEÇÕES na ordem em que serão trabalhadas, cada uma com o TEMPO no título, ex.: \`## Levantamento de Requisitos (35 min)\`. A soma dos tempos deve fechar exatamente ${d.carga}.
+- Em cada seção, ENTREGUE O CONTEÚDO de fato: explique o conceito de forma didática, com exemplos concretos do cotidiano e tabelas quando ajudarem. Escreva o material que o aluno vê/estuda — nada de "o professor deve...", nada de meta-instruções.
+- Inclua ao menos uma ATIVIDADE PRÁTICA para os alunos resolverem e uma VERIFICAÇÃO de aprendizagem (exercícios ou perguntas com respostas), dimensionadas ao tempo.
+- Dimensione a profundidade e a quantidade de exemplos/exercícios para realmente ocupar ${d.carga} de aula.`;
   },
 
   curso(d) {
@@ -152,10 +150,14 @@ ${d.basematerial ? `\nBaseie os slides no material abaixo, mantendo total coerê
 Regras de formatação (SIGA EXATAMENTE — o resultado alimenta um apresentador de slides):
 - Separe CADA slide com uma linha contendo apenas três hifens: \`---\`
 - Um único título por slide, iniciado com \`## \`.
-- No máximo 5 tópicos (bullets) por slide, curtos e objetivos. Nada de parágrafos longos.
+${d.aulacompleta ? `${d.basematerial
+  ? '- Converta a AULA do material base em slides, PRESERVANDO a mesma sequência de etapas e os tempos. Cada etapa vira um ou mais slides, com o tempo no título, ex.: `## Desenvolvimento (30 min)`.'
+  : '- Monte a aula em ETAPAS sequenciais com o tempo no título, ex.: `## Desenvolvimento (30 min)`, somando a duração da aula. Comece pela capa e objetivos; depois retomada/contextualização do tema (use quebra-gelo lúdico só se for abertura de um tema novo); desenvolvimento com exemplos; prática; síntese; verificação da aprendizagem; e fechamento com ponte para a próxima aula. Quiz e tarefa só se fizerem sentido.'}
+- No corpo do slide use bullets curtos com conceitos-chave, exemplos concretos e, quando ajudar, TABELAS em Markdown. Use mais de um slide por etapa se precisar.
+- Gere quantos slides forem necessários para cobrir toda a estrutura (aproximadamente ${d.quantidade} ou mais).` : `- No máximo 5 tópicos (bullets) por slide, curtos e objetivos. Nada de parágrafos longos.
 - Estrutura sugerida: slide de abertura (título da aula + tema), slide de objetivos, slides de conteúdo, slide de atividade/pergunta e slide de encerramento/resumo.
-- Gere aproximadamente ${d.quantidade} slides.
-${d.notas ? '- Após os tópicos de cada slide, adicione uma linha começando com `Note:` contendo a fala do professor para aquele slide.' : '- NÃO inclua notas do apresentador.'}
+- Gere aproximadamente ${d.quantidade} slides.`}
+- NÃO inclua notas do apresentador (nada de linhas \`Note:\`).
 - Não escreva nada fora dos slides (sem introdução nem conclusão fora do formato).`;
   },
 
@@ -193,7 +195,11 @@ Regras:
 /* Título curto para o histórico. */
 Prompts.titulo = {
   curso: d => `Plano de Curso: ${d.unidade}`,
-  plano: d => `Plano: ${d.tema} (${d.disciplina})`,
+  plano: d => {
+    // Deriva o título da aula: primeira linha "AULA ..." do bloco, senão a disciplina.
+    const linha = (d.basecurso || '').split('\n').map(s => s.trim()).find(s => /^AULA/i.test(s));
+    return `Plano: ${linha || d.tema || d.disciplina}`;
+  },
   sequencia: d => `Sequência: ${d.tema} (${d.disciplina})`,
   atividade: d => `Atividade: ${d.tema} (${d.disciplina})`,
   prova: d => `Prova: ${d.disciplina}`,
@@ -204,7 +210,7 @@ Prompts.titulo = {
 
 Prompts.labels = {
   curso: '📋 Plano de Curso',
-  plano: '📚 Plano de Aula',
+  plano: '📚 Aula Completa',
   sequencia: '🗺️ Sequência Didática',
   atividade: '📝 Atividade',
   prova: '📄 Prova',

@@ -23,7 +23,7 @@
       <nav class="nav">
         <a href="#/" class="nav-link" data-route="home">🏠 Início</a>
         <a href="#/curso" class="nav-link" data-route="curso">📋 Plano de Curso</a>
-        <a href="#/plano" class="nav-link" data-route="plano">📚 Plano de Aula</a>
+        <a href="#/plano" class="nav-link" data-route="plano">📚 Aula Completa</a>
         <a href="#/sequencia" class="nav-link" data-route="sequencia">🗺️ Sequência Didática</a>
         <a href="#/atividade" class="nav-link" data-route="atividade">📝 Gerar Atividade</a>
         <a href="#/prova" class="nav-link" data-route="prova">📄 Gerar Prova</a>
@@ -54,8 +54,8 @@
           </a>
           <a href="#/plano" class="card">
             <span class="card-icon">📚</span>
-            <h3>Plano de Aula</h3>
-            <p>Plano completo com metodologia, cronograma e avaliação.</p>
+            <h3>Aula Completa</h3>
+            <p>O conteúdo da aula pronto para ministrar, dividido por tempo.</p>
           </a>
           <a href="#/sequencia" class="card">
             <span class="card-icon">🗺️</span>
@@ -126,35 +126,32 @@
         </form>
       </section>
 
-      <!-- Plano de Aula -->
+      <!-- Aula Completa -->
       <section class="view" id="view-plano">
-        <h1>📚 Plano de Aula</h1>
-        <p class="subtitle">Preencha os campos e receba um plano completo.</p>
+        <h1>📚 Aula Completa</h1>
+        <p class="subtitle">Cole a aula do Plano de Curso e receba o conteúdo pronto para ministrar, dividido pelo tempo.</p>
         <form class="gen-form" id="form-plano">
+          <label>Aula do Plano de Curso
+            <textarea name="basecurso" rows="7" placeholder="Cole o bloco da aula gerado no Plano de Curso. Ex.:&#10;MÓDULO 1 — Fundamentos e Modelagem Conceitual (Aulas 1 a 5)&#10;AULA 1 — Introdução a SGBDs e Levantamento de Requisitos&#10;- Apresentação da Unidade Curricular e Termos Técnicos.&#10;- Levantamento de dados e especificação de requisitos.&#10;- Dicionário de dados e Arquitetura de arquivos de dados." required></textarea>
+          </label>
           <div class="grid-2">
-            <label>Curso / Série
-              <input type="text" name="curso" placeholder="Ex.: Técnico em Informática" required>
-            </label>
-            <label>Unidade Curricular / Disciplina
-              <input type="text" name="disciplina" placeholder="Ex.: Programação Web" required>
+            <label>Curso / Disciplina
+              <input type="text" name="disciplina" placeholder="Ex.: Desenvolver Banco de Dados" required>
             </label>
             <label>Carga horária da aula
-              <input type="text" name="carga" placeholder="Ex.: 4 horas" required>
+              <input type="text" name="carga" placeholder="Ex.: 2h30" required>
             </label>
-            <label>Tema da aula
-              <input type="text" name="tema" placeholder="Ex.: Formulários em HTML" required>
+            <label>Tipo de aula
+              <select name="tipoaula">
+                <option>Abertura de unidade</option>
+                <option selected>Conteúdo novo</option>
+                <option>Prática / laboratório</option>
+                <option>Exercício integrador</option>
+                <option>Avaliação / Projeto</option>
+              </select>
             </label>
           </div>
-          <label>Objetivo geral
-            <textarea name="objetivo" rows="2" placeholder="Ex.: Capacitar o aluno a criar formulários acessíveis"></textarea>
-          </label>
-          <label>Competências trabalhadas (opcional)
-            <textarea name="competencias" rows="2" placeholder="Ex.: Desenvolver interfaces conforme especificação"></textarea>
-          </label>
-          <label>Conteúdo da aula do Plano de Curso (opcional)
-            <textarea name="basecurso" rows="6" placeholder="Cole aqui o recorte da aula (módulo, título e tópicos) gerado no Plano de Curso…"></textarea>
-          </label>
-          <button type="submit" class="btn-primary">✨ Gerar Plano</button>
+          <button type="submit" class="btn-primary">✨ Gerar Aula</button>
         </form>
       </section>
 
@@ -277,14 +274,14 @@
         <p class="subtitle">Apresentação pronta para projetar. Clique em “Apresentar” no resultado.</p>
         <form class="gen-form" id="form-slides">
           <div class="grid-2">
-            <label>Disciplina
-              <input type="text" name="disciplina" placeholder="Ex.: Programação Web" required>
+            <label>Disciplina (opcional se houver material base)
+              <input type="text" name="disciplina" placeholder="Ex.: Programação Web">
             </label>
-            <label>Tema
-              <input type="text" name="tema" placeholder="Ex.: Formulários em HTML" required>
+            <label>Tema (opcional se houver material base)
+              <input type="text" name="tema" placeholder="Ex.: Formulários em HTML">
             </label>
             <label>Nº de slides
-              <input type="number" name="quantidade" value="10" min="3" max="30" required>
+              <input type="number" name="quantidade" value="12" min="3" max="40" required>
             </label>
             <label>Público
               <input type="text" name="publico" placeholder="Ex.: Ensino Médio, 2º ano">
@@ -297,7 +294,7 @@
             <textarea name="basematerial" rows="6" placeholder="Preenchido automaticamente ao criar slides a partir de um plano de aula. Os slides seguem este material."></textarea>
           </label>
           <label class="check">
-            <input type="checkbox" name="notas" checked> Incluir notas do apresentador
+            <input type="checkbox" name="aulacompleta" checked> Seguir a estrutura completa da aula (seções e tempos)
           </label>
           <button type="submit" class="btn-primary">✨ Gerar Slides</button>
         </form>
