@@ -13,6 +13,35 @@
     generating: false,
   };
 
+  // Filtro de UC ativo na tela de Histórico ('all' = todas). Mantido entre re-renders.
+  let historyFilter = 'all';
+
+  /* ===== UC (Unidade Curricular) ===== */
+  // Código bruto da UC de um item (string), ex.: "UC10". Vazio se não tiver.
+  function ucOf(item) { return (item.params && item.params.uc || '').trim(); }
+  // Chave de agrupamento — normaliza p/ "UC10" e "uc10" caírem no mesmo grupo.
+  function ucKey(uc) { return (uc || '').trim().toUpperCase() || '__none__'; }
+
+  // Lista de UCs distintas já usadas, ordenadas (naturalmente por número quando possível).
+  function usedUcs() {
+    const map = new Map(); // chave -> rótulo bruto (o primeiro visto)
+    Storage.getHistory().forEach(it => {
+      const raw = ucOf(it);
+      if (!raw) return;
+      const k = ucKey(raw);
+      if (!map.has(k)) map.set(k, raw);
+    });
+    return [...map.values()].sort((a, b) =>
+      a.localeCompare(b, 'pt-BR', { numeric: true, sensitivity: 'base' }));
+  }
+
+  // Preenche o <datalist> para autocompletar o campo UC dos formulários.
+  function refreshUcList() {
+    const dl = $('#uc-list');
+    if (!dl) return;
+    dl.innerHTML = usedUcs().map(u => `<option value="${escapeHtml(u)}">`).join('');
+  }
+
   /* ===== Roteamento ===== */
   const routes = ['home', 'curso', 'plano', 'situacao', 'atividade', 'prova', 'slides', 'adaptar', 'rubrica', 'historico', 'config', 'resultado'];
 
@@ -29,6 +58,7 @@
 
     $('#sidebar').classList.remove('open');
 
+    refreshUcList();
     if (name === 'home') renderHome();
     if (name === 'historico') renderHistory();
     if (name === 'config') loadConfig();
@@ -201,10 +231,12 @@
       day: '2-digit', month: '2-digit', year: 'numeric',
       hour: '2-digit', minute: '2-digit',
     });
+    const uc = ucOf(item);
+    const ucTag = uc ? `📦 ${escapeHtml(uc)} · ` : '';
     return `<div class="history-item" data-id="${item.id}">
       <div class="info">
         <div class="titulo">${escapeHtml(item.titulo)}</div>
-        <div class="meta">${Prompts.labels[item.tipo]} · ${data}</div>
+        <div class="meta">${ucTag}${Prompts.labels[item.tipo]} · ${data}</div>
       </div>
       <div class="actions">
         <button class="btn-secondary" data-action="open">Abrir</button>
@@ -217,11 +249,57 @@
   function renderHistory() {
     const list = Storage.getHistory();
     const box = $('#history-list');
+    const controls = $('#history-controls');
+
     if (!list.length) {
+      controls.innerHTML = '';
       box.innerHTML = '<p class="empty-msg">Nada gerado ainda. Comece por 📚 Plano de Aula ou 📝 Gerar Atividade.</p>';
       return;
     }
-    box.innerHTML = list.map(historyItemHtml).join('');
+
+    // Agrupa por UC preservando a ordem (histórico já vem do mais novo p/ o mais antigo).
+    const groups = new Map(); // chave -> { label, items: [] }
+    list.forEach(item => {
+      const raw = ucOf(item);
+      const k = ucKey(raw);
+      if (!groups.has(k)) groups.set(k, { label: raw || 'Sem UC', items: [] });
+      groups.get(k).items.push(item);
+    });
+
+    // Ordena os grupos: UCs nomeadas por ordem natural, "Sem UC" por último.
+    const keys = [...groups.keys()].sort((a, b) => {
+      if (a === '__none__') return 1;
+      if (b === '__none__') return -1;
+      return groups.get(a).label.localeCompare(
+        groups.get(b).label, 'pt-BR', { numeric: true, sensitivity: 'base' });
+    });
+
+    // Filtro (dropdown). Se a UC filtrada sumiu, volta p/ "todas".
+    if (historyFilter !== 'all' && !groups.has(historyFilter)) historyFilter = 'all';
+    controls.innerHTML =
+      '<label class="uc-filter">Ver UC: ' +
+      '<select id="uc-filter">' +
+      `<option value="all"${historyFilter === 'all' ? ' selected' : ''}>Todas (${list.length})</option>` +
+      keys.map(k => {
+        const g = groups.get(k);
+        const sel = historyFilter === k ? ' selected' : '';
+        return `<option value="${escapeHtml(k)}"${sel}>${escapeHtml(g.label)} (${g.items.length})</option>`;
+      }).join('') +
+      '</select></label>';
+    $('#uc-filter').addEventListener('change', e => {
+      historyFilter = e.target.value;
+      renderHistory();
+    });
+
+    const visible = historyFilter === 'all' ? keys : [historyFilter];
+    box.innerHTML = visible.map(k => {
+      const g = groups.get(k);
+      const badge = k === '__none__' ? '📁 Sem UC' : `📦 ${escapeHtml(g.label)}`;
+      return `<div class="uc-group">
+        <h2 class="uc-group-title">${badge} <span class="uc-count">${g.items.length}</span></h2>
+        ${g.items.map(historyItemHtml).join('')}
+      </div>`;
+    }).join('');
     bindHistoryActions(box);
   }
 
@@ -375,12 +453,14 @@
   function generateChain(target) {
     if (!state.current?.conteudo || state.generating) return;
     const srcTipo = state.current.tipo;
+    const uc = state.current.params && state.current.params.uc || '';
     // innerText inclui edições feitas no modo Editar; fallback para o markdown original.
     const srcText = $('#result-content').innerText.trim() || state.current.conteudo;
 
     // Adaptar precisa escolher a necessidade → abre o formulário já preenchido.
     if (target === 'adaptar') {
       $('#form-adaptar').elements.material.value = srcText;
+      if (uc) $('#form-adaptar').elements.uc.value = uc;
       location.hash = '#/adaptar';
       return;
     }
@@ -392,13 +472,14 @@
       form.elements.basematerial.value = srcText;
       if (p.disciplina) form.elements.disciplina.value = p.disciplina;
       if (p.tema) form.elements.tema.value = p.tema;
+      if (uc) form.elements.uc.value = uc;
       location.hash = '#/slides';
       return;
     }
 
     runGeneration(
       target,
-      { origem: srcTipo },
+      { origem: srcTipo, uc },
       Prompts.chain(target, srcTipo, srcText),
       `${Prompts.labels[target]} (de ${Prompts.labels[srcTipo]})`,
     );

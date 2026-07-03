@@ -96,6 +96,9 @@
         <h1>📋 Plano de Curso</h1>
         <p class="subtitle">Cole o descritivo da Unidade Curricular (do PDT) e receba o curso dividido em módulos e aulas.</p>
         <form class="gen-form" id="form-curso">
+          <label class="uc-field">📦 UC — código para agrupar no histórico
+            <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
+          </label>
           <label>Unidade Curricular
             <input type="text" name="unidade" placeholder="Ex.: Unidade Curricular 10 — Desenvolver Banco de Dados" required>
           </label>
@@ -131,6 +134,9 @@
         <h1>📚 Aula Completa</h1>
         <p class="subtitle">Cole a aula do Plano de Curso e receba o conteúdo pronto para ministrar, dividido pelo tempo.</p>
         <form class="gen-form" id="form-plano">
+          <label class="uc-field">📦 UC — código para agrupar no histórico
+            <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
+          </label>
           <label>Aula do Plano de Curso
             <textarea name="basecurso" rows="7" placeholder="Cole o bloco da aula gerado no Plano de Curso. Ex.:&#10;MÓDULO 1 — Fundamentos e Modelagem Conceitual (Aulas 1 a 5)&#10;AULA 1 — Introdução a SGBDs e Levantamento de Requisitos&#10;- Apresentação da Unidade Curricular e Termos Técnicos.&#10;- Levantamento de dados e especificação de requisitos.&#10;- Dicionário de dados e Arquitetura de arquivos de dados." required></textarea>
           </label>
@@ -160,6 +166,9 @@
         <h1>🧩 Situação de Aprendizagem</h1>
         <p class="subtitle">Um desafio contextualizado no mundo do trabalho que mobiliza competências — no modelo pedagógico Senac.</p>
         <form class="gen-form" id="form-situacao">
+          <label class="uc-field">📦 UC — código para agrupar no histórico
+            <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
+          </label>
           <div class="grid-2">
             <label>Unidade Curricular / Disciplina
               <input type="text" name="disciplina" placeholder="Ex.: Desenvolver Banco de Dados" required>
@@ -189,6 +198,9 @@
         <h1>📝 Gerar Atividade</h1>
         <p class="subtitle">Exercícios prontos para usar, sem escrever prompt.</p>
         <form class="gen-form" id="form-atividade">
+          <label class="uc-field">📦 UC — código para agrupar no histórico
+            <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
+          </label>
           <div class="grid-2">
             <label>Disciplina
               <input type="text" name="disciplina" placeholder="Ex.: Banco de Dados" required>
@@ -231,6 +243,9 @@
         <h1>📄 Gerar Prova</h1>
         <p class="subtitle">Prova formatada com gabarito separado no final.</p>
         <form class="gen-form" id="form-prova">
+          <label class="uc-field">📦 UC — código para agrupar no histórico
+            <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
+          </label>
           <div class="grid-2">
             <label>Disciplina
               <input type="text" name="disciplina" placeholder="Ex.: Lógica de Programação" required>
@@ -267,6 +282,9 @@
         <h1>📽️ Slides</h1>
         <p class="subtitle">Apresentação pronta para projetar. Clique em “Apresentar” no resultado.</p>
         <form class="gen-form" id="form-slides">
+          <label class="uc-field">📦 UC — código para agrupar no histórico
+            <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
+          </label>
           <div class="grid-2">
             <label>Disciplina (opcional se houver material base)
               <input type="text" name="disciplina" placeholder="Ex.: Programação Web">
@@ -299,6 +317,9 @@
         <h1>♿ Adaptação Inclusiva</h1>
         <p class="subtitle">Cole um material e adapte para uma necessidade específica, sem perder o conteúdo.</p>
         <form class="gen-form" id="form-adaptar">
+          <label class="uc-field">📦 UC — código para agrupar no histórico
+            <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
+          </label>
           <div class="grid-2">
             <label>Necessidade / público
               <select name="necessidade">
@@ -329,6 +350,9 @@
         <h1>📊 Critérios de Avaliação</h1>
         <p class="subtitle">Avaliação por competências (modelo formativo Senac): indicadores, níveis e parecer descritivo.</p>
         <form class="gen-form" id="form-rubrica">
+          <label class="uc-field">📦 UC — código para agrupar no histórico
+            <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
+          </label>
           <div class="grid-2">
             <label>Tipo de trabalho / instrumento
               <select name="tipoTrabalho">
@@ -356,7 +380,8 @@
       <!-- Histórico -->
       <section class="view" id="view-historico">
         <h1>📂 Histórico</h1>
-        <p class="subtitle">Tudo o que você gerou fica salvo neste navegador.</p>
+        <p class="subtitle">Tudo o que você gerou fica salvo neste navegador, agrupado por UC.</p>
+        <div id="history-controls" class="history-controls no-print"></div>
         <div id="history-list"></div>
       </section>
 
@@ -429,6 +454,9 @@
       </section>
     </main>
   </div>
+
+  <!-- UCs já usadas, para autocompletar o campo UC dos formulários -->
+  <datalist id="uc-list"></datalist>
 
   <!-- Overlay de apresentação (reveal.js) -->
   <div id="reveal-overlay" class="reveal-overlay" hidden>

@@ -272,6 +272,46 @@ input:focus, select:focus, textarea:focus {
 .history-item .actions { display: flex; gap: 6px; flex-shrink: 0; }
 .empty-msg { color: var(--text-muted); }
 
+/* ===== UC — campo, filtro e agrupamento ===== */
+.uc-field input { border-color: var(--primary); }
+
+.history-controls { margin-bottom: 16px; }
+.uc-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .9rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.uc-filter select {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.uc-group { margin-bottom: 24px; }
+.uc-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.05rem;
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--primary-soft);
+}
+.uc-count {
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+
 /* ===== Recentes na home ===== */
 #home-recent h2 { font-size: 1.1rem; }
 
