@@ -24,12 +24,11 @@
         <a href="#/" class="nav-link" data-route="home">🏠 Início</a>
         <a href="#/curso" class="nav-link" data-route="curso">📋 Plano de Curso</a>
         <a href="#/plano" class="nav-link" data-route="plano">📚 Aula Completa</a>
-        <a href="#/sequencia" class="nav-link" data-route="sequencia">🗺️ Sequência Didática</a>
         <a href="#/atividade" class="nav-link" data-route="atividade">📝 Gerar Atividade</a>
         <a href="#/prova" class="nav-link" data-route="prova">📄 Gerar Prova</a>
         <a href="#/slides" class="nav-link" data-route="slides">📽️ Slides</a>
         <a href="#/adaptar" class="nav-link" data-route="adaptar">♿ Adaptação Inclusiva</a>
-        <a href="#/rubrica" class="nav-link" data-route="rubrica">📊 Rubrica</a>
+        <a href="#/rubrica" class="nav-link" data-route="rubrica">📊 Critérios de Avaliação</a>
         <a href="#/historico" class="nav-link" data-route="historico">📂 Histórico</a>
         <a href="#/config" class="nav-link" data-route="config">⚙️ Configurações</a>
       </nav>
@@ -57,11 +56,6 @@
             <h3>Aula Completa</h3>
             <p>O conteúdo da aula pronto para ministrar, dividido por tempo.</p>
           </a>
-          <a href="#/sequencia" class="card">
-            <span class="card-icon">🗺️</span>
-            <h3>Sequência Didática</h3>
-            <p>Várias aulas encadeadas sobre um tema, do início ao fim.</p>
-          </a>
           <a href="#/atividade" class="card">
             <span class="card-icon">📝</span>
             <h3>Gerar Atividade</h3>
@@ -84,8 +78,8 @@
           </a>
           <a href="#/rubrica" class="card">
             <span class="card-icon">📊</span>
-            <h3>Rubrica</h3>
-            <p>Critérios de avaliação com pesos para trabalhos.</p>
+            <h3>Critérios de Avaliação</h3>
+            <p>Tabela de correção com critérios, pesos e níveis de desempenho.</p>
           </a>
         </div>
         <div id="home-recent"></div>
@@ -152,41 +146,6 @@
             </label>
           </div>
           <button type="submit" class="btn-primary">✨ Gerar Aula</button>
-        </form>
-      </section>
-
-      <!-- Sequência Didática -->
-      <section class="view" id="view-sequencia">
-        <h1>🗺️ Sequência Didática</h1>
-        <p class="subtitle">Um conjunto de aulas encadeadas sobre um mesmo tema.</p>
-        <form class="gen-form" id="form-sequencia">
-          <div class="grid-2">
-            <label>Curso / Série
-              <input type="text" name="curso" placeholder="Ex.: Ensino Médio, 1º ano" required>
-            </label>
-            <label>Disciplina
-              <input type="text" name="disciplina" placeholder="Ex.: Biologia" required>
-            </label>
-            <label>Tema / Unidade
-              <input type="text" name="tema" placeholder="Ex.: Ecologia e ecossistemas" required>
-            </label>
-            <label>Nº de aulas
-              <input type="number" name="aulas" value="4" min="2" max="20" required>
-            </label>
-            <label>Carga horária por aula
-              <input type="text" name="carga" placeholder="Ex.: 2 horas" required>
-            </label>
-            <label>Público
-              <input type="text" name="publico" placeholder="Ex.: 35 alunos">
-            </label>
-          </div>
-          <label>Objetivo geral da sequência
-            <textarea name="objetivo" rows="2" placeholder="Ex.: Compreender as relações entre os seres vivos e o ambiente"></textarea>
-          </label>
-          <label>Competências / habilidades (opcional)
-            <textarea name="competencias" rows="2" placeholder="Ex.: BNCC EM13CNT..., ou descrição livre"></textarea>
-          </label>
-          <button type="submit" class="btn-primary">✨ Gerar Sequência</button>
         </form>
       </section>
 
@@ -332,7 +291,7 @@
 
       <!-- Rubrica -->
       <section class="view" id="view-rubrica">
-        <h1>📊 Rubrica de Avaliação</h1>
+        <h1>📊 Critérios de Avaliação</h1>
         <p class="subtitle">Critérios objetivos com pesos e níveis de desempenho.</p>
         <form class="gen-form" id="form-rubrica">
           <div class="grid-2">
@@ -354,7 +313,7 @@
           <label>Valor total
             <input type="text" name="valor" placeholder="Ex.: 10 pontos" value="10 pontos">
           </label>
-          <button type="submit" class="btn-primary">✨ Gerar Rubrica</button>
+          <button type="submit" class="btn-primary">✨ Gerar Critérios</button>
         </form>
       </section>
 

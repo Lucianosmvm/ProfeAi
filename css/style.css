@@ -204,6 +204,8 @@ input:focus, select:focus, textarea:focus {
 }
 .result-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
+[hidden] { display: none !important; }
+
 .result-status {
   display: flex;
   align-items: center;

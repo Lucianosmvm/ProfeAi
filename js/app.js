@@ -2,6 +2,9 @@
 (function () {
   'use strict';
 
+  // Quebras de linha simples viram <br> — mantém alternativas (A, B, C, D) uma por linha.
+  if (window.marked) marked.setOptions({ breaks: true, gfm: true });
+
   const $ = sel => document.querySelector(sel);
   const $$ = sel => document.querySelectorAll(sel);
 
@@ -11,7 +14,7 @@
   };
 
   /* ===== Roteamento ===== */
-  const routes = ['home', 'curso', 'plano', 'sequencia', 'atividade', 'prova', 'slides', 'adaptar', 'rubrica', 'historico', 'config', 'resultado'];
+  const routes = ['home', 'curso', 'plano', 'atividade', 'prova', 'slides', 'adaptar', 'rubrica', 'historico', 'config', 'resultado'];
 
   function route() {
     const hash = location.hash.replace('#/', '') || 'home';
@@ -107,7 +110,7 @@
     return data;
   }
 
-  ['curso', 'plano', 'sequencia', 'atividade', 'prova', 'slides', 'adaptar', 'rubrica'].forEach(tipo => {
+  ['curso', 'plano', 'atividade', 'prova', 'slides', 'adaptar', 'rubrica'].forEach(tipo => {
     $(`#form-${tipo}`).addEventListener('submit', e => {
       e.preventDefault();
       generate(tipo, formToObj(e.target));

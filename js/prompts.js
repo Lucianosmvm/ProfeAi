@@ -21,7 +21,7 @@ ${d.basecurso}
 
 Regras:
 - Comece com o **título da aula** e 2–3 linhas de objetivos de aprendizagem.
-- Divida a aula em SEÇÕES na ordem em que serão trabalhadas, cada uma com o TEMPO no título, ex.: \`## Levantamento de Requisitos (35 min)\`. A soma dos tempos deve fechar exatamente ${d.carga}.
+- Divida a aula em SEÇÕES na ordem em que serão trabalhadas, com título temático, ex.: \`## Levantamento de Requisitos\`. NÃO inclua tempos/minutos nos títulos nem no corpo.
 - Em cada seção, ENTREGUE O CONTEÚDO de fato: explique o conceito de forma didática, com exemplos concretos do cotidiano e tabelas quando ajudarem. Escreva o material que o aluno vê/estuda — nada de "o professor deve...", nada de meta-instruções.
 - Inclua ao menos uma ATIVIDADE PRÁTICA para os alunos resolverem e uma VERIFICAÇÃO de aprendizagem (exercícios ou perguntas com respostas), dimensionadas ao tempo.
 - Dimensione a profundidade e a quantidade de exemplos/exercícios para realmente ocupar ${d.carga} de aula.`;
@@ -70,37 +70,6 @@ FORMATO DE SAÍDA (siga EXATAMENTE esta estrutura em Markdown):
 Cada aula deve ter de 3 a 4 tópicos curtos (bullets), sem parágrafos longos. Não escreva nada fora dessa estrutura.`;
   },
 
-  sequencia(d) {
-    return `Crie uma sequência didática completa (conjunto de aulas encadeadas) com os dados abaixo.
-
-- Curso/Série: ${d.curso}
-- Disciplina: ${d.disciplina}
-- Tema/Unidade: ${d.tema}
-- Número de aulas: ${d.aulas}
-- Carga horária por aula: ${d.carga}
-${d.publico ? `- Público: ${d.publico}` : ''}
-${d.objetivo ? `- Objetivo geral: ${d.objetivo}` : ''}
-${d.competencias ? `- Competências/habilidades: ${d.competencias}` : ''}
-
-Estruture assim:
-1. **Apresentação da sequência** (tema, justificativa e a que se propõe)
-2. **Objetivos gerais de aprendizagem**
-3. **Competências e habilidades** desenvolvidas ao longo da sequência
-4. **Conhecimentos prévios** esperados dos alunos
-5. **Quadro-resumo** — tabela com uma linha por aula: Aula (nº), Título, Foco/Conteúdo, Carga horária
-6. **Detalhamento das aulas** — gere exatamente ${d.aulas} aulas, uma seção por aula (\`### Aula N — Título\`), cada uma com:
-   - Objetivos específicos da aula
-   - Conteúdo
-   - Metodologia / estratégias
-   - Recursos necessários
-   - Avaliação/evidência de aprendizagem da aula
-   - Ligação com a próxima aula (progressão)
-7. **Avaliação da sequência** (como avaliar a aprendizagem no conjunto)
-8. **Referências / materiais de apoio**
-
-As aulas devem ter progressão pedagógica: do mais simples ao mais complexo, uma preparando a seguinte.`;
-  },
-
   atividade(d) {
     return `Crie uma atividade com ${d.quantidade} questões.
 
@@ -113,7 +82,7 @@ ${d.publico ? `- Público: ${d.publico}` : ''}
 Regras:
 - Comece com título, objetivo da atividade e tempo estimado.
 - Numere as questões.
-- Questões de múltipla escolha: 4 alternativas (A–D), apenas uma correta.
+- Questões de múltipla escolha: 4 alternativas (A–D), apenas uma correta. Escreva CADA alternativa em sua própria linha, iniciada por "A) ", "B) ", "C) ", "D) " (uma alternativa por linha, nunca na mesma linha).
 - Tipo "Misto": varie entre múltipla escolha, dissertativa e verdadeiro/falso.
 - Tipo "Projeto prático": descreva o enunciado do projeto, requisitos numerados e critérios de entrega.
 ${d.gabarito ? '- Ao final, inclua a seção **Gabarito comentado** com a resposta de cada questão e uma breve justificativa.' : '- NÃO inclua gabarito.'}`;
@@ -133,7 +102,7 @@ Regras:
 - Comece com um cabeçalho de prova (linhas para nome do aluno, turma e data).
 - Inclua instruções breves para o aluno.
 - Distribua a pontuação entre as questões e indique o valor de cada uma.
-- Apenas uma alternativa correta por questão; distratores plausíveis.
+- Apenas uma alternativa correta por questão; distratores plausíveis. Escreva CADA alternativa em sua própria linha (A), B), C)...), uma por linha, nunca na mesma linha.
 - Ao final, em seção separada iniciada por "---", inclua o **Gabarito** em tabela (questão × resposta) com justificativa curta de cada resposta. Essa seção será destacada e entregue separadamente.`;
   },
 
@@ -200,23 +169,21 @@ Prompts.titulo = {
     const linha = (d.basecurso || '').split('\n').map(s => s.trim()).find(s => /^AULA/i.test(s));
     return `Plano: ${linha || d.tema || d.disciplina}`;
   },
-  sequencia: d => `Sequência: ${d.tema} (${d.disciplina})`,
   atividade: d => `Atividade: ${d.tema} (${d.disciplina})`,
   prova: d => `Prova: ${d.disciplina}`,
   slides: d => `Slides: ${d.tema} (${d.disciplina})`,
   adaptar: d => `Adaptação: ${d.necessidade}`,
-  rubrica: d => `Rubrica: ${d.tipoTrabalho} de ${d.disciplina}`,
+  rubrica: d => `Critérios de Avaliação: ${d.tipoTrabalho} de ${d.disciplina}`,
 };
 
 Prompts.labels = {
   curso: '📋 Plano de Curso',
   plano: '📚 Aula Completa',
-  sequencia: '🗺️ Sequência Didática',
   atividade: '📝 Atividade',
   prova: '📄 Prova',
   slides: '📽️ Slides',
   adaptar: '♿ Adaptação Inclusiva',
-  rubrica: '📊 Rubrica',
+  rubrica: '📊 Critérios de Avaliação',
 };
 
 /* ===== Encadeamento: gerar um material a partir de outro já pronto ===== */
@@ -232,12 +199,12 @@ const CHAIN_RULES = {
 
   atividade: `Crie uma atividade de fixação coerente com o material base.
 - Comece com título, objetivo da atividade e tempo estimado.
-- 8 a 10 questões numeradas, variando entre múltipla escolha (A–D), dissertativa e verdadeiro/falso.
+- 8 a 10 questões numeradas, variando entre múltipla escolha (A–D), dissertativa e verdadeiro/falso. Nas de múltipla escolha, escreva CADA alternativa em sua própria linha (A), B), C)...), uma por linha.
 - Ao final, inclua a seção **Gabarito comentado** com a resposta e uma breve justificativa de cada questão.`,
 
   prova: `Crie uma prova formal de múltipla escolha coerente com o material base.
 - Comece com cabeçalho (linhas para nome, turma e data) e instruções breves.
-- 10 questões, 5 alternativas (A–E), apenas uma correta, distratores plausíveis.
+- 10 questões, 5 alternativas (A–E), apenas uma correta, distratores plausíveis. Escreva CADA alternativa em sua própria linha (A), B), C), D), E)), uma por linha.
 - Distribua a pontuação (total 10 pontos) e indique o valor de cada questão.
 - Ao final, após uma linha "---", inclua o **Gabarito** em tabela (questão × resposta) com justificativa curta.`,
 };
@@ -246,7 +213,6 @@ const CHAIN_RULES = {
 Prompts.chainTargets = {
   curso: [],
   plano: ['slides', 'atividade', 'prova', 'adaptar'],
-  sequencia: ['slides', 'atividade', 'prova', 'adaptar'],
   atividade: ['prova', 'slides', 'adaptar'],
   prova: ['slides', 'adaptar'],
   slides: ['atividade', 'adaptar'],
