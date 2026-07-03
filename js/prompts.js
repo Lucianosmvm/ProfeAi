@@ -70,6 +70,50 @@ FORMATO DE SAÍDA (siga EXATAMENTE esta estrutura em Markdown):
 Cada aula deve ter de 3 a 4 tópicos curtos (bullets), sem parágrafos longos. Não escreva nada fora dessa estrutura.`;
   },
 
+  situacao(d) {
+    return `Crie uma SITUAÇÃO DE APRENDIZAGEM (SA) no modelo pedagógico do Senac: um desafio contextualizado no mundo do trabalho que mobiliza competências, com percurso, entregas e avaliação formativa.
+
+- Unidade Curricular / Disciplina: ${d.disciplina}
+- Tema / conteúdo: ${d.tema}
+${d.contexto ? `- Contexto do mundo do trabalho: ${d.contexto}` : ''}
+${d.aulas ? `- Duração prevista: ${d.aulas}` : ''}
+${d.publico ? `- Público: ${d.publico}` : ''}
+${d.competencias ? `- Competências / indicadores (do PDT):\n${d.competencias}` : ''}
+
+Estruture a SA EXATAMENTE nesta ordem, em Markdown:
+
+## [Título da Situação de Aprendizagem]
+
+### 1. Contextualização
+Apresente um cenário realista do mundo do trabalho ${d.contexto ? `envolvendo ${d.contexto}` : 'ligado ao tema'}, com uma narrativa curta que dê sentido ao desafio (empresa/cliente/problema real).
+
+### 2. Desafio
+Enuncie de forma clara o problema ou produto que os alunos devem resolver/entregar. Coloque o aluno no papel profissional.
+
+### 3. Competências e indicadores mobilizados
+${d.competencias ? 'Use os indicadores informados acima.' : 'Liste as competências e de 3 a 5 indicadores mobilizados pela SA.'}
+
+### 4. Percurso de aprendizagem (etapas)
+Descreva as etapas que o aluno percorre até a entrega — o que faz em cada uma (investigar, planejar, executar, testar, apresentar). Sem tempos/minutos.
+
+### 5. Entregas esperadas
+Liste os produtos/evidências concretas que o aluno entrega (ex.: protótipo, relatório, apresentação, código).
+
+### 6. Recursos e materiais
+Ferramentas, referências e insumos necessários.
+
+### 7. Papel do docente (mediação)
+Como o docente acompanha, provoca e dá devolutivas ao longo do percurso — sem entregar a resposta pronta.
+
+### 8. Avaliação formativa
+Indique como avaliar por competências (níveis Atendeu plenamente / parcialmente / Não atendeu, ligados aos indicadores). Não use nota numérica.
+
+### 9. Marcas Formativas Senac
+Aponte quais marcas formativas a SA desenvolve (ex.: domínio técnico-científico, relação com o mundo do trabalho, atitude empreendedora, colaboração) e como.
+
+Seja concreto e realista; a SA deve estar pronta para aplicar em sala.`;
+  },
+
   atividade(d) {
     return `Crie uma atividade com ${d.quantidade} questões.
 
@@ -146,18 +190,23 @@ ${d.material}
   },
 
   rubrica(d) {
-    return `Crie uma rubrica de avaliação.
+    return `Crie um INSTRUMENTO DE AVALIAÇÃO POR COMPETÊNCIAS no modelo formativo do Senac (avaliação por indicadores, não por nota numérica).
 
-- Tipo de trabalho: ${d.tipoTrabalho}
-- Disciplina: ${d.disciplina}
-- Descrição do trabalho: ${d.descricao}
-- Valor total: ${d.valor}
+- Tipo de trabalho / instrumento: ${d.tipoTrabalho}
+- Unidade Curricular / Disciplina: ${d.disciplina}
+- Descrição do trabalho / desafio: ${d.descricao}
+${d.indicadores ? `- Indicadores de competência (do PDT):\n${d.indicadores}` : ''}
 
-Regras:
-- Comece com título e uma frase explicando o que será avaliado.
-- Tabela principal: critério, descrição do critério e peso (os pesos devem somar o valor total).
-- Para cada critério, descreva 3 níveis de desempenho: **Excelente**, **Adequado** e **Insuficiente**, com a pontuação correspondente.
-- Finalize com orientações rápidas de aplicação para o professor.`;
+Regras (SIGA EXATAMENTE o modelo Senac):
+- Comece com um título e 1–2 linhas dizendo qual competência/desafio será avaliado.
+- ${d.indicadores
+  ? 'Use EXATAMENTE os indicadores de competência informados acima, um por linha da tabela.'
+  : 'Derive de 4 a 6 indicadores de competência a partir da descrição do trabalho, um por linha da tabela.'}
+- NÃO use nota numérica, pontos nem pesos. A avaliação é qualitativa por níveis.
+- Monte a TABELA principal com uma linha por indicador e as colunas: **Indicador de competência** | **Atendeu plenamente** | **Atendeu parcialmente** | **Não atendeu**. Em cada célula, descreva de forma observável o que o aluno demonstra naquele nível (comportamento/evidência concreta), não frases genéricas.
+- Após a tabela, inclua a seção **Síntese avaliativa** explicando a regra de decisão (ex.: para ser considerado competente, o aluno precisa "Atender plenamente" ou "parcialmente" os indicadores essenciais) — sem transformar em nota.
+- Inclua a seção **Parecer descritivo (modelo)** com um exemplo curto de devolutiva formativa ao aluno: o que já domina, o que precisa desenvolver e como avançar.
+- Finalize com **Orientações de aplicação** curtas para o docente.`;
   },
 };
 
@@ -169,6 +218,7 @@ Prompts.titulo = {
     const linha = (d.basecurso || '').split('\n').map(s => s.trim()).find(s => /^AULA/i.test(s));
     return `Plano: ${linha || d.tema || d.disciplina}`;
   },
+  situacao: d => `Situação de Aprendizagem: ${d.tema} (${d.disciplina})`,
   atividade: d => `Atividade: ${d.tema} (${d.disciplina})`,
   prova: d => `Prova: ${d.disciplina}`,
   slides: d => `Slides: ${d.tema} (${d.disciplina})`,
@@ -179,6 +229,7 @@ Prompts.titulo = {
 Prompts.labels = {
   curso: '📋 Plano de Curso',
   plano: '📚 Aula Completa',
+  situacao: '🧩 Situação de Aprendizagem',
   atividade: '📝 Atividade',
   prova: '📄 Prova',
   slides: '📽️ Slides',
@@ -202,6 +253,10 @@ const CHAIN_RULES = {
 - 8 a 10 questões numeradas, variando entre múltipla escolha (A–D), dissertativa e verdadeiro/falso. Nas de múltipla escolha, escreva CADA alternativa em sua própria linha (A), B), C)...), uma por linha.
 - Ao final, inclua a seção **Gabarito comentado** com a resposta e uma breve justificativa de cada questão.`,
 
+  situacao: `Crie uma SITUAÇÃO DE APRENDIZAGEM (modelo Senac) coerente com o material base: um desafio contextualizado no mundo do trabalho que mobiliza as competências do material.
+- Estruture em: Título; 1. Contextualização (cenário do mundo do trabalho); 2. Desafio; 3. Competências e indicadores mobilizados; 4. Percurso de aprendizagem (etapas, sem tempos); 5. Entregas esperadas; 6. Recursos e materiais; 7. Papel do docente (mediação); 8. Avaliação formativa (níveis Atendeu plenamente/parcialmente/Não atendeu, sem nota); 9. Marcas Formativas Senac.
+- Seja concreto e pronto para aplicar.`,
+
   prova: `Crie uma prova formal de múltipla escolha coerente com o material base.
 - Comece com cabeçalho (linhas para nome, turma e data) e instruções breves.
 - 10 questões, 5 alternativas (A–E), apenas uma correta, distratores plausíveis. Escreva CADA alternativa em sua própria linha (A), B), C), D), E)), uma por linha.
@@ -212,7 +267,8 @@ const CHAIN_RULES = {
 /* Quais alvos cada tipo de material pode gerar. */
 Prompts.chainTargets = {
   curso: [],
-  plano: ['slides', 'atividade', 'prova', 'adaptar'],
+  plano: ['situacao', 'slides', 'atividade', 'prova', 'adaptar'],
+  situacao: ['slides', 'atividade', 'prova', 'adaptar'],
   atividade: ['prova', 'slides', 'adaptar'],
   prova: ['slides', 'adaptar'],
   slides: ['atividade', 'adaptar'],

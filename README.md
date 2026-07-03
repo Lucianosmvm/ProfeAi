@@ -6,12 +6,13 @@ Plataforma web para professores gerarem **planos de aula, atividades, provas e r
 
 ## Funcionalidades
 
-- 📚 **Plano de Aula** — objetivos, metodologia, cronograma com tempos, avaliação e tarefa de casa
+- 📚 **Aula Completa** — o conteúdo da aula pronto para ministrar, dividido em seções temáticas
+- 🧩 **Situação de Aprendizagem** — desafio contextualizado no mundo do trabalho (modelo Senac): contextualização, desafio, percurso, entregas e avaliação formativa
 - 📝 **Gerar Atividade** — múltipla escolha, dissertativa, V/F, projeto ou misto, com gabarito comentado
 - 📄 **Gerar Prova** — prova formal com cabeçalho, pontuação e gabarito separado
 - 📽️ **Slides** — apresentação pronta para projetar (reveal.js), com notas do apresentador; botão **Apresentar** em tela cheia
 - ♿ **Adaptação Inclusiva** — adapta um material existente para TDAH, dislexia, TEA, baixa visão e outras necessidades, preservando o conteúdo
-- 📊 **Rubrica** — critérios com pesos e níveis de desempenho
+- 📊 **Critérios de Avaliação** — avaliação por competências (modelo formativo Senac): indicadores, níveis (Atendeu plenamente/parcialmente/Não atendeu) e parecer descritivo
 - 🔗 **Encadear materiais** — gere um material a partir de outro (ex.: slides ou prova a partir de um plano), mantendo coerência
 - ✏️ **Editar antes de exportar** — ajuste o resultado direto na tela; edições entram no PDF, Word e cópia
 - 📂 **Histórico** — tudo fica salvo no navegador; duplique e adapte para outra turma

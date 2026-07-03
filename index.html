@@ -24,6 +24,7 @@
         <a href="#/" class="nav-link" data-route="home">🏠 Início</a>
         <a href="#/curso" class="nav-link" data-route="curso">📋 Plano de Curso</a>
         <a href="#/plano" class="nav-link" data-route="plano">📚 Aula Completa</a>
+        <a href="#/situacao" class="nav-link" data-route="situacao">🧩 Situação de Aprendizagem</a>
         <a href="#/atividade" class="nav-link" data-route="atividade">📝 Gerar Atividade</a>
         <a href="#/prova" class="nav-link" data-route="prova">📄 Gerar Prova</a>
         <a href="#/slides" class="nav-link" data-route="slides">📽️ Slides</a>
@@ -56,6 +57,11 @@
             <h3>Aula Completa</h3>
             <p>O conteúdo da aula pronto para ministrar, dividido por tempo.</p>
           </a>
+          <a href="#/situacao" class="card">
+            <span class="card-icon">🧩</span>
+            <h3>Situação de Aprendizagem</h3>
+            <p>Desafio contextualizado no mundo do trabalho, no modelo Senac.</p>
+          </a>
           <a href="#/atividade" class="card">
             <span class="card-icon">📝</span>
             <h3>Gerar Atividade</h3>
@@ -79,7 +85,7 @@
           <a href="#/rubrica" class="card">
             <span class="card-icon">📊</span>
             <h3>Critérios de Avaliação</h3>
-            <p>Tabela de correção com critérios, pesos e níveis de desempenho.</p>
+            <p>Avaliação por competências: indicadores, níveis e parecer descritivo.</p>
           </a>
         </div>
         <div id="home-recent"></div>
@@ -146,6 +152,35 @@
             </label>
           </div>
           <button type="submit" class="btn-primary">✨ Gerar Aula</button>
+        </form>
+      </section>
+
+      <!-- Situação de Aprendizagem -->
+      <section class="view" id="view-situacao">
+        <h1>🧩 Situação de Aprendizagem</h1>
+        <p class="subtitle">Um desafio contextualizado no mundo do trabalho que mobiliza competências — no modelo pedagógico Senac.</p>
+        <form class="gen-form" id="form-situacao">
+          <div class="grid-2">
+            <label>Unidade Curricular / Disciplina
+              <input type="text" name="disciplina" placeholder="Ex.: Desenvolver Banco de Dados" required>
+            </label>
+            <label>Tema / conteúdo
+              <input type="text" name="tema" placeholder="Ex.: Modelagem de dados para um e-commerce" required>
+            </label>
+            <label>Contexto do mundo do trabalho (opcional)
+              <input type="text" name="contexto" placeholder="Ex.: uma startup de logística">
+            </label>
+            <label>Duração prevista (opcional)
+              <input type="text" name="aulas" placeholder="Ex.: 3 aulas">
+            </label>
+            <label>Público (opcional)
+              <input type="text" name="publico" placeholder="Ex.: Curso Técnico, turma da noite">
+            </label>
+          </div>
+          <label>Competências / indicadores (opcional — cole do PDT)
+            <textarea name="competencias" rows="4" placeholder="Cole as competências e indicadores do PDT, um por linha. Se deixar em branco, a IA deriva a partir do tema."></textarea>
+          </label>
+          <button type="submit" class="btn-primary">✨ Gerar Situação de Aprendizagem</button>
         </form>
       </section>
 
@@ -292,26 +327,27 @@
       <!-- Rubrica -->
       <section class="view" id="view-rubrica">
         <h1>📊 Critérios de Avaliação</h1>
-        <p class="subtitle">Critérios objetivos com pesos e níveis de desempenho.</p>
+        <p class="subtitle">Avaliação por competências (modelo formativo Senac): indicadores, níveis e parecer descritivo.</p>
         <form class="gen-form" id="form-rubrica">
           <div class="grid-2">
-            <label>Tipo de trabalho
+            <label>Tipo de trabalho / instrumento
               <select name="tipoTrabalho">
                 <option selected>Projeto</option>
+                <option>Situação de Aprendizagem</option>
                 <option>Apresentação / Seminário</option>
                 <option>Trabalho escrito</option>
                 <option>Atividade prática</option>
               </select>
             </label>
-            <label>Disciplina
+            <label>Unidade Curricular / Disciplina
               <input type="text" name="disciplina" placeholder="Ex.: Desenvolvimento de Sistemas" required>
             </label>
           </div>
-          <label>Descrição do trabalho
+          <label>Descrição do trabalho / desafio
             <textarea name="descricao" rows="3" placeholder="Ex.: Sistema CRUD em C# com banco de dados, apresentado em grupo" required></textarea>
           </label>
-          <label>Valor total
-            <input type="text" name="valor" placeholder="Ex.: 10 pontos" value="10 pontos">
+          <label>Indicadores de competência (opcional — cole do PDT)
+            <textarea name="indicadores" rows="4" placeholder="Cole os indicadores de competência do PDT, um por linha. Se deixar em branco, a IA deriva a partir da descrição."></textarea>
           </label>
           <button type="submit" class="btn-primary">✨ Gerar Critérios</button>
         </form>
