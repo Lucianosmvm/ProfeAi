@@ -31,6 +31,11 @@
       const k = ucKey(raw);
       if (!map.has(k)) map.set(k, raw);
     });
+    // Inclui também as UCs já usadas na Agenda.
+    Object.values(Storage.getAgenda()).forEach(raw => {
+      const k = ucKey(raw);
+      if (!map.has(k)) map.set(k, raw);
+    });
     return [...map.values()].sort((a, b) =>
       a.localeCompare(b, 'pt-BR', { numeric: true, sensitivity: 'base' }));
   }
@@ -43,7 +48,7 @@
   }
 
   /* ===== Roteamento ===== */
-  const routes = ['home', 'curso', 'plano', 'situacao', 'atividade', 'prova', 'slides', 'adaptar', 'rubrica', 'historico', 'config', 'resultado'];
+  const routes = ['home', 'curso', 'plano', 'situacao', 'atividade', 'prova', 'slides', 'adaptar', 'rubrica', 'agenda', 'historico', 'config', 'resultado'];
 
   function route() {
     const hash = location.hash.replace('#/', '') || 'home';
@@ -60,6 +65,7 @@
 
     refreshUcList();
     if (name === 'home') renderHome();
+    if (name === 'agenda') renderAgenda();
     if (name === 'historico') renderHistory();
     if (name === 'config') loadConfig();
   }
@@ -338,6 +344,150 @@
       });
     });
   }
+
+  /* ===== Agenda ===== */
+  const agenda = {
+    view: new Date(),          // qualquer dia do mês exibido
+    selected: new Set(),       // datas ISO selecionadas (AAAA-MM-DD)
+    painting: false,           // arrasto em andamento
+    paintState: true,          // no arrasto: selecionar (true) ou tirar (false)
+  };
+
+  const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  // Paleta estável — cada UC sempre cai na mesma cor.
+  const UC_CORES = ['#4f46e5', '#0891b2', '#059669', '#d97706', '#dc2626',
+    '#7c3aed', '#db2777', '#0d9488', '#65a30d', '#ea580c'];
+
+  function toISO(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
+  }
+
+  function corDaUc(uc) {
+    const k = ucKey(uc);
+    let h = 0;
+    for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) >>> 0;
+    return UC_CORES[h % UC_CORES.length];
+  }
+
+  function updateAgendaSelInfo() {
+    const n = agenda.selected.size;
+    const el = $('#agenda-selinfo');
+    el.textContent = n
+      ? `${n} ${n === 1 ? 'dia selecionado' : 'dias selecionados'}.`
+      : 'Nenhum dia selecionado. Clique nos dias (ou arraste) para selecionar.';
+  }
+
+  function renderAgenda() {
+    const grid = $('#agenda-grid');
+    if (!grid) return;
+    const ano = agenda.view.getFullYear();
+    const mes = agenda.view.getMonth();
+    $('#agenda-month').textContent = `${MESES[mes]} de ${ano}`;
+
+    const map = Storage.getAgenda();
+    const primeiro = new Date(ano, mes, 1);
+    const diasNoMes = new Date(ano, mes + 1, 0).getDate();
+    const hojeISO = toISO(new Date());
+
+    let html = '';
+    // Espaços vazios antes do dia 1 (0 = domingo).
+    for (let i = 0; i < primeiro.getDay(); i++) html += '<div class="agenda-empty"></div>';
+
+    for (let dia = 1; dia <= diasNoMes; dia++) {
+      const iso = toISO(new Date(ano, mes, dia));
+      const uc = map[iso];
+      const sel = agenda.selected.has(iso);
+      const hoje = iso === hojeISO;
+      const style = uc ? ` style="--uc-cor:${corDaUc(uc)}"` : '';
+      html += `<div class="agenda-day${uc ? ' has-uc' : ''}${sel ? ' selected' : ''}${hoje ? ' today' : ''}"`
+        + ` data-date="${iso}"${style}>`
+        + `<span class="agenda-daynum">${dia}</span>`
+        + (uc ? `<span class="agenda-uctag">${escapeHtml(uc)}</span>` : '')
+        + '</div>';
+    }
+    grid.innerHTML = html;
+
+    // Legenda: UCs que aparecem no mês exibido.
+    const noMes = new Map();
+    Object.entries(map).forEach(([iso, uc]) => {
+      if (iso.startsWith(`${ano}-${String(mes + 1).padStart(2, '0')}`)) {
+        noMes.set(ucKey(uc), uc);
+      }
+    });
+    const legenda = $('#agenda-legend');
+    legenda.innerHTML = noMes.size
+      ? [...noMes.values()]
+          .sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }))
+          .map(uc => `<span class="agenda-legenda-item"><span class="dot" style="background:${corDaUc(uc)}"></span>${escapeHtml(uc)}</span>`)
+          .join('')
+      : '';
+
+    updateAgendaSelInfo();
+  }
+
+  function paintDay(el) {
+    const iso = el.dataset.date;
+    if (agenda.paintState) agenda.selected.add(iso);
+    else agenda.selected.delete(iso);
+    el.classList.toggle('selected', agenda.paintState);
+  }
+
+  // Seleção por clique/arrasto (delegação no grid).
+  (function bindAgenda() {
+    const grid = $('#agenda-grid');
+    if (!grid) return;
+
+    grid.addEventListener('pointerdown', e => {
+      const day = e.target.closest('.agenda-day');
+      if (!day) return;
+      e.preventDefault();
+      agenda.painting = true;
+      agenda.paintState = !agenda.selected.has(day.dataset.date);
+      paintDay(day);
+      updateAgendaSelInfo();
+    });
+    grid.addEventListener('pointerover', e => {
+      if (!agenda.painting) return;
+      const day = e.target.closest('.agenda-day');
+      if (day) { paintDay(day); updateAgendaSelInfo(); }
+    });
+    document.addEventListener('pointerup', () => { agenda.painting = false; });
+
+    $('#agenda-prev').addEventListener('click', () => {
+      agenda.view = new Date(agenda.view.getFullYear(), agenda.view.getMonth() - 1, 1);
+      renderAgenda();
+    });
+    $('#agenda-next').addEventListener('click', () => {
+      agenda.view = new Date(agenda.view.getFullYear(), agenda.view.getMonth() + 1, 1);
+      renderAgenda();
+    });
+    $('#agenda-today').addEventListener('click', () => {
+      agenda.view = new Date();
+      renderAgenda();
+    });
+
+    $('#agenda-set').addEventListener('click', () => {
+      const uc = $('#agenda-uc').value.trim();
+      if (!uc) { $('#agenda-uc').focus(); return; }
+      if (!agenda.selected.size) { flash($('#agenda-set'), '⚠️ Selecione dias'); return; }
+      Storage.setAgendaDays([...agenda.selected], uc);
+      agenda.selected.clear();
+      renderAgenda();
+      refreshUcList();
+    });
+
+    $('#agenda-clear').addEventListener('click', () => {
+      if (!agenda.selected.size) return;
+      // Remove a marcação de UC dos dias selecionados e limpa a seleção.
+      Storage.setAgendaDays([...agenda.selected], '');
+      agenda.selected.clear();
+      renderAgenda();
+    });
+  })();
 
   /* ===== Configurações ===== */
   function fillProviderFields(provider) {

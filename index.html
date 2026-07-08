@@ -30,6 +30,7 @@
         <a href="#/slides" class="nav-link" data-route="slides">📽️ Slides</a>
         <a href="#/adaptar" class="nav-link" data-route="adaptar">♿ Adaptação Inclusiva</a>
         <a href="#/rubrica" class="nav-link" data-route="rubrica">📊 Critérios de Avaliação</a>
+        <a href="#/agenda" class="nav-link" data-route="agenda">📅 Agenda</a>
         <a href="#/historico" class="nav-link" data-route="historico">📂 Histórico</a>
         <a href="#/config" class="nav-link" data-route="config">⚙️ Configurações</a>
       </nav>
@@ -375,6 +376,34 @@
           </label>
           <button type="submit" class="btn-primary">✨ Gerar Critérios</button>
         </form>
+      </section>
+
+      <!-- Agenda -->
+      <section class="view" id="view-agenda">
+        <h1>📅 Agenda</h1>
+        <p class="subtitle">Marque os dias de cada UC. Selecione vários dias, digite a UC e clique em Aplicar.</p>
+
+        <div class="agenda-toolbar no-print">
+          <div class="agenda-nav">
+            <button type="button" class="btn-secondary" id="agenda-prev" aria-label="Mês anterior">‹</button>
+            <span id="agenda-month" class="agenda-month"></span>
+            <button type="button" class="btn-secondary" id="agenda-next" aria-label="Próximo mês">›</button>
+            <button type="button" class="btn-secondary" id="agenda-today">Hoje</button>
+          </div>
+          <div class="agenda-apply">
+            <input type="text" id="agenda-uc" list="uc-list" placeholder="UC (ex.: UC10)" autocomplete="off">
+            <button type="button" class="btn-primary" id="agenda-set">✅ Aplicar aos selecionados</button>
+            <button type="button" class="btn-secondary" id="agenda-clear">🧹 Limpar selecionados</button>
+          </div>
+          <p class="agenda-hint" id="agenda-selinfo">Nenhum dia selecionado. Clique nos dias (ou arraste) para selecionar.</p>
+        </div>
+
+        <div class="agenda-weekdays">
+          <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
+        </div>
+        <div class="agenda-grid" id="agenda-grid"></div>
+
+        <div class="agenda-legend" id="agenda-legend"></div>
       </section>
 
       <!-- Histórico -->

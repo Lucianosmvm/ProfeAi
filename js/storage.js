@@ -7,6 +7,7 @@ const Storage = {
     nome: 'profe_nome',
     history: 'profe_history',
     stats: 'profe_stats',
+    agenda: 'profe_agenda',
   },
 
   DEFAULT_MODELS: {
@@ -69,6 +70,31 @@ const Storage = {
     localStorage.removeItem(this.KEYS.history);
   },
 
+  /* ===== Agenda ===== */
+  /* Mapa { "AAAA-MM-DD": "UC10" } — qual UC ocorre em cada dia. */
+  getAgenda() {
+    try {
+      return JSON.parse(localStorage.getItem(this.KEYS.agenda)) || {};
+    } catch {
+      return {};
+    }
+  },
+
+  saveAgenda(map) {
+    localStorage.setItem(this.KEYS.agenda, JSON.stringify(map));
+  },
+
+  // Marca (uc não-vazia) ou desmarca (uc vazia) uma lista de datas ISO.
+  setAgendaDays(dates, uc) {
+    const map = this.getAgenda();
+    const label = (uc || '').trim();
+    dates.forEach(d => {
+      if (label) map[d] = label;
+      else delete map[d];
+    });
+    this.saveAgenda(map);
+  },
+
   /* Contadores de uso: nº de gerações e total de tokens gastos neste navegador. */
   getStats() {
     try {
@@ -97,6 +123,7 @@ const Storage = {
       models: { gemini: this.getModel('gemini'), openai: this.getModel('openai') },
       stats: this.getStats(),
       history: this.getHistory(),
+      agenda: this.getAgenda(),
     };
   },
 
@@ -111,6 +138,11 @@ const Storage = {
       if (data.models.openai) this.setModel(data.models.openai, 'openai');
     }
     if (data.stats) localStorage.setItem(this.KEYS.stats, JSON.stringify(data.stats));
+
+    if (data.agenda && typeof data.agenda === 'object') {
+      const atual = merge ? this.getAgenda() : {};
+      this.saveAgenda({ ...atual, ...data.agenda });
+    }
 
     if (Array.isArray(data.history)) {
       let lista = data.history;
