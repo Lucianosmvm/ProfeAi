@@ -339,18 +339,38 @@ input:focus, select:focus, textarea:focus {
 
   /* Agenda: células pequenas demais cortam a tag da UC.
      Solta o aspect-ratio e usa altura mínima maior. */
-  .agenda-grid { gap: 4px; }
+  .agenda-grid, .agenda-weekdays { gap: 4px; }
   .agenda-day, .agenda-empty { aspect-ratio: auto; }
   .agenda-day {
-    min-height: 62px;
-    padding: 4px;
+    min-height: 56px;
+    padding: 3px;
     border-radius: 8px;
   }
   .agenda-daynum { font-size: .78rem; }
   .agenda-uctag {
-    font-size: .62rem;
-    padding: 1px 3px;
-    border-radius: 5px;
+    font-size: .6rem;
+    padding: 1px 2px;
+    border-radius: 4px;
+    text-align: center;
+  }
+}
+
+/* Telas bem estreitas: célula mínima, tag vira barra colorida
+   colada na base (legenda identifica a UC). */
+@media (max-width: 420px) {
+  .main { padding: 16px 10px; }
+  .agenda-grid, .agenda-weekdays { gap: 3px; }
+  .agenda-day {
+    min-height: 48px;
+    padding: 2px;
+    border-radius: 6px;
+  }
+  .agenda-daynum { font-size: .72rem; padding-left: 2px; }
+  .agenda-uctag {
+    font-size: 0;           /* esconde o texto; cor + legenda bastam */
+    height: 8px;
+    padding: 0;
+    border-radius: 3px;
   }
 }
 
@@ -458,7 +478,7 @@ input:focus, select:focus, textarea:focus {
 
 .agenda-weekdays {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 6px;
   margin-bottom: 6px;
 }
@@ -471,13 +491,14 @@ input:focus, select:focus, textarea:focus {
 }
 .agenda-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 6px;
   touch-action: none; /* permite arrastar sem rolar a página */
 }
 .agenda-empty { aspect-ratio: 1 / 1; }
 .agenda-day {
   aspect-ratio: 1 / 1;
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);
