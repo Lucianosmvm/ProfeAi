@@ -336,6 +336,22 @@ input:focus, select:focus, textarea:focus {
   }
   .main { padding: 20px; }
   .grid-2 { grid-template-columns: 1fr; }
+
+  /* Agenda: células pequenas demais cortam a tag da UC.
+     Solta o aspect-ratio e usa altura mínima maior. */
+  .agenda-grid { gap: 4px; }
+  .agenda-day, .agenda-empty { aspect-ratio: auto; }
+  .agenda-day {
+    min-height: 62px;
+    padding: 4px;
+    border-radius: 8px;
+  }
+  .agenda-daynum { font-size: .78rem; }
+  .agenda-uctag {
+    font-size: .62rem;
+    padding: 1px 3px;
+    border-radius: 5px;
+  }
 }
 
 /* ===== Encadear fluxos ===== */
