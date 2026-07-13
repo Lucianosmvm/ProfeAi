@@ -96,6 +96,7 @@
     state.generating = true;
 
     state.current = { tipo, params, conteudo: '' };
+    restoreResultUI(tipo);
     $('#result-title').textContent = Prompts.labels[tipo];
     togglePresentBtn(tipo);
     renderChain(tipo);
@@ -316,6 +317,7 @@
 
       el.querySelector('[data-action="open"]').addEventListener('click', () => {
         state.current = { id: item.id, tipo: item.tipo, params: item.params, conteudo: item.conteudo, conteudoHtml: item.conteudoHtml };
+        restoreResultUI(item.tipo);
         $('#result-title').textContent = Prompts.labels[item.tipo];
         setEditUI(false);
         $('#result-content').innerHTML = item.conteudoHtml || marked.parse(item.conteudo);
@@ -587,9 +589,21 @@
 
   /* ===== Encadear fluxos ===== */
   function renderChain(tipo) {
-    const targets = Prompts.chainTargets[tipo] || [];
     const bar = $('#chain-bar');
     const box = $('#chain-actions');
+
+    // Plano de Curso não usa o encadeamento normal: mostra o botão de gerar
+    // todas as Aulas Completas de uma vez, uma para cada bloco "AULA N".
+    if (tipo === 'curso') {
+      bar.hidden = false;
+      $('.chain-label').textContent = '➡️ A partir deste Plano de Curso:';
+      box.innerHTML = `<button class="btn-primary" id="btn-gerar-todas-aulas">🚀 Gerar todas as aulas</button>`;
+      $('#btn-gerar-todas-aulas').addEventListener('click', generateAllAulas);
+      return;
+    }
+    $('.chain-label').textContent = '➡️ Criar a partir disto:';
+
+    const targets = Prompts.chainTargets[tipo] || [];
     if (!targets.length) { bar.hidden = true; box.innerHTML = ''; return; }
     bar.hidden = false;
     box.innerHTML = targets
@@ -598,6 +612,153 @@
     box.querySelectorAll('button').forEach(b => {
       b.addEventListener('click', () => generateChain(b.dataset.target));
     });
+  }
+
+  /* ===== Gerar todas as aulas do Plano de Curso, de uma vez ===== */
+
+  // Restaura a tela normal de resultado (some com o painel de lote, se estiver visível).
+  function restoreResultUI(tipo) {
+    $('#batch-panel').hidden = true;
+    $('#result-content').hidden = false;
+    $$('.result-actions button').forEach(b => { b.hidden = false; });
+    togglePresentBtn(tipo);
+  }
+
+  function renderBatchPanel(aulas) {
+    restoreResultUI(state.current.tipo);
+    $('#chain-bar').hidden = true;
+    $('#result-status').hidden = true;
+    $('#result-usage').hidden = true;
+    $('#result-content').hidden = true;
+    $$('.result-actions button').forEach(b => { b.hidden = true; });
+
+    $('#batch-panel').hidden = false;
+    $('#btn-batch-cancel').hidden = false;
+    $('#btn-batch-cancel').disabled = false;
+    $('#btn-batch-cancel').textContent = '✖ Cancelar';
+    $('#batch-summary').hidden = true;
+    $('#batch-summary').innerHTML = '';
+    $('#batch-list').innerHTML = aulas.map((a, i) => `
+      <li class="batch-item" data-idx="${i}">
+        <span class="batch-status" data-status="pending">⏳</span>
+        <span class="batch-titulo">AULA ${escapeHtml(a.numero)} — ${escapeHtml(a.titulo)}</span>
+      </li>`).join('');
+  }
+
+  function markBatchStatus(i, status, detail) {
+    const li = $(`#batch-list li[data-idx="${i}"]`);
+    if (!li) return;
+    const icones = { pending: '⏳', running: '<span class="spinner"></span>', done: '✅', error: '⚠️', cancelled: '⏹️' };
+    const st = li.querySelector('.batch-status');
+    st.dataset.status = status;
+    st.innerHTML = icones[status] || '';
+    li.classList.toggle('batch-error', status === 'error');
+    if (status === 'error' && detail) {
+      let d = li.querySelector('.batch-detail');
+      if (!d) {
+        d = document.createElement('span');
+        d.className = 'batch-detail';
+        li.appendChild(d);
+      }
+      d.textContent = detail;
+    }
+  }
+
+  function finishBatchPanel(aulas, okCount, failCount, uc) {
+    $('#btn-batch-cancel').hidden = true;
+    $('#result-title').textContent = `Aulas geradas (${okCount}/${aulas.length})`;
+
+    const resumo = $('#batch-summary');
+    resumo.hidden = false;
+    const msgFalha = failCount
+      ? ` ${failCount} ${failCount === 1 ? 'falhou' : 'falharam'} — você pode gerá-la(s) manualmente em 📚 Aula Completa, colando o bloco correspondente.`
+      : '';
+    resumo.innerHTML = `
+      <p>✅ ${okCount} de ${aulas.length} aulas geradas com sucesso.${msgFalha}</p>
+      <button class="btn-primary" id="btn-batch-historico">📂 Ver no Histórico</button>
+      <button class="btn-secondary" id="btn-batch-voltar">⬅️ Voltar ao Plano de Curso</button>
+    `;
+    $('#btn-batch-historico').addEventListener('click', () => {
+      historyFilter = uc ? ucKey(uc) : 'all';
+      location.hash = '#/historico';
+    });
+    $('#btn-batch-voltar').addEventListener('click', () => {
+      restoreResultUI(state.current.tipo);
+      renderChain(state.current.tipo);
+    });
+  }
+
+  $('#btn-batch-cancel').addEventListener('click', () => {
+    state.batchCancel = true;
+    $('#btn-batch-cancel').disabled = true;
+    $('#btn-batch-cancel').textContent = 'Cancelando após a aula atual…';
+  });
+
+  async function generateAllAulas() {
+    if (!state.current?.conteudo || state.generating || state.current.tipo !== 'curso') return;
+
+    // innerText reflete edições feitas no modo Editar; fallback para o markdown original.
+    const srcText = $('#result-content').innerText.trim() || state.current.conteudo;
+    const aulas = Prompts.parseAulas(srcText);
+    if (!aulas.length) {
+      alert('Não foi possível identificar as aulas neste Plano de Curso. Verifique se o texto contém blocos "AULA N — Título".');
+      return;
+    }
+    const ok = confirm(
+      `Isso vai gerar ${aulas.length} Aulas Completas, uma de cada vez (pode levar vários minutos e consumir tokens da sua chave de API).\n\nDeseja continuar?`
+    );
+    if (!ok) return;
+
+    const baseParams = state.current.params || {};
+    const uc = baseParams.uc || '';
+    const disciplina = baseParams.unidade || '';
+    const cargaAula = baseParams.duracao || '';
+
+    state.generating = true;
+    state.batchCancel = false;
+    renderBatchPanel(aulas);
+
+    let okCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < aulas.length; i++) {
+      const a = aulas[i];
+      if (state.batchCancel) { markBatchStatus(i, 'cancelled'); continue; }
+
+      markBatchStatus(i, 'running');
+      $('#result-title').textContent = `Gerando ${i + 1} de ${aulas.length}: AULA ${a.numero} — ${a.titulo}`;
+
+      const params = {
+        uc,
+        disciplina,
+        carga: cargaAula,
+        tipoaula: i === 0 ? 'Abertura de unidade' : 'Conteúdo novo',
+        basecurso: a.blockText,
+      };
+      const titulo = `Plano: AULA ${a.numero} — ${a.titulo}`;
+
+      try {
+        let texto = '';
+        for await (const chunk of Api.stream(Prompts.plano(params))) {
+          texto += chunk;
+        }
+        const usage = Api.lastUsage;
+        const id = Date.now().toString(36) + '_' + i;
+        Storage.addUsage(usage?.total);
+        Storage.addHistoryItem({
+          id, tipo: 'plano', titulo, data: new Date().toISOString(), params, conteudo: texto, usage,
+        });
+        okCount++;
+        markBatchStatus(i, 'done');
+      } catch (err) {
+        failCount++;
+        markBatchStatus(i, 'error', Api.friendlyError(err));
+      }
+    }
+
+    state.generating = false;
+    refreshUcList();
+    finishBatchPanel(aulas, okCount, failCount, uc);
   }
 
   function generateChain(target) {

@@ -210,6 +210,44 @@ Regras (SIGA EXATAMENTE o modelo Senac):
   },
 };
 
+/* Extrai cada bloco de aula (módulo + "AULA N — Título" + tópicos) de um
+   Plano de Curso já gerado, para alimentar a geração em lote da Aula Completa.
+   Aceita tanto "### AULA 1 — Título" (saída padrão) quanto "AULA 1 — Título"
+   sem cabeçalho Markdown (ex.: texto colado/editado pelo professor). */
+Prompts.parseAulas = function (md) {
+  const moduloRe = /^#{0,3}\s*M[ÓO]DULO\b/i;
+  const aulaRe = /^#{0,3}\s*AULA\s+(\d+)\s*[—\-–:]\s*(.+?)\s*$/i;
+
+  const aulas = [];
+  let moduloAtual = '';
+  let atual = null;
+
+  (md || '').split(/\r?\n/).forEach(linhaBruta => {
+    const linha = linhaBruta.trim();
+    if (!linha) return;
+
+    if (moduloRe.test(linha)) {
+      moduloAtual = linha.replace(/^#+\s*/, '').trim();
+      return;
+    }
+    const m = linha.match(aulaRe);
+    if (m) {
+      if (atual) aulas.push(atual);
+      atual = { numero: m[1], titulo: m[2].trim(), modulo: moduloAtual, bullets: [] };
+      return;
+    }
+    if (atual) atual.bullets.push(linha);
+  });
+  if (atual) aulas.push(atual);
+
+  // Monta o texto de cada bloco no mesmo formato que o professor colaria manualmente.
+  aulas.forEach(a => {
+    a.blockText = [a.modulo, '', `AULA ${a.numero} — ${a.titulo}`, ...a.bullets]
+      .filter(Boolean).join('\n');
+  });
+  return aulas;
+};
+
 /* Título curto para o histórico. */
 Prompts.titulo = {
   curso: d => `Plano de Curso: ${d.unidade}`,
@@ -266,7 +304,7 @@ const CHAIN_RULES = {
 
 /* Quais alvos cada tipo de material pode gerar. */
 Prompts.chainTargets = {
-  curso: [],
+  curso: [], // "Plano de Curso" não encadeia por aqui: usa o botão especial "Gerar todas as aulas" (app.js)
   plano: ['situacao', 'slides', 'atividade', 'prova', 'adaptar'],
   situacao: ['slides', 'atividade', 'prova', 'adaptar'],
   atividade: ['prova', 'slides', 'adaptar'],
