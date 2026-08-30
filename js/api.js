@@ -7,9 +7,9 @@ const Api = {
       keyHint: 'Grátis, sem cartão. Crie a sua em <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. A chave fica salva apenas neste navegador.',
       keyPlaceholder: 'AIza...',
       models: [
-        { id: 'gemini-2.5-flash', label: 'gemini-2.5-flash (recomendado)' },
-        { id: 'gemini-2.5-flash-lite', label: 'gemini-2.5-flash-lite (mais rápido)' },
-        { id: 'gemini-2.5-pro', label: 'gemini-2.5-pro (melhor qualidade, limite menor)' },
+        { id: 'gemini-2.5-flash', label: 'gemini-2.5-flash (recomendado)', maxOut: 32768 },
+        { id: 'gemini-2.5-flash-lite', label: 'gemini-2.5-flash-lite (mais rápido)', maxOut: 32768 },
+        { id: 'gemini-2.5-pro', label: 'gemini-2.5-pro (melhor qualidade, limite menor)', maxOut: 32768 },
       ],
     },
     openai: {
@@ -17,21 +17,38 @@ const Api = {
       keyHint: 'Requer crédito pré-pago. Crie a sua em <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a>. A chave fica salva apenas neste navegador.',
       keyPlaceholder: 'sk-...',
       models: [
-        { id: 'gpt-4o-mini', label: 'gpt-4o-mini (rápido e barato)' },
-        { id: 'gpt-4o', label: 'gpt-4o (melhor qualidade)' },
-        { id: 'gpt-4.1-mini', label: 'gpt-4.1-mini' },
-        { id: 'gpt-4.1', label: 'gpt-4.1' },
+        { id: 'gpt-4o-mini', label: 'gpt-4o-mini (rápido e barato)', maxOut: 16384 },
+        { id: 'gpt-4o', label: 'gpt-4o (melhor qualidade)', maxOut: 16384 },
+        { id: 'gpt-4.1-mini', label: 'gpt-4.1-mini', maxOut: 16384 },
+        { id: 'gpt-4.1', label: 'gpt-4.1', maxOut: 16384 },
       ],
     },
   },
 
   // Preenchido durante o stream com { prompt, output, total } tokens da última geração.
   lastUsage: null,
+  // Motivo do fim da última geração ('STOP', 'MAX_TOKENS', 'length'...).
+  lastFinish: null,
+
+  /* Teto de saída do modelo escolhido. Sem isso o provedor usa o default dele,
+     que corta materiais longos (um Plano de Curso de 32 aulas, por exemplo)
+     no meio, sem avisar. */
+  maxOut(provider = Storage.getProvider(), model = Storage.getModel()) {
+    const m = this.PROVIDERS[provider].models.find(x => x.id === model);
+    return (m && m.maxOut) || 8192;
+  },
+
+  /* A última resposta foi cortada no limite de tamanho? */
+  truncou() {
+    const f = (this.lastFinish || '').toUpperCase();
+    return f === 'MAX_TOKENS' || f === 'LENGTH';
+  },
 
   stream(userPrompt) {
     const apiKey = Storage.getApiKey();
     if (!apiKey) throw new Error('SEM_CHAVE');
     this.lastUsage = null;
+    this.lastFinish = null;
     const provider = Storage.getProvider();
     return provider === 'gemini'
       ? this._streamGemini(apiKey, userPrompt)
@@ -48,6 +65,7 @@ const Api = {
       body: JSON.stringify({
         model: Storage.getModel(),
         stream: true,
+        max_tokens: this.maxOut('openai'),
         stream_options: { include_usage: true },
         messages: [
           { role: 'system', content: Prompts.buildSystem() },
@@ -63,6 +81,8 @@ const Api = {
         const obj = JSON.parse(data);
         const text = obj.choices?.[0]?.delta?.content;
         if (text) yield text;
+        const fim = obj.choices?.[0]?.finish_reason;
+        if (fim) this.lastFinish = fim;
         if (obj.usage) this.lastUsage = {
           prompt: obj.usage.prompt_tokens,
           output: obj.usage.completion_tokens,
@@ -84,6 +104,7 @@ const Api = {
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: Prompts.buildSystem() }] },
         contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+        generationConfig: { maxOutputTokens: this.maxOut('gemini', model) },
       }),
     });
     await this._checkResponse(res);
@@ -93,6 +114,8 @@ const Api = {
         const obj = JSON.parse(data);
         const text = obj.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) yield text;
+        const fim = obj.candidates?.[0]?.finishReason;
+        if (fim) this.lastFinish = fim;
         if (obj.usageMetadata) this.lastUsage = {
           prompt: obj.usageMetadata.promptTokenCount,
           output: obj.usageMetadata.candidatesTokenCount,
@@ -121,7 +144,7 @@ const Api = {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
-    const IDLE_MS = 60000;
+    const IDLE_MS = 120000;
 
     try {
       while (true) {

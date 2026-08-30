@@ -95,22 +95,11 @@
   async function runGeneration(tipo, params, promptText, titulo) {
     if (state.generating) return;
     state.generating = true;
+    abrirResultado(tipo, params);
 
-    state.current = { tipo, params, conteudo: '' };
-    restoreResultUI(tipo);
-    $('#result-title').textContent = Prompts.labels[tipo];
-    togglePresentBtn(tipo);
-    renderChain(tipo);
-    setEditUI(false);
-    $('#result-content').innerHTML = '';
-    $('#result-status').hidden = false;
-    renderUsage(null);
-    location.hash = '#/resultado';
-
+    let texto = '';
     try {
-      const prompt = promptText;
-      let texto = '';
-      for await (const chunk of Api.stream(prompt)) {
+      for await (const chunk of Api.stream(promptText)) {
         texto += chunk;
         $('#result-content').innerHTML = marked.parse(texto);
       }
@@ -129,13 +118,155 @@
         conteudo: texto,
         usage,
       });
+      if (Api.truncou()) avisarTruncado();
     } catch (err) {
-      $('#result-content').innerHTML =
-        `<p>⚠️ ${escapeHtml(Api.friendlyError(err))}</p>`;
+      mostrarErro(err, texto);
     } finally {
       $('#result-status').hidden = true;
       state.generating = false;
     }
+  }
+
+  /* Texto do indicador de progresso (fica ao lado do spinner). */
+  function setStatus(msg) {
+    $('#result-status').innerHTML = `<span class="spinner"></span> ${escapeHtml(msg)}`;
+  }
+
+  /* Prepara a tela de Resultado para uma geração nova. */
+  function abrirResultado(tipo, params) {
+    state.current = { tipo, params, conteudo: '' };
+    restoreResultUI(tipo);
+    $('#result-title').textContent = Prompts.labels[tipo];
+    togglePresentBtn(tipo);
+    renderChain(tipo);
+    setEditUI(false);
+    $('#result-content').innerHTML = '';
+    $('#result-status').hidden = false;
+    setStatus('Gerando…');
+    renderUsage(null);
+    location.hash = '#/resultado';
+  }
+
+  /* Avisa que a IA parou no limite de tamanho e oferece a retomada.
+     Sem isso, um material cortado no meio parece completo. */
+  function avisarTruncado() {
+    const aviso = document.createElement('div');
+    aviso.className = 'aviso-truncado no-print';
+    aviso.innerHTML = '<p>⚠️ A IA parou no limite de tamanho da resposta — o material está incompleto.</p>'
+      + '<button type="button" class="btn-primary" id="btn-continuar">▶️ Continuar de onde parou</button>';
+    $('#result-content').appendChild(aviso);
+    $('#btn-continuar').addEventListener('click', continuarGeracao);
+  }
+
+  /* Emenda a continuação no material já gerado. */
+  async function continuarGeracao() {
+    if (state.generating || !state.current?.conteudo) return;
+    const { tipo, params, id } = state.current;
+    state.generating = true;
+    $('#result-status').hidden = false;
+    setStatus('Continuando de onde parou…');
+    $$('.aviso-truncado').forEach(el => el.remove());
+
+    let texto = state.current.conteudo;
+    try {
+      let parcial = '';
+      for await (const chunk of Api.stream(Prompts.continuar(tipo, texto))) {
+        parcial += chunk;
+        $('#result-content').innerHTML = marked.parse(texto + parcial);
+      }
+      texto = texto + parcial;
+      state.current.conteudo = texto;
+      Storage.addUsage(Api.lastUsage?.total);
+      renderUsage(Api.lastUsage);
+      if (id) Storage.updateHistoryItem(id, { conteudo: texto, conteudoHtml: null });
+      if (Api.truncou()) avisarTruncado();
+    } catch (err) {
+      mostrarErro(err, texto);
+    } finally {
+      $('#result-status').hidden = true;
+      state.generating = false;
+    }
+  }
+
+  /* Mostra o erro SEM apagar o que já tinha sido gerado. */
+  function mostrarErro(err, textoParcial) {
+    const msg = `<p class="erro-geracao">⚠️ ${escapeHtml(Api.friendlyError(err))}</p>`;
+    $('#result-content').innerHTML = textoParcial
+      ? marked.parse(textoParcial) + msg
+      : msg;
+  }
+
+  /* Plano de Curso longo: gerado em lotes de aulas, emendando um no outro.
+     Numa chamada só, um curso de 32 aulas estoura o limite de saída do modelo
+     e volta cortado (parava lá pela aula 18). */
+  const CURSO_LOTE = 8;
+
+  async function generateCurso(params) {
+    const total = Number(params.aulas) || 0;
+    if (total <= CURSO_LOTE) return generate('curso', params);
+    if (state.generating) return;
+
+    state.generating = true;
+    abrirResultado('curso', params);
+
+    let texto = '';
+    let tokens = 0;
+    try {
+      for (let de = 1; de <= total; de += CURSO_LOTE) {
+        const ate = Math.min(de + CURSO_LOTE - 1, total);
+        setStatus(`Gerando aulas ${de} a ${ate} de ${total}…`);
+
+        const prompt = de === 1
+          ? Prompts.curso({ ...params, ate })
+          : Prompts.cursoContinua(params, texto, de, ate);
+
+        let parcial = '';
+        for await (const chunk of Api.stream(prompt)) {
+          parcial += chunk;
+          $('#result-content').innerHTML = marked.parse(texto + parcial);
+        }
+        texto += (texto ? '\n\n' : '') + parcial.trim();
+        state.current.conteudo = texto;
+        tokens += Api.lastUsage?.total || 0;
+      }
+
+      const id = Date.now().toString(36);
+      state.current.id = id;
+      const usage = { total: tokens };
+      Storage.addUsage(tokens);
+      renderUsage(usage);
+      Storage.addHistoryItem({
+        id,
+        tipo: 'curso',
+        titulo: Prompts.titulo.curso(params),
+        data: new Date().toISOString(),
+        params,
+        conteudo: texto,
+        usage,
+      });
+      $('#result-content').innerHTML = marked.parse(texto);
+      avisarAulasFaltando(texto, total);
+    } catch (err) {
+      mostrarErro(err, texto);
+    } finally {
+      $('#result-status').hidden = true;
+      state.generating = false;
+      refreshUcList();
+    }
+  }
+
+  /* Confere se saíram todas as aulas pedidas — o professor precisa saber
+     antes de montar a Agenda em cima de um plano incompleto. */
+  function avisarAulasFaltando(texto, total) {
+    const geradas = Prompts.parseAulas(texto).length;
+    if (geradas >= total) return;
+    const aviso = document.createElement('div');
+    aviso.className = 'aviso-truncado no-print';
+    aviso.innerHTML = `<p>⚠️ Saíram ${geradas} das ${total} aulas pedidas. `
+      + 'Use <strong>🔄 Gerar novamente</strong> ou continue a partir daqui.</p>'
+      + '<button type="button" class="btn-primary" id="btn-continuar">▶️ Continuar de onde parou</button>';
+    $('#result-content').appendChild(aviso);
+    $('#btn-continuar').addEventListener('click', continuarGeracao);
   }
 
   function formToObj(form) {
@@ -151,7 +282,10 @@
   ['curso', 'plano', 'situacao', 'atividade', 'prova', 'slides', 'adaptar', 'rubrica'].forEach(tipo => {
     $(`#form-${tipo}`).addEventListener('submit', e => {
       e.preventDefault();
-      generate(tipo, formToObj(e.target));
+      const params = formToObj(e.target);
+      // Curso longo não cabe numa resposta só: vai em lotes de aulas.
+      if (tipo === 'curso') generateCurso(params);
+      else generate(tipo, params);
     });
   });
 
@@ -183,6 +317,10 @@
   });
 
   $('#btn-regenerate').addEventListener('click', () => {
+    if (state.current?.tipo === 'curso' && state.current.params) {
+      generateCurso(state.current.params);
+      return;
+    }
     if (!state.current || state.generating) return;
     generate(state.current.tipo, state.current.params);
   });
@@ -940,6 +1078,14 @@
         let texto = '';
         for await (const chunk of Api.stream(Prompts.plano(params))) {
           texto += chunk;
+        }
+        // Aula cortada no limite: emenda a continuação antes de salvar.
+        let tentativas = 0;
+        while (Api.truncou() && tentativas < 2) {
+          tentativas++;
+          for await (const chunk of Api.stream(Prompts.continuar('plano', texto))) {
+            texto += chunk;
+          }
         }
         const usage = Api.lastUsage;
         const id = Date.now().toString(36) + '_' + i;

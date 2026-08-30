@@ -166,6 +166,21 @@ input:focus, select:focus, textarea:focus {
   font-size: .82rem;
   color: var(--text-muted);
 }
+.aviso-truncado {
+  margin-top: 20px;
+  padding: 14px 16px;
+  background: color-mix(in srgb, #d97706 12%, var(--surface));
+  border: 1px solid #d97706;
+  border-radius: var(--radius);
+}
+.aviso-truncado p { margin: 0 0 10px; font-size: .9rem; }
+.erro-geracao {
+  margin-top: 20px;
+  padding: 14px 16px;
+  background: color-mix(in srgb, #dc2626 10%, var(--surface));
+  border: 1px solid #dc2626;
+  border-radius: var(--radius);
+}
 .btn-link {
   font: inherit;
   font-weight: 600;

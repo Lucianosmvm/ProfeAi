@@ -91,24 +91,38 @@ Regras:
 - CONTINUIDADE: trate o conteúdo da aula anterior como já conhecido — retome, não reensine — e não invada o conteúdo da próxima aula. A retomada e a ponte final devem se referir às aulas informadas acima, nunca a temas inventados.` : ''}`;
   },
 
-  curso(d) {
-    return `Você vai transformar o descritivo de uma Unidade Curricular (extraído de um PDT / plano de curso técnico) em um PLANO DE CURSO detalhado, dividido em módulos e aulas.
-
-DADOS DA UNIDADE CURRICULAR:
+  /* Dados do PDT — comuns ao primeiro lote e às continuações. */
+  cursoDados(d) {
+    return `DADOS DA UNIDADE CURRICULAR:
 - Unidade Curricular: ${d.unidade}
 - Carga horária total: ${d.carga}
 - Duração de cada aula: ${d.duracao}
-- Número EXATO de aulas: ${d.aulas}
+- Número EXATO de aulas do curso inteiro: ${d.aulas}
 ${d.indicadores ? `\nINDICADORES DE COMPETÊNCIA:\n${d.indicadores}` : ''}
 ${d.conhecimentos ? `\nCONHECIMENTOS:\n${d.conhecimentos}` : ''}
 ${d.habilidades ? `\nHABILIDADES:\n${d.habilidades}` : ''}
-${d.atitudes ? `\nATITUDES / VALORES:\n${d.atitudes}` : ''}
+${d.atitudes ? `\nATITUDES / VALORES:\n${d.atitudes}` : ''}`;
+  },
+
+  /* Plano de Curso — primeiro (ou único) lote de aulas.
+     Cursos longos são gerados em lotes: um plano de 32 aulas não cabe numa
+     resposta só e vinha cortado no meio, sem aviso. */
+  curso(d) {
+    const total = Number(d.aulas);
+    const ate = Number(d.ate) || total;
+    const emLote = ate < total;
+
+    return `Você vai transformar o descritivo de uma Unidade Curricular (extraído de um PDT / plano de curso técnico) em um PLANO DE CURSO detalhado, dividido em módulos e aulas.
+
+${this.cursoDados(d)}
 
 REGRAS:
-1. Gere EXATAMENTE ${d.aulas} aulas — nem mais, nem menos. Numere de AULA 1 até AULA ${d.aulas}. No cabeçalho informe, ex.: "Carga Horária: ${d.carga} (${d.aulas} aulas de ${d.duracao})".
-2. Distribua TODO o conteúdo dos conhecimentos/habilidades ao longo das ${d.aulas} aulas, do mais simples ao mais complexo (progressão pedagógica). Nenhum tópico do PDT pode ficar de fora.
+1. ${emLote
+  ? `O curso inteiro terá ${total} aulas, mas AGORA você vai gerar somente as AULAS 1 a ${ate}. Pare exatamente na AULA ${ate} — o resto vem depois.`
+  : `Gere EXATAMENTE ${total} aulas — nem mais, nem menos. Numere de AULA 1 até AULA ${total}.`} No cabeçalho informe, ex.: "Carga Horária: ${d.carga} (${total} aulas de ${d.duracao})".
+2. Planeje a distribuição de TODO o conteúdo dos conhecimentos/habilidades pensando nas ${total} aulas do curso inteiro, do mais simples ao mais complexo (progressão pedagógica). Nenhum tópico do PDT pode ficar de fora do curso.
 3. Agrupe as aulas em MÓDULOS temáticos coerentes. Cada módulo cobre uma faixa de aulas.
-4. Reserve aulas para exercícios integradores e um projeto integrador final.
+4. Reserve aulas para exercícios integradores e um projeto integrador final${emLote ? ' — isso fica para o fim do curso, não neste primeiro trecho' : ''}.
 
 FORMATO DE SAÍDA (siga EXATAMENTE esta estrutura em Markdown):
 
@@ -129,9 +143,45 @@ FORMATO DE SAÍDA (siga EXATAMENTE esta estrutura em Markdown):
 - [tópico]
 - [tópico]
 
-[continue todas as aulas do módulo, depois o próximo módulo, até completar exatamente ${d.aulas} aulas]
+[continue todas as aulas do módulo, depois o próximo módulo, até a AULA ${ate}]
 
 Cada aula deve ter de 3 a 4 tópicos curtos (bullets), sem parágrafos longos. Não escreva nada fora dessa estrutura.`;
+  },
+
+  /* Continuação do Plano de Curso: gera só as aulas do lote seguinte. */
+  cursoContinua(d, jaGerado, de, ate) {
+    const total = Number(d.aulas);
+    const ultimo = ate >= total;
+
+    return `Continue o PLANO DE CURSO que já foi começado (o texto vem no final). Gere APENAS as AULAS ${de} a ${ate}.
+
+${this.cursoDados(d)}
+
+REGRAS:
+- NÃO repita o cabeçalho, os indicadores nem nenhuma aula que já existe no texto abaixo.
+- Comece direto na \`### AULA ${de} — [Título]\`. Se ela abrir um módulo novo, escreva antes a linha \`## MÓDULO N — [Nome] (Aulas X a Y)\`; se ela continua o módulo atual, não repita o cabeçalho do módulo.
+- Siga a progressão do que já foi dado: não volte a temas já cobertos e não adiante o que ainda não tem base.
+- Pare exatamente na AULA ${ate}.${ultimo ? `\n- Estas são as ÚLTIMAS aulas do curso: inclua aqui os exercícios integradores e o projeto integrador final, e feche a cobertura de todos os conhecimentos do PDT que ainda não apareceram.` : ''}
+- Mesmo formato: 3 a 4 tópicos curtos (bullets) por aula. Não escreva nada fora dessa estrutura.
+
+=== PLANO DE CURSO ATÉ AQUI (aulas 1 a ${de - 1}) ===
+${jaGerado}
+=== FIM ===`;
+  },
+
+  /* Retomada de um material que a IA cortou no limite de tamanho. */
+  continuar(tipo, textoParcial) {
+    return `O material abaixo (${this.labels[tipo] || tipo}) foi cortado no meio porque a resposta atingiu o limite de tamanho.
+
+Continue EXATAMENTE de onde parou:
+- Não repita nada do que já está escrito e não reescreva o começo.
+- Se a última linha estiver incompleta, complete-a — o texto será emendado direto no final.
+- Não escreva nenhuma introdução, aviso ou comentário: só a continuação do material.
+- Mantenha o mesmo formato, o mesmo nível de linguagem e a mesma numeração.
+
+=== MATERIAL ATÉ AQUI ===
+${textoParcial}
+=== FIM ===`;
   },
 
   situacao(d) {
