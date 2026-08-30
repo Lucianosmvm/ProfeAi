@@ -50,7 +50,7 @@ const Api = {
         stream: true,
         stream_options: { include_usage: true },
         messages: [
-          { role: 'system', content: Prompts.system },
+          { role: 'system', content: Prompts.buildSystem() },
           { role: 'user', content: userPrompt },
         ],
       }),
@@ -82,7 +82,7 @@ const Api = {
         'x-goog-api-key': apiKey,
       },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: Prompts.system }] },
+        systemInstruction: { parts: [{ text: Prompts.buildSystem() }] },
         contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
       }),
     });

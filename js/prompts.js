@@ -1,20 +1,83 @@
 /* Fluxos guiados: cada função transforma os campos do formulário em prompt.
    O professor nunca vê nem escreve isso. */
 const Prompts = {
-  system: `Você é um assistente pedagógico especializado em criar materiais didáticos
-para professores brasileiros. Responda sempre em português do Brasil, em Markdown
-bem formatado, pronto para impressão. Seja objetivo e completo — o material deve
-estar pronto para uso em sala de aula, sem necessidade de edição.`,
+  /* Regras de linguagem por nível da turma (definido em Configurações → Perfil da turma).
+     É o que separa material didático de material técnico: o modelo, sozinho, copia o
+     registro do texto que recebe — e o que ele recebe é jargão de PDT. */
+  NIVEIS: {
+    iniciante: {
+      label: 'Iniciante — nunca viu o assunto',
+      regras: `Os alunos NUNCA tiveram contato com este assunto. Escreva para quem começa do zero:
+- Apresente a IDEIA antes do NOME: explique o conceito com uma situação concreta do dia a dia e só depois diga como ele se chama.
+- Todo termo técnico e toda sigla ganham explicação em linguagem simples na primeira vez que aparecem; sigla sempre expandida por extenso.
+- Se um tópico depende de um pré-requisito, ensine o pré-requisito em duas ou três linhas em vez de supor que o aluno já sabe.
+- Frases curtas e diretas. Prefira a palavra comum à palavra sofisticada.
+- Um conceito novo por vez, cada um seguido de um exemplo concreto.
+- Nenhuma definição sozinha: definição sempre acompanhada de exemplo ou analogia.`,
+    },
+    intermediario: {
+      label: 'Já teve contato com o assunto',
+      regras: `Os alunos já tiveram contato com o assunto, mas não o dominam:
+- Pode usar o vocabulário técnico da área, explicando em poucas palavras os termos menos comuns.
+- Retome rapidamente a base necessária antes de avançar.
+- Priorize exemplos aplicados e a relação entre os conceitos.`,
+    },
+    avancado: {
+      label: 'Avançado — domina a base',
+      regras: `Os alunos dominam a base da área:
+- Use o vocabulário técnico livremente, sem parar para explicar o básico.
+- Avance para nuances, casos limite, boas práticas e aplicações profissionais.`,
+    },
+  },
+
+  /* Perfil da turma salvo em Configurações; usado para montar o system prompt. */
+  perfil() {
+    const p = (typeof Storage !== 'undefined' && Storage.getPerfil)
+      ? Storage.getPerfil()
+      : { ...this.PERFIL_PADRAO };
+    return this.NIVEIS[p.nivel] ? p : { ...p, nivel: 'iniciante' };
+  },
+
+  PERFIL_PADRAO: { nivel: 'iniciante', publico: '', obs: '' },
+
+  /* System prompt: base didática fixa + regras do nível da turma.
+     Montado a cada geração para refletir mudanças no perfil sem recarregar a página. */
+  buildSystem() {
+    const p = this.perfil();
+    return `Você é um assistente pedagógico que escreve materiais didáticos para professores brasileiros.
+Responda sempre em português do Brasil, em Markdown bem formatado, pronto para impressão.
+
+## Para quem você escreve
+${this.NIVEIS[p.nivel].regras}${p.publico ? `
+Perfil dos alunos: ${p.publico}` : ''}${p.obs ? `
+Observações do professor sobre a turma: ${p.obs}` : ''}
+
+## Como você escreve
+- O material é para o ALUNO ler e entender sozinho. Nada de meta-instruções do tipo "o professor deve...".
+- Priorize COMPREENSÃO sobre completude: é melhor o aluno entender bem cinco pontos do que ler dez sem entender.
+- Use exemplos concretos e brasileiros, do cotidiano ou do mundo do trabalho do curso.
+- Sem enrolação, sem frases de efeito, sem repetir o que já foi dito.
+- Quando o pedido especificar um formato curto (listas, tópicos, tabelas, slides), estas regras valem para a ESCOLHA DAS PALAVRAS, não para alongar o texto: mantenha o formato pedido.
+- Se o pedido informar um público ou nível próprio, ele prevalece sobre o perfil padrão acima.
+- Entregue o material pronto para uso em sala, sem necessidade de edição.`;
+  },
 
   plano(d) {
     const abertura = d.tipoaula === 'Abertura de unidade';
+    // Aulas vizinhas (vêm preenchidas da Agenda ou da geração em lote): sem elas o
+    // modelo INVENTA o que foi visto antes, e cada aula sai desconectada da anterior.
+    const vizinhas = [
+      d.aulaanterior ? `- Aula anterior (já dada): ${d.aulaanterior}` : '',
+      d.aulaproxima ? `- Próxima aula (ainda não dada): ${d.aulaproxima}` : '',
+    ].filter(Boolean).join('\n');
     return `Gere a AULA COMPLETA, pronta para ser ministrada: o CONTEÚDO em si que será ensinado. NÃO é um plano de aula, NÃO é um roteiro de instruções ao professor. É o material da aula — explicações, definições, exemplos, tabelas e atividades — desenvolvido para preencher todo o tempo da aula.
 
 - Curso / Disciplina: ${d.disciplina}
 - Duração total da aula: ${d.carga}
 ${d.tipoaula ? `- Tipo de aula: ${d.tipoaula}` : ''}
+${vizinhas}
 
-Baseie-se no bloco abaixo: derive o TÍTULO da aula dele e desenvolva EXATAMENTE os tópicos listados, em profundidade. O bloco indica o módulo e a posição da aula (ex.: "Aulas 1 a 5", "AULA 1") — comece ${abertura ? 'apresentando o tema novo' : 'retomando em poucas linhas o que foi visto na aula anterior'} e termine conectando com a próxima aula. Não acrescente tópicos fora do escopo nem deixe algum de fora.
+Baseie-se no bloco abaixo: derive o TÍTULO da aula dele e desenvolva EXATAMENTE os tópicos listados, com profundidade suficiente para o aluno entender — compreensão vem antes de completude. O bloco indica o módulo e a posição da aula (ex.: "Aulas 1 a 5", "AULA 1") — comece ${abertura ? 'apresentando o tema novo' : (d.aulaanterior ? 'retomando em poucas linhas o que foi visto na aula anterior, citando-a pelo título' : 'retomando em poucas linhas o que foi visto na aula anterior')} e termine ${d.aulaproxima ? 'conectando com a próxima aula, citando-a pelo título' : 'conectando com a próxima aula'}. Não acrescente tópicos fora do escopo nem deixe algum de fora.
 === AULA (PLANO DE CURSO) ===
 ${d.basecurso}
 === FIM ===
@@ -24,7 +87,8 @@ Regras:
 - Divida a aula em SEÇÕES na ordem em que serão trabalhadas, com título temático, ex.: \`## Levantamento de Requisitos\`. NÃO inclua tempos/minutos nos títulos nem no corpo.
 - Em cada seção, ENTREGUE O CONTEÚDO de fato: explique o conceito de forma didática, com exemplos concretos do cotidiano e tabelas quando ajudarem. Escreva o material que o aluno vê/estuda — nada de "o professor deve...", nada de meta-instruções.
 - Inclua ao menos uma ATIVIDADE PRÁTICA para os alunos resolverem e uma VERIFICAÇÃO de aprendizagem (exercícios ou perguntas com respostas), dimensionadas ao tempo.
-- Dimensione a profundidade e a quantidade de exemplos/exercícios para realmente ocupar ${d.carga} de aula.`;
+- Dimensione a profundidade e a quantidade de exemplos/exercícios para realmente ocupar ${d.carga} de aula.${vizinhas ? `
+- CONTINUIDADE: trate o conteúdo da aula anterior como já conhecido — retome, não reensine — e não invada o conteúdo da próxima aula. A retomada e a ponte final devem se referir às aulas informadas acima, nunca a temas inventados.` : ''}`;
   },
 
   curso(d) {

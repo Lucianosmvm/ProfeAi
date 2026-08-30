@@ -149,6 +149,34 @@ input:focus, select:focus, textarea:focus {
 .check { flex-direction: row; align-items: center; gap: 8px; }
 .check input { width: auto; }
 
+/* Divisórias dentro de um formulário longo (ex.: Configurações). */
+.form-section {
+  margin: 10px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  font-size: .95rem;
+}
+.form-section-hint {
+  margin: -12px 0 0;
+  font-size: .82rem;
+  color: var(--text-muted);
+}
+.form-hint {
+  margin: -8px 0 0;
+  font-size: .82rem;
+  color: var(--text-muted);
+}
+.btn-link {
+  font: inherit;
+  font-weight: 600;
+  color: var(--primary);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 .btn-primary {
   font: inherit;
   font-weight: 600;
@@ -413,6 +441,9 @@ input:focus, select:focus, textarea:focus {
     border-radius: 4px;
     text-align: center;
   }
+  /* Sem espaço para o título da aula: fica só o número (A3). */
+  .agenda-aula { font-size: 0; text-align: center; }
+  .agenda-aula b { font-size: .6rem; }
 }
 
 /* Telas bem estreitas: célula mínima, tag vira barra colorida
@@ -432,6 +463,7 @@ input:focus, select:focus, textarea:focus {
     padding: 0;
     border-radius: 3px;
   }
+  .agenda-aula { display: none; }
 }
 
 /* ===== Encadear fluxos ===== */
@@ -517,6 +549,32 @@ input:focus, select:focus, textarea:focus {
   min-width: 170px;
   text-align: center;
 }
+.agenda-modos {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.agenda-modo {
+  font: inherit;
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-radius: 7px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.agenda-modo:hover { color: var(--text); }
+.agenda-modo.active {
+  background: var(--surface);
+  color: var(--primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+}
 .agenda-apply {
   display: flex;
   flex-wrap: wrap;
@@ -592,10 +650,64 @@ input:focus, select:focus, textarea:focus {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.agenda-aula {
+  align-self: stretch;
+  margin-top: 2px;
+  font-size: .62rem;
+  line-height: 1.15;
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.agenda-aula b { color: var(--uc-cor); }
 .agenda-day.selected {
   box-shadow: inset 0 0 0 3px var(--primary);
   border-color: var(--primary);
 }
+.agenda-day.aberto {
+  box-shadow: inset 0 0 0 3px var(--primary);
+}
+
+/* ===== Painel do dia (aula que cai naquela data) ===== */
+.agenda-detail {
+  margin-top: 16px;
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.detail-data { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.detail-uc {
+  color: #fff;
+  font-size: .75rem;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+.detail-close { padding: 4px 10px; }
+.detail-pos { margin: 0; font-size: .8rem; color: var(--text-muted); }
+.detail-titulo { margin: 4px 0 10px; font-size: 1.1rem; }
+.detail-topicos { margin: 0 0 12px; padding-left: 20px; }
+.detail-topicos li { margin-bottom: 4px; }
+.detail-vizinhas {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+  font-size: .8rem;
+  color: var(--text-muted);
+}
+.detail-acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.detail-vazio { margin: 0 0 12px; color: var(--text-muted); }
 .agenda-legend {
   display: flex;
   flex-wrap: wrap;

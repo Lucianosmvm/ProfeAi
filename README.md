@@ -6,6 +6,7 @@ Plataforma web para professores gerarem **planos de aula, atividades, provas e r
 
 ## Funcionalidades
 
+- 👥 **Perfil da turma** — defina uma vez o nível dos alunos (iniciante / já teve contato / avançado) e todo material sai na linguagem certa: termos técnicos explicados, ideia antes do nome, exemplos do cotidiano
 - 📚 **Aula Completa** — o conteúdo da aula pronto para ministrar, dividido em seções temáticas
 - 🧩 **Situação de Aprendizagem** — desafio contextualizado no mundo do trabalho (modelo Senac): contextualização, desafio, percurso, entregas e avaliação formativa
 - 📝 **Gerar Atividade** — múltipla escolha, dissertativa, V/F, projeto ou misto, com gabarito comentado
@@ -15,6 +16,7 @@ Plataforma web para professores gerarem **planos de aula, atividades, provas e r
 - 📊 **Critérios de Avaliação** — avaliação por competências (modelo formativo Senac): indicadores, níveis (Atendeu plenamente/parcialmente/Não atendeu) e parecer descritivo
 - 🔗 **Encadear materiais** — gere um material a partir de outro (ex.: slides ou prova a partir de um plano), mantendo coerência
 - ✏️ **Editar antes de exportar** — ajuste o resultado direto na tela; edições entram no PDF, Word e cópia
+- 📅 **Agenda = cronograma** — marque os dias de cada UC e as aulas do Plano de Curso caem automaticamente nos dias, na ordem: a aula 1 no 1º dia, a aula 2 no 2º, e assim por diante. Clique numa data para ver o conteúdo daquela aula, copiar o bloco ou gerar a Aula Completa já com a aula anterior e a próxima preenchidas
 - 📂 **Histórico** — tudo fica salvo no navegador; duplique e adapte para outra turma
 - 💾 **Backup** — exporte tudo num arquivo `.json` e importe em outro PC/navegador (guarde no Drive, se quiser)
 - ⬇️ **Exportação** — PDF (impressão), Word (.doc) e copiar
@@ -25,7 +27,8 @@ Plataforma web para professores gerarem **planos de aula, atividades, provas e r
 2. Vá em **⚙️ Configurações** e cole sua chave de API:
    - **Google Gemini** (padrão) — grátis, sem cartão: [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
    - **OpenAI** — pago, pré-pago: [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
-3. Escolha um fluxo, preencha os campos e clique em **✨ Gerar**.
+3. Ainda em **⚙️ Configurações**, ajuste o **Perfil da turma** — é ele que define a linguagem de todos os materiais. Se o conteúdo estiver saindo técnico demais, baixe o nível dos alunos aqui.
+4. Escolha um fluxo, preencha os campos e clique em **✨ Gerar**.
 
 A chave fica salva **apenas no seu navegador** (localStorage) e é enviada somente para o provedor de IA escolhido. Nenhum dado passa por servidor próprio.
 

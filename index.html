@@ -114,6 +114,7 @@
               <input type="number" name="aulas" value="32" min="1" max="200" required>
             </label>
           </div>
+          <p class="form-hint" id="curso-agenda-hint" hidden></p>
           <label>Indicadores de competência
             <textarea name="indicadores" rows="4" placeholder="Cole os indicadores do PDT, um por linha…"></textarea>
           </label>
@@ -158,6 +159,15 @@
               </select>
             </label>
           </div>
+          <div class="grid-2">
+            <label>Aula anterior (opcional)
+              <input type="text" name="aulaanterior" placeholder="Ex.: AULA 2 — Modelo Entidade-Relacionamento">
+            </label>
+            <label>Próxima aula (opcional)
+              <input type="text" name="aulaproxima" placeholder="Ex.: AULA 4 — Normalização">
+            </label>
+          </div>
+          <p class="form-hint">Preenchidos sozinhos quando você vem da 📅 Agenda — é o que garante a ligação e a progressão entre as aulas.</p>
           <button type="submit" class="btn-primary">✨ Gerar Aula</button>
         </form>
       </section>
@@ -381,7 +391,7 @@
       <!-- Agenda -->
       <section class="view" id="view-agenda">
         <h1>📅 Agenda</h1>
-        <p class="subtitle">Marque os dias de cada UC. Selecione vários dias, digite a UC e clique em Aplicar.</p>
+        <p class="subtitle">Seu cronograma: cada dia mostra a aula que cai nele. Em <strong>Ver aulas</strong>, clique num dia para abrir o conteúdo e gerar a Aula Completa. Em <strong>Marcar UCs</strong>, selecione dias e aplique a UC.</p>
 
         <div class="agenda-toolbar no-print">
           <div class="agenda-nav">
@@ -390,18 +400,24 @@
             <button type="button" class="btn-secondary" id="agenda-next" aria-label="Próximo mês">›</button>
             <button type="button" class="btn-secondary" id="agenda-today">Hoje</button>
           </div>
-          <div class="agenda-apply">
+          <div class="agenda-modos" role="group" aria-label="Modo da agenda">
+            <button type="button" class="agenda-modo active" data-modo="ver">🔍 Ver aulas</button>
+            <button type="button" class="agenda-modo" data-modo="marcar">✏️ Marcar UCs</button>
+          </div>
+          <div class="agenda-apply" id="agenda-apply" hidden>
             <input type="text" id="agenda-uc" list="uc-list" placeholder="UC (ex.: UC10)" autocomplete="off">
             <button type="button" class="btn-primary" id="agenda-set">✅ Aplicar aos selecionados</button>
             <button type="button" class="btn-secondary" id="agenda-clear">🧹 Limpar selecionados</button>
           </div>
-          <p class="agenda-hint" id="agenda-selinfo">Nenhum dia selecionado. Clique nos dias (ou arraste) para selecionar.</p>
+          <p class="agenda-hint" id="agenda-selinfo"></p>
         </div>
 
         <div class="agenda-weekdays">
           <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
         </div>
         <div class="agenda-grid" id="agenda-grid"></div>
+
+        <div class="agenda-detail" id="agenda-detail" hidden></div>
 
         <div class="agenda-legend" id="agenda-legend"></div>
       </section>
@@ -421,6 +437,20 @@
           <label>Seu nome (para a saudação)
             <input type="text" name="nome" placeholder="Ex.: Luciano">
           </label>
+
+          <h3 class="form-section">👥 Perfil da turma</h3>
+          <p class="form-section-hint">Define a linguagem de <strong>todos</strong> os materiais gerados. Se o conteúdo está saindo técnico demais, ajuste aqui.</p>
+          <label>Nível dos alunos
+            <select name="perfilNivel"></select>
+          </label>
+          <label>Quem são seus alunos (opcional)
+            <input type="text" name="perfilPublico" placeholder="Ex.: curso técnico noturno, adultos que trabalham de dia">
+          </label>
+          <label>Observações sobre a turma (opcional)
+            <textarea name="perfilObs" rows="2" placeholder="Ex.: a maioria nunca programou; traduzir todo termo em inglês"></textarea>
+          </label>
+
+          <h3 class="form-section">🤖 Inteligência Artificial</h3>
           <label>Provedor de IA
             <select name="provider">
               <option value="gemini" selected>Google Gemini (grátis, sem cartão)</option>
@@ -505,6 +535,7 @@
 
   <script src="js/storage.js"></script>
   <script src="js/prompts.js"></script>
+  <script src="js/cronograma.js"></script>
   <script src="js/api.js"></script>
   <script src="js/app.js"></script>
 </body>

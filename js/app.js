@@ -65,6 +65,7 @@
 
     refreshUcList();
     if (name === 'home') renderHome();
+    if (name === 'curso') updateCursoAgendaHint();
     if (name === 'agenda') renderAgenda();
     if (name === 'historico') renderHistory();
     if (name === 'config') loadConfig();
@@ -310,22 +311,25 @@
     bindHistoryActions(box);
   }
 
+  // Abre um item do histórico na tela de Resultado.
+  function openHistoryItem(item) {
+    state.current = { id: item.id, tipo: item.tipo, params: item.params, conteudo: item.conteudo, conteudoHtml: item.conteudoHtml };
+    restoreResultUI(item.tipo);
+    $('#result-title').textContent = Prompts.labels[item.tipo];
+    setEditUI(false);
+    $('#result-content').innerHTML = item.conteudoHtml || marked.parse(item.conteudo);
+    togglePresentBtn(item.tipo);
+    renderChain(item.tipo);
+    renderUsage(item.usage);
+    location.hash = '#/resultado';
+  }
+
   function bindHistoryActions(container) {
     container.querySelectorAll('.history-item').forEach(el => {
       const item = Storage.getHistory().find(i => i.id === el.dataset.id);
       if (!item) return;
 
-      el.querySelector('[data-action="open"]').addEventListener('click', () => {
-        state.current = { id: item.id, tipo: item.tipo, params: item.params, conteudo: item.conteudo, conteudoHtml: item.conteudoHtml };
-        restoreResultUI(item.tipo);
-        $('#result-title').textContent = Prompts.labels[item.tipo];
-        setEditUI(false);
-        $('#result-content').innerHTML = item.conteudoHtml || marked.parse(item.conteudo);
-        togglePresentBtn(item.tipo);
-        renderChain(item.tipo);
-        renderUsage(item.usage);
-        location.hash = '#/resultado';
-      });
+      el.querySelector('[data-action="open"]').addEventListener('click', () => openHistoryItem(item));
 
       el.querySelector('[data-action="dup"]').addEventListener('click', () => {
         // reabre o formulário do tipo com os campos preenchidos para adaptar
@@ -353,6 +357,9 @@
     selected: new Set(),       // datas ISO selecionadas (AAAA-MM-DD)
     painting: false,           // arrasto em andamento
     paintState: true,          // no arrasto: selecionar (true) ou tirar (false)
+    modo: 'ver',               // 'ver' = consultar a aula do dia; 'marcar' = pintar UCs
+    detalhe: null,             // ISO do dia aberto no painel de detalhe
+    crono: {},                 // Cronograma.mapa() do render atual
   };
 
   const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -368,6 +375,20 @@
     return `${y}-${m}-${dd}`;
   }
 
+  // Date('AAAA-MM-DD') é lido como UTC e volta um dia no nosso fuso — monta local.
+  function fromISO(iso) {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  function dataLonga(iso) {
+    const t = fromISO(iso).toLocaleDateString('pt-BR',
+      { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+
+  function rotuloAula(a) { return a ? `AULA ${a.numero} — ${a.titulo}` : ''; }
+
   function corDaUc(uc) {
     const k = ucKey(uc);
     let h = 0;
@@ -376,8 +397,12 @@
   }
 
   function updateAgendaSelInfo() {
-    const n = agenda.selected.size;
     const el = $('#agenda-selinfo');
+    if (agenda.modo === 'ver') {
+      el.textContent = 'Clique em um dia para ver a aula daquele dia.';
+      return;
+    }
+    const n = agenda.selected.size;
     el.textContent = n
       ? `${n} ${n === 1 ? 'dia selecionado' : 'dias selecionados'}.`
       : 'Nenhum dia selecionado. Clique nos dias (ou arraste) para selecionar.';
@@ -391,6 +416,7 @@
     $('#agenda-month').textContent = `${MESES[mes]} de ${ano}`;
 
     const map = Storage.getAgenda();
+    agenda.crono = Cronograma.mapa();
     const primeiro = new Date(ano, mes, 1);
     const diasNoMes = new Date(ano, mes + 1, 0).getDate();
     const hojeISO = toISO(new Date());
@@ -402,13 +428,20 @@
     for (let dia = 1; dia <= diasNoMes; dia++) {
       const iso = toISO(new Date(ano, mes, dia));
       const uc = map[iso];
+      const info = agenda.crono[iso];
       const sel = agenda.selected.has(iso);
       const hoje = iso === hojeISO;
+      const aberto = iso === agenda.detalhe;
       const style = uc ? ` style="--uc-cor:${corDaUc(uc)}"` : '';
-      html += `<div class="agenda-day${uc ? ' has-uc' : ''}${sel ? ' selected' : ''}${hoje ? ' today' : ''}"`
-        + ` data-date="${iso}"${style}>`
+      const rotulo = info ? rotuloAula(info.aula) : '';
+      html += `<div class="agenda-day${uc ? ' has-uc' : ''}${sel ? ' selected' : ''}${hoje ? ' today' : ''}`
+        + `${info ? ' tem-aula' : ''}${aberto ? ' aberto' : ''}"`
+        + ` data-date="${iso}"${style}${rotulo ? ` title="${escapeHtml(rotulo)}"` : ''}>`
         + `<span class="agenda-daynum">${dia}</span>`
         + (uc ? `<span class="agenda-uctag">${escapeHtml(uc)}</span>` : '')
+        + (info
+          ? `<span class="agenda-aula"><b>A${escapeHtml(info.aula.numero)}</b> ${escapeHtml(info.aula.titulo)}</span>`
+          : '')
         + '</div>';
     }
     grid.innerHTML = html;
@@ -428,7 +461,113 @@
           .join('')
       : '';
 
+    renderAgendaDetalhe();
     updateAgendaSelInfo();
+  }
+
+  /* ===== Painel do dia: mostra a aula que cai naquela data ===== */
+  function renderAgendaDetalhe() {
+    const box = $('#agenda-detail');
+    const iso = agenda.detalhe;
+    if (!iso) { box.hidden = true; box.innerHTML = ''; return; }
+
+    const uc = Storage.getAgenda()[iso] || '';
+    const info = agenda.crono[iso];
+    box.hidden = false;
+
+    let corpo;
+    if (!uc) {
+      corpo = '<p class="detail-vazio">Nenhuma UC marcada neste dia. Use <strong>✏️ Marcar UCs</strong> para marcar.</p>';
+    } else if (info) {
+      const a = info.aula;
+      const gerada = Cronograma.aulaGerada(uc, a);
+      corpo = `
+        <p class="detail-pos">Aula ${info.indice + 1} de ${info.total}${a.modulo ? ` · ${escapeHtml(a.modulo)}` : ''}</p>
+        <h3 class="detail-titulo">AULA ${escapeHtml(a.numero)} — ${escapeHtml(a.titulo)}</h3>
+        <ul class="detail-topicos">${a.bullets
+          .map(b => `<li>${escapeHtml(b.replace(/^[-*•]\s*/, ''))}</li>`).join('')}</ul>
+        <div class="detail-vizinhas">
+          ${info.anterior ? `<span>⬅️ Antes: ${escapeHtml(rotuloAula(info.anterior))}</span>` : ''}
+          ${info.proxima ? `<span>➡️ Depois: ${escapeHtml(rotuloAula(info.proxima))}</span>` : ''}
+        </div>
+        <div class="detail-acoes">
+          <button type="button" class="btn-secondary" data-act="copiar">📋 Copiar bloco</button>
+          ${gerada
+            ? '<button type="button" class="btn-primary" data-act="abrir">📂 Abrir aula gerada</button>'
+              + '<button type="button" class="btn-secondary" data-act="gerar">🔄 Gerar de novo</button>'
+            : '<button type="button" class="btn-primary" data-act="gerar">📚 Gerar Aula Completa</button>'}
+        </div>`;
+    } else {
+      const r = Cronograma.resumo(uc);
+      const pos = Cronograma.dias(uc).indexOf(iso) + 1;
+      corpo = r.plano
+        ? `<p class="detail-vazio">Este é o ${pos}º dia de ${escapeHtml(uc)} na Agenda, mas o Plano de Curso tem só ${r.aulas} aulas.
+             ${r.diasSemAula} ${r.diasSemAula === 1 ? 'dia ficou' : 'dias ficaram'} sem aula — gere um Plano de Curso com ${r.dias} aulas
+             ou tire a marcação destes dias.</p>
+           <div class="detail-acoes"><button type="button" class="btn-secondary" data-act="ir-curso">📋 Ir para Plano de Curso</button></div>`
+        : `<p class="detail-vazio">Ainda não há Plano de Curso para <strong>${escapeHtml(uc)}</strong>.
+             Gere um usando esse mesmo código de UC e as aulas aparecem aqui sozinhas, uma por dia marcado.</p>
+           <div class="detail-acoes"><button type="button" class="btn-secondary" data-act="ir-curso">📋 Ir para Plano de Curso</button></div>`;
+    }
+
+    box.innerHTML = `
+      <div class="detail-head">
+        <div class="detail-data">
+          <strong>${escapeHtml(dataLonga(iso))}</strong>
+          ${uc ? `<span class="detail-uc" style="background:${corDaUc(uc)}">${escapeHtml(uc)}</span>` : ''}
+        </div>
+        <button type="button" class="btn-secondary detail-close" data-act="fechar" aria-label="Fechar">✕</button>
+      </div>
+      ${corpo}`;
+
+    box.querySelectorAll('[data-act]').forEach(b => {
+      b.addEventListener('click', () => acaoDetalhe(b.dataset.act, iso, uc, info, b));
+    });
+  }
+
+  async function acaoDetalhe(act, iso, uc, info, btn) {
+    if (act === 'fechar') {
+      agenda.detalhe = null;
+      renderAgenda();
+      return;
+    }
+    if (act === 'ir-curso') {
+      $('#form-curso').elements.uc.value = uc;
+      updateCursoAgendaHint();
+      location.hash = '#/curso';
+      return;
+    }
+    if (!info) return;
+
+    if (act === 'copiar') {
+      try {
+        await navigator.clipboard.writeText(info.aula.blockText);
+        flash(btn, '✅ Copiado!');
+      } catch {
+        flash(btn, '⚠️ Não foi possível copiar');
+      }
+      return;
+    }
+    if (act === 'abrir') {
+      const item = Cronograma.aulaGerada(uc, info.aula);
+      if (item) openHistoryItem(item);
+      return;
+    }
+    if (act === 'gerar') prefillPlanoDaAgenda(uc, info);
+  }
+
+  /* Leva o bloco da aula (e as aulas vizinhas) para o formulário de Aula Completa. */
+  function prefillPlanoDaAgenda(uc, info) {
+    const form = $('#form-plano');
+    const p = info.plano.params || {};
+    form.elements.uc.value = uc;
+    form.elements.basecurso.value = info.aula.blockText;
+    if (p.unidade) form.elements.disciplina.value = p.unidade;
+    if (p.duracao) form.elements.carga.value = p.duracao;
+    form.elements.tipoaula.value = info.indice === 0 ? 'Abertura de unidade' : 'Conteúdo novo';
+    form.elements.aulaanterior.value = rotuloAula(info.anterior);
+    form.elements.aulaproxima.value = rotuloAula(info.proxima);
+    location.hash = '#/plano';
   }
 
   function paintDay(el) {
@@ -444,6 +583,7 @@
     if (!grid) return;
 
     grid.addEventListener('pointerdown', e => {
+      if (agenda.modo !== 'marcar') return;
       const day = e.target.closest('.agenda-day');
       if (!day) return;
       e.preventDefault();
@@ -453,11 +593,33 @@
       updateAgendaSelInfo();
     });
     grid.addEventListener('pointerover', e => {
-      if (!agenda.painting) return;
+      if (agenda.modo !== 'marcar' || !agenda.painting) return;
       const day = e.target.closest('.agenda-day');
       if (day) { paintDay(day); updateAgendaSelInfo(); }
     });
     document.addEventListener('pointerup', () => { agenda.painting = false; });
+
+    // Modo "ver aulas": clicar em um dia abre o painel com a aula daquela data.
+    grid.addEventListener('click', e => {
+      if (agenda.modo !== 'ver') return;
+      const day = e.target.closest('.agenda-day');
+      if (!day) return;
+      agenda.detalhe = agenda.detalhe === day.dataset.date ? null : day.dataset.date;
+      renderAgenda();
+      if (agenda.detalhe) $('#agenda-detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+
+    $$('.agenda-modo').forEach(btn => {
+      btn.addEventListener('click', () => {
+        agenda.modo = btn.dataset.modo;
+        $$('.agenda-modo').forEach(b => b.classList.toggle('active', b === btn));
+        $('#agenda-apply').hidden = agenda.modo !== 'marcar';
+        // Cada modo começa limpo: nada selecionado, nenhum dia aberto.
+        agenda.selected.clear();
+        agenda.detalhe = null;
+        renderAgenda();
+      });
+    });
 
     $('#agenda-prev').addEventListener('click', () => {
       agenda.view = new Date(agenda.view.getFullYear(), agenda.view.getMonth() - 1, 1);
@@ -491,6 +653,31 @@
     });
   })();
 
+  /* ===== Plano de Curso: nº de aulas a partir da Agenda ===== */
+  function updateCursoAgendaHint() {
+    const form = $('#form-curso');
+    const hint = $('#curso-agenda-hint');
+    if (!form || !hint) return;
+    const uc = form.elements.uc.value.trim();
+    const dias = uc ? Cronograma.dias(uc).length : 0;
+    if (!dias) { hint.hidden = true; hint.innerHTML = ''; return; }
+
+    hint.hidden = false;
+    const igual = Number(form.elements.aulas.value) === dias;
+    hint.innerHTML = `📅 Você marcou <strong>${dias}</strong> ${dias === 1 ? 'dia' : 'dias'} de `
+      + `${escapeHtml(uc)} na Agenda.`
+      + (igual ? ' O nº de aulas bate — cada aula cai em um dia.'
+               : ` <button type="button" class="btn-link" id="curso-usar-dias">Usar ${dias} aulas</button>`);
+    const btn = $('#curso-usar-dias');
+    if (btn) btn.addEventListener('click', () => {
+      form.elements.aulas.value = dias;
+      updateCursoAgendaHint();
+    });
+  }
+
+  $('#form-curso').elements.uc.addEventListener('input', updateCursoAgendaHint);
+  $('#form-curso').elements.aulas.addEventListener('input', updateCursoAgendaHint);
+
   /* ===== Configurações ===== */
   function fillProviderFields(provider) {
     const form = $('#form-config');
@@ -506,6 +693,14 @@
   function loadConfig() {
     const form = $('#form-config');
     form.elements.nome.value = Storage.getNome();
+
+    const perfil = Storage.getPerfil();
+    form.elements.perfilNivel.innerHTML = Object.entries(Prompts.NIVEIS)
+      .map(([id, n]) => `<option value="${id}">${escapeHtml(n.label)}</option>`).join('');
+    form.elements.perfilNivel.value = perfil.nivel;
+    form.elements.perfilPublico.value = perfil.publico;
+    form.elements.perfilObs.value = perfil.obs;
+
     form.elements.provider.value = Storage.getProvider();
     fillProviderFields(Storage.getProvider());
 
@@ -522,6 +717,7 @@
     e.preventDefault();
     const d = formToObj(e.target);
     Storage.setNome(d.nome);
+    Storage.setPerfil({ nivel: d.perfilNivel, publico: d.perfilPublico, obs: d.perfilObs });
     Storage.setProvider(d.provider);
     Storage.setApiKey(d.apiKey, d.provider);
     Storage.setModel(d.model, d.provider);
@@ -734,6 +930,9 @@
         carga: cargaAula,
         tipoaula: i === 0 ? 'Abertura de unidade' : 'Conteúdo novo',
         basecurso: a.blockText,
+        // Sem os vizinhos o modelo inventa o que veio antes e cada aula sai solta.
+        aulaanterior: rotuloAula(aulas[i - 1]),
+        aulaproxima: rotuloAula(aulas[i + 1]),
       };
       const titulo = `Plano: AULA ${a.numero} — ${a.titulo}`;
 
