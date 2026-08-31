@@ -9,6 +9,7 @@ const Storage = {
     history: 'profe_history',
     stats: 'profe_stats',
     agenda: 'profe_agenda',
+    ucs: 'profe_ucs',
   },
 
   DEFAULT_MODELS: {
@@ -113,6 +114,47 @@ const Storage = {
     this.saveAgenda(map);
   },
 
+  /* ===== Descritivo do PDT por UC =====
+     O mesmo descritivo serve para todo material daquela UC (curso, situação,
+     rubrica...). Guardado uma vez, é reaproveitado nas próximas gerações em vez
+     de o professor colar o PDT de novo a cada material.
+     Mapa { "UC10": { descritivo, unidade, carga, duracao, aulas, atualizado } } */
+  getUcs() {
+    try {
+      return JSON.parse(localStorage.getItem(this.KEYS.ucs)) || {};
+    } catch {
+      return {};
+    }
+  },
+
+  saveUcs(map) {
+    localStorage.setItem(this.KEYS.ucs, JSON.stringify(map));
+  },
+
+  // Chave normalizada: "uc 10", "UC10" e "Uc-10" são a mesma UC.
+  ucKey(uc) {
+    return (uc || '').trim().toUpperCase().replace(/[\s\-_.]+/g, '');
+  },
+
+  getUc(uc) {
+    const k = this.ucKey(uc);
+    return k ? this.getUcs()[k] || null : null;
+  },
+
+  setUc(uc, dados) {
+    const k = this.ucKey(uc);
+    if (!k) return;
+    const map = this.getUcs();
+    map[k] = { ...(map[k] || {}), ...dados, rotulo: (uc || '').trim(), atualizado: new Date().toISOString() };
+    this.saveUcs(map);
+  },
+
+  removeUc(uc) {
+    const map = this.getUcs();
+    delete map[this.ucKey(uc)];
+    this.saveUcs(map);
+  },
+
   /* Contadores de uso: nº de gerações e total de tokens gastos neste navegador. */
   getStats() {
     try {
@@ -143,6 +185,7 @@ const Storage = {
       stats: this.getStats(),
       history: this.getHistory(),
       agenda: this.getAgenda(),
+      ucs: this.getUcs(),
     };
   },
 
@@ -162,6 +205,11 @@ const Storage = {
     if (data.agenda && typeof data.agenda === 'object') {
       const atual = merge ? this.getAgenda() : {};
       this.saveAgenda({ ...atual, ...data.agenda });
+    }
+
+    if (data.ucs && typeof data.ucs === 'object') {
+      const atual = merge ? this.getUcs() : {};
+      this.saveUcs({ ...atual, ...data.ucs });
     }
 
     if (Array.isArray(data.history)) {

@@ -166,6 +166,25 @@ input:focus, select:focus, textarea:focus {
   font-size: .82rem;
   color: var(--text-muted);
 }
+
+/* Campos por seção do PDT: só aparecem para quem quiser separar na mão. */
+.form-avancado {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0 16px;
+  background: var(--bg);
+}
+.form-avancado > summary {
+  cursor: pointer;
+  padding: 12px 0;
+  font-size: .9rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.form-avancado[open] > summary { margin-bottom: 4px; }
+.form-avancado > *:not(summary) { margin-bottom: 16px; }
+.form-avancado textarea { background: var(--surface); }
+
 .aviso-truncado {
   margin-top: 20px;
   padding: 14px 16px;

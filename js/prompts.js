@@ -98,6 +98,9 @@ Regras:
 - Carga horária total: ${d.carga}
 - Duração de cada aula: ${d.duracao}
 - Número EXATO de aulas do curso inteiro: ${d.aulas}
+${d.descritivo ? `
+DESCRITIVO DA UC (colado direto do PDT — vem cru e desorganizado, com indicadores, conhecimentos, habilidades e atitudes misturados; identifique você mesmo o que é cada coisa e use TUDO):
+${d.descritivo}` : ''}
 ${d.indicadores ? `\nINDICADORES DE COMPETÊNCIA:\n${d.indicadores}` : ''}
 ${d.conhecimentos ? `\nCONHECIMENTOS:\n${d.conhecimentos}` : ''}
 ${d.habilidades ? `\nHABILIDADES:\n${d.habilidades}` : ''}

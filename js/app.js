@@ -36,6 +36,13 @@
       const k = ucKey(raw);
       if (!map.has(k)) map.set(k, raw);
     });
+    // E as UCs com descritivo do PDT guardado.
+    Object.values(Storage.getUcs()).forEach(u => {
+      const raw = (u.rotulo || '').trim();
+      if (!raw) return;
+      const k = ucKey(raw);
+      if (!map.has(k)) map.set(k, raw);
+    });
     return [...map.values()].sort((a, b) =>
       a.localeCompare(b, 'pt-BR', { numeric: true, sensitivity: 'base' }));
   }
@@ -65,7 +72,8 @@
 
     refreshUcList();
     if (name === 'home') renderHome();
-    if (name === 'curso') updateCursoAgendaHint();
+    if (name === 'curso') { updateCursoAgendaHint(); restaurarUcNoCurso(); }
+    if (UC_DESTINOS[name]) atualizarUcHint(name);
     if (name === 'agenda') renderAgenda();
     if (name === 'historico') renderHistory();
     if (name === 'config') loadConfig();
@@ -284,7 +292,7 @@
       e.preventDefault();
       const params = formToObj(e.target);
       // Curso longo não cabe numa resposta só: vai em lotes de aulas.
-      if (tipo === 'curso') generateCurso(params);
+      if (tipo === 'curso') { guardarUcDoCurso(params); generateCurso(params); }
       else generate(tipo, params);
     });
   });
@@ -815,6 +823,228 @@
 
   $('#form-curso').elements.uc.addEventListener('input', updateCursoAgendaHint);
   $('#form-curso').elements.aulas.addEventListener('input', updateCursoAgendaHint);
+
+  /* ===== Plano de Curso: cabeçalho lido do descritivo colado =====
+     O bloco que o professor cola do PDT quase sempre já traz o nome da UC, a
+     carga horária e o nº de aulas. Redigitar o que acabou de ser colado é
+     trabalho à toa — então a gente lê de lá e só pede confirmação. */
+
+  // Só mexe em campo vazio; 'aulas' tem valor padrão, conta como vazio se intocado.
+  function campoVago(el) {
+    return el.name === 'aulas' ? el.value === el.defaultValue : !el.value.trim();
+  }
+
+  /* "2h30", "2,5 h" e "2:30" viram horas decimais — e voltam formatados. */
+  function horasDecimais(num, sep, frac) {
+    const h = Number(num);
+    if (frac === undefined) return h;
+    const min = (sep === ',' || sep === '.')
+      ? Math.round(Number('0.' + frac) * 60)
+      : Number(frac);
+    return h + min / 60;
+  }
+
+  function formatarDuracao(dec) {
+    const h = Math.floor(dec);
+    const m = Math.round((dec - h) * 60);
+    return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+  }
+
+  function acharUnidade(t) {
+    const linhas = t.split('\n').map(l => l.trim()).filter(Boolean);
+    for (let i = 0; i < linhas.length; i++) {
+      if (!/unidade\s+curricular|^uc\s*\d/i.test(linhas[i])) continue;
+      let nome = linhas[i].replace(/^[-•*\s]+/, '').replace(/[:;.\s]+$/, '');
+      // "UNIDADE CURRICULAR 10" sozinha na linha: o nome vem na linha de baixo.
+      if (/^(unidade\s+curricular|uc)\s*n?[ºo°]?\s*\d*$/i.test(nome) && linhas[i + 1]) {
+        nome += ' — ' + linhas[i + 1].replace(/^[-•*\s]+/, '').replace(/[:;.\s]+$/, '');
+      }
+      if (nome.length <= 160) return nome;
+    }
+    return '';
+  }
+
+  function acharCarga(t) {
+    const m = t.match(/carga\s+hor[áa]ria[^\d]{0,30}(\d{1,4})/i);
+    return m ? `${m[1]} horas` : '';
+  }
+
+  function acharDuracao(t) {
+    const m = t.match(/(?:dura[çc][ãa]o|cada\s+aula|por\s+aula|aulas?\s+de)[^\d]{0,20}(\d{1,2})(?:\s*([h:.,])\s*(\d{1,2}))?/i);
+    if (!m) return '';
+    const dec = horasDecimais(m[1], m[2], m[3]);
+    return dec > 0 && dec <= 12 ? formatarDuracao(dec) : '';
+  }
+
+  function acharAulas(t, carga, duracao) {
+    const m = t.match(/(\d{1,3})\s*aulas\b/i);
+    if (m) return m[1];
+    // Sem nº explícito: carga total dividida pela duração de cada aula.
+    const ch = Number((carga.match(/\d{1,4}/) || [])[0]);
+    const dm = duracao.match(/(\d{1,2})(?:\s*([h:.,])\s*(\d{1,2}))?/);
+    if (!ch || !dm) return '';
+    const dh = horasDecimais(dm[1], dm[2], dm[3]);
+    const n = dh > 0 ? Math.floor(ch / dh) : 0;
+    return n >= 1 && n <= 200 ? String(n) : '';
+  }
+
+  const cursoAuto = { preenchidos: null };
+
+  function autofillCurso() {
+    const form = $('#form-curso');
+    const hint = $('#curso-autofill-hint');
+    const texto = form.elements.descritivo.value;
+    if (texto.trim().length < 40) return;
+
+    const carga = acharCarga(texto);
+    const duracao = acharDuracao(texto);
+    const achados = {
+      unidade: acharUnidade(texto),
+      carga,
+      duracao,
+      aulas: acharAulas(texto, carga, duracao),
+    };
+
+    const antes = {};
+    Object.entries(achados).forEach(([nome, valor]) => {
+      const el = form.elements[nome];
+      if (!valor || !campoVago(el)) return;
+      antes[nome] = el.value;
+      el.value = valor;
+    });
+
+    const nomes = Object.keys(antes);
+    if (!nomes.length) return;
+    cursoAuto.preenchidos = antes;
+    updateCursoAgendaHint();
+
+    const rotulos = { unidade: 'Unidade Curricular', carga: 'carga horária', duracao: 'duração da aula', aulas: 'nº de aulas' };
+    hint.hidden = false;
+    hint.innerHTML = `✍️ Preenchi <strong>${nomes.map(n => rotulos[n]).join('</strong>, <strong>')}</strong> `
+      + 'a partir do texto colado — confira antes de gerar. '
+      + '<button type="button" class="btn-link" id="curso-desfazer">Desfazer</button>';
+    $('#curso-desfazer').addEventListener('click', () => {
+      Object.entries(cursoAuto.preenchidos || {}).forEach(([nome, valor]) => {
+        form.elements[nome].value = valor;
+      });
+      cursoAuto.preenchidos = null;
+      hint.hidden = true;
+      updateCursoAgendaHint();
+    });
+  }
+
+  $('#form-curso').elements.descritivo.addEventListener('input', autofillCurso);
+
+  /* ===== Descritivo do PDT guardado por UC =====
+     Colado uma vez no Plano de Curso, volta sozinho nas próximas gerações da
+     mesma UC — inclusive nos outros formulários, que só precisam de um clique. */
+
+  // "Unidade Curricular 10 — Desenvolver Banco de Dados" -> "Desenvolver Banco de Dados"
+  function nomeCurtoUc(unidade) {
+    const t = (unidade || '').trim();
+    const m = t.match(/[—–-]\s*(.+)$/);
+    const nome = m ? m[1].trim() : t.replace(/^(unidade\s+curricular|uc)\s*n?[ºo°]?\s*\d*\s*[:.]?\s*/i, '').trim();
+    return nome || t;
+  }
+
+  function guardarUcDoCurso(p) {
+    if (!p.uc || !p.descritivo || !p.descritivo.trim()) return;
+    Storage.setUc(p.uc, {
+      descritivo: p.descritivo,
+      unidade: p.unidade,
+      carga: p.carga,
+      duracao: p.duracao,
+      aulas: p.aulas,
+    });
+  }
+
+  // Data curta ("12/03") para o professor saber de quando é o descritivo salvo.
+  function dataCurta(iso) {
+    const d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  }
+
+  /* Plano de Curso: ao digitar uma UC já conhecida, traz o descritivo de volta. */
+  function restaurarUcNoCurso() {
+    const form = $('#form-curso');
+    const hint = $('#curso-uc-hint');
+    const salvo = Storage.getUc(form.elements.uc.value);
+    if (!salvo || !salvo.descritivo || form.elements.descritivo.value.trim()) {
+      hint.hidden = true;
+      return;
+    }
+
+    const antes = {};
+    ['descritivo', 'unidade', 'carga', 'duracao', 'aulas'].forEach(nome => {
+      const el = form.elements[nome];
+      if (!salvo[nome] || !campoVago(el)) return;
+      antes[nome] = el.value;
+      el.value = salvo[nome];
+    });
+    if (!Object.keys(antes).length) { hint.hidden = true; return; }
+
+    updateCursoAgendaHint();
+    $('#curso-autofill-hint').hidden = true;
+    hint.hidden = false;
+    hint.innerHTML = `📦 Descritivo desta UC recuperado${salvo.atualizado ? ` (salvo em ${dataCurta(salvo.atualizado)})` : ''}. `
+      + '<button type="button" class="btn-link" id="curso-uc-limpar">Limpar e colar outro</button>';
+    $('#curso-uc-limpar').addEventListener('click', () => {
+      Object.entries(antes).forEach(([nome, valor]) => { form.elements[nome].value = valor; });
+      hint.hidden = true;
+      updateCursoAgendaHint();
+    });
+  }
+
+  /* Demais formulários: campo de texto que aceita o descritivo do PDT.
+     Aqui não preenche sozinho — o professor decide, porque esses campos também
+     aceitam um recorte menor que o descritivo inteiro. */
+  const UC_DESTINOS = {
+    plano: { disciplina: true },
+    situacao: { disciplina: true, campo: 'competencias' },
+    atividade: { disciplina: true },
+    prova: { disciplina: true },
+    slides: { disciplina: true },
+    rubrica: { disciplina: true, campo: 'indicadores' },
+  };
+
+  function atualizarUcHint(tipo) {
+    const cfg = UC_DESTINOS[tipo];
+    const form = $(`#form-${tipo}`);
+    const hint = $(`#${tipo}-uc-hint`);
+    if (!cfg || !form || !hint) return;
+
+    const salvo = Storage.getUc(form.elements.uc.value);
+    if (!salvo || !salvo.descritivo) { hint.hidden = true; return; }
+
+    const nome = nomeCurtoUc(salvo.unidade);
+    hint.hidden = false;
+    hint.innerHTML = `📦 Descritivo do PDT salvo${nome ? ` — <strong>${escapeHtml(nome)}</strong>` : ''}. `
+      + `<button type="button" class="btn-link" id="${tipo}-uc-usar">Usar aqui</button>`;
+    $(`#${tipo}-uc-usar`).addEventListener('click', () => {
+      if (cfg.disciplina && form.elements.disciplina && !form.elements.disciplina.value.trim()) {
+        form.elements.disciplina.value = nome;
+      }
+      if (cfg.campo && form.elements[cfg.campo]) {
+        const el = form.elements[cfg.campo];
+        el.value = el.value.trim() ? `${el.value.trim()}\n\n${salvo.descritivo}` : salvo.descritivo;
+      }
+      hint.hidden = true;
+    });
+  }
+
+  // Cria o parágrafo de aviso logo abaixo do campo UC de cada formulário.
+  Object.keys(UC_DESTINOS).forEach(tipo => {
+    const form = $(`#form-${tipo}`);
+    if (!form) return;
+    const p = document.createElement('p');
+    p.className = 'form-hint';
+    p.id = `${tipo}-uc-hint`;
+    p.hidden = true;
+    form.elements.uc.closest('label').after(p);
+    form.elements.uc.addEventListener('input', () => atualizarUcHint(tipo));
+  });
+
+  $('#form-curso').elements.uc.addEventListener('input', restaurarUcNoCurso);
 
   /* ===== Configurações ===== */
   function fillProviderFields(provider) {

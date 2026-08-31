@@ -100,6 +100,7 @@
           <label class="uc-field">📦 UC — código para agrupar no histórico
             <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
           </label>
+          <p class="form-hint" id="curso-uc-hint" hidden></p>
           <label>Unidade Curricular
             <input type="text" name="unidade" placeholder="Ex.: Unidade Curricular 10 — Desenvolver Banco de Dados" required>
           </label>
@@ -115,18 +116,26 @@
             </label>
           </div>
           <p class="form-hint" id="curso-agenda-hint" hidden></p>
-          <label>Indicadores de competência
-            <textarea name="indicadores" rows="4" placeholder="Cole os indicadores do PDT, um por linha…"></textarea>
+          <label>Descritivo da Unidade Curricular (do PDT)
+            <textarea name="descritivo" rows="10" placeholder="Selecione o bloco inteiro da UC no PDT (indicadores, conhecimentos, habilidades, atitudes) e cole tudo aqui de uma vez — não precisa separar."></textarea>
           </label>
-          <label>Conhecimentos
-            <textarea name="conhecimentos" rows="6" placeholder="Cole a lista de conhecimentos do PDT…"></textarea>
-          </label>
-          <label>Habilidades
-            <textarea name="habilidades" rows="3" placeholder="Cole as habilidades do PDT…"></textarea>
-          </label>
-          <label>Atitudes / Valores
-            <textarea name="atitudes" rows="3" placeholder="Cole as atitudes/valores do PDT…"></textarea>
-          </label>
+          <p class="form-hint" id="curso-autofill-hint" hidden></p>
+          <details class="form-avancado">
+            <summary>Ajuste fino — separar por seção (opcional)</summary>
+            <p class="form-hint">Só preencha se quiser controlar cada seção. O que você escrever aqui é somado ao descritivo acima.</p>
+            <label>Indicadores de competência
+              <textarea name="indicadores" rows="4" placeholder="Um indicador por linha…"></textarea>
+            </label>
+            <label>Conhecimentos
+              <textarea name="conhecimentos" rows="6" placeholder="Lista de conhecimentos…"></textarea>
+            </label>
+            <label>Habilidades
+              <textarea name="habilidades" rows="3" placeholder="Habilidades…"></textarea>
+            </label>
+            <label>Atitudes / Valores
+              <textarea name="atitudes" rows="3" placeholder="Atitudes e valores…"></textarea>
+            </label>
+          </details>
           <button type="submit" class="btn-primary">✨ Gerar Plano de Curso</button>
         </form>
       </section>
