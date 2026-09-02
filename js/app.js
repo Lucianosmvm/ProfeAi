@@ -55,7 +55,7 @@
   }
 
   /* ===== Roteamento ===== */
-  const routes = ['home', 'curso', 'plano', 'situacao', 'atividade', 'prova', 'slides', 'adaptar', 'rubrica', 'agenda', 'historico', 'config', 'resultado'];
+  const routes = ['home', 'curso', 'plano', 'roteiro', 'situacao', 'atividade', 'prova', 'slides', 'adaptar', 'rubrica', 'agenda', 'historico', 'config', 'resultado'];
 
   function route() {
     const hash = location.hash.replace('#/', '') || 'home';
@@ -287,7 +287,7 @@
     return data;
   }
 
-  ['curso', 'plano', 'situacao', 'atividade', 'prova', 'slides', 'adaptar', 'rubrica'].forEach(tipo => {
+  ['curso', 'plano', 'roteiro', 'situacao', 'atividade', 'prova', 'slides', 'adaptar', 'rubrica'].forEach(tipo => {
     $(`#form-${tipo}`).addEventListener('submit', e => {
       e.preventDefault();
       const params = formToObj(e.target);
@@ -1000,6 +1000,7 @@
      aceitam um recorte menor que o descritivo inteiro. */
   const UC_DESTINOS = {
     plano: { disciplina: true },
+    roteiro: { disciplina: true },
     situacao: { disciplina: true, campo: 'competencias' },
     atividade: { disciplina: true },
     prova: { disciplina: true },
@@ -1149,6 +1150,7 @@
 
   function togglePresentBtn(tipo) {
     $('#btn-present').hidden = tipo !== 'slides';
+    $('#btn-modoaula').hidden = tipo !== 'roteiro';
   }
 
   /* ===== Encadear fluxos ===== */
@@ -1351,6 +1353,20 @@
       return;
     }
 
+    // Roteiro: abre o formulário para o professor confirmar duração e recursos —
+    // são eles que decidem o corte das etapas, e não estão no material base.
+    if (target === 'roteiro') {
+      const form = $('#form-roteiro');
+      const p = state.current.params || {};
+      form.elements.basematerial.value = srcText;
+      if (p.disciplina) form.elements.disciplina.value = p.disciplina;
+      if (p.tema) form.elements.tema.value = p.tema;
+      if (p.carga) form.elements.carga.value = p.carga;
+      if (uc) form.elements.uc.value = uc;
+      location.hash = '#/roteiro';
+      return;
+    }
+
     // Slides: abre o formulário para o professor definir o nº de slides antes de gerar.
     if (target === 'slides') {
       const form = $('#form-slides');
@@ -1413,6 +1429,212 @@
   document.addEventListener('fullscreenchange', () => {
     // Sair do fullscreen (Esc do navegador) também fecha o overlay.
     if (!document.fullscreenElement && !$('#reveal-overlay').hidden) closePresent();
+  });
+
+  /* ===== Modo Aula =====
+     Executa o Roteiro em sala: uma etapa por tela, com cronômetro regressivo.
+     O cronômetro é regressivo mas NÃO trava no zero — vira contagem positiva em
+     vermelho, porque em sala a etapa estourar é informação, não erro. */
+  const aula = {
+    etapas: [],       // [{ titulo, min, corpo, cor, tag }]
+    i: 0,
+    resta: 0,         // segundos restantes da etapa (negativo = estourou)
+    decorrido: 0,     // segundos de aula com o cronômetro rodando
+    planejado: 0,     // soma dos minutos das etapas
+    rodando: false,
+    tick: null,
+  };
+
+  // Uma cor por etapa, ciclando — é o 🟢/🔵/🟠 do roteiro virando sinal visual.
+  const AULA_CORES = ['#16a34a', '#2563eb', '#ea580c', '#7c3aed', '#dc2626', '#0891b2', '#ca8a04'];
+
+  function mmss(seg) {
+    const neg = seg < 0;
+    const s = Math.abs(Math.round(seg));
+    return (neg ? '+' : '') + String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  }
+
+  function duracaoLonga(min) {
+    if (min < 60) return `${min} min`;
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+  }
+
+  /* Monta a sequência que o professor percorre: briefing (objetivo, competências,
+     materiais) + etapas cronometradas + tarefa de casa. Briefing e tarefa entram
+     com 0 min — são leitura, não etapa de aula. */
+  function montarEtapasAula(md) {
+    const r = Prompts.parseEtapas(md);
+    if (!r.etapas.length) return null;
+
+    const lista = [];
+    // O "# Título" já aparece na barra de cima; repetir no briefing só rouba espaço.
+    const briefing = r.cabecalho.replace(/^#\s+.*$/m, '').trim();
+    if (briefing) {
+      lista.push({ titulo: 'Antes de começar', min: 0, corpo: briefing, cor: '#475569', tag: '🎯 Preparação' });
+    }
+    r.etapas.forEach((e, k) => {
+      lista.push({
+        titulo: e.titulo || `Etapa ${e.numero}`,
+        min: e.min,
+        corpo: e.corpo,
+        cor: AULA_CORES[k % AULA_CORES.length],
+        tag: `Etapa ${e.numero}`,
+      });
+    });
+    if (r.tarefa) {
+      lista.push({ titulo: 'Tarefa para casa', min: 0, corpo: r.tarefa, cor: '#475569', tag: '🏠 Casa' });
+    }
+    return { lista, planejado: r.total };
+  }
+
+  function abrirModoAula() {
+    if (!state.current?.conteudo || state.generating) return;
+    /* Aqui, ao contrário dos outros botões, se lê o markdown BRUTO e não o
+       innerText da tela: o innerText perde negrito, bullets e cabeçalhos, e o
+       Modo Aula depende deles para separar "O que fazer" de "Como explicar".
+       Custo: edições feitas em ✏️ Editar não entram no Modo Aula. */
+    const md = state.current.conteudo;
+    const parsed = montarEtapasAula(md);
+    if (!parsed) {
+      alert('Não encontrei as etapas neste roteiro. O Modo Aula precisa de linhas no formato "ETAPA 1 | 15 min | Título".');
+      return;
+    }
+
+    aula.etapas = parsed.lista;
+    aula.planejado = parsed.planejado;
+    aula.decorrido = 0;
+    pararTick();
+
+    // Título da aula: o "# Título" do roteiro, senão o título do material.
+    const h1 = md.split(/\r?\n/).map(l => l.trim()).find(l => /^#\s+\S/.test(l));
+    $('#aula-aula').textContent = h1 ? h1.replace(/^#\s+/, '') : ($('#result-title').textContent || 'Aula');
+
+    renderListaAula();
+    irParaEtapa(0);
+
+    const ov = $('#aula-overlay');
+    ov.hidden = false;
+    if (ov.requestFullscreen) ov.requestFullscreen().catch(() => { /* usuário pode negar */ });
+  }
+
+  function fecharModoAula() {
+    pararTick();
+    $('#aula-overlay').hidden = true;
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => { /* ignora */ });
+  }
+
+  function renderListaAula() {
+    $('#aula-lista').innerHTML = aula.etapas.map((e, k) => `
+      <button type="button" class="aula-lista-item" data-idx="${k}">
+        <span class="aula-lista-dot" style="background:${e.cor}"></span>
+        <span class="aula-lista-txt">${escapeHtml(e.titulo)}</span>
+        <span class="aula-lista-min">${e.min ? `${e.min} min` : ''}</span>
+      </button>`).join('');
+    $('#aula-lista').querySelectorAll('[data-idx]').forEach(b => {
+      b.addEventListener('click', () => irParaEtapa(Number(b.dataset.idx)));
+    });
+  }
+
+  function irParaEtapa(i) {
+    if (i < 0 || i >= aula.etapas.length) return;
+    pararTick();
+    aula.i = i;
+    const e = aula.etapas[i];
+    aula.resta = e.min * 60;
+
+    $('#aula-pos').textContent = `${e.tag} · ${i + 1} de ${aula.etapas.length}`;
+    $('#aula-pos').style.background = e.cor;
+    $('#aula-etapa-titulo').textContent = e.titulo;
+    $('#aula-etapa-titulo').style.borderColor = e.cor;
+    $('#aula-conteudo').innerHTML = marked.parse(e.corpo || '_(sem detalhes)_');
+
+    $('#aula-prev').disabled = i === 0;
+    $('#aula-next').disabled = i === aula.etapas.length - 1;
+
+    $('#aula-lista').querySelectorAll('.aula-lista-item').forEach((b, k) => {
+      b.classList.toggle('active', k === i);
+      b.classList.toggle('feita', k < i);
+    });
+
+    $('#aula-palco').scrollTop = 0;
+    atualizarRelogio();
+  }
+
+  function atualizarRelogio() {
+    const e = aula.etapas[aula.i];
+    if (!e) return;
+    const cron = $('#aula-cronometro');
+    const semTempo = !e.min;
+
+    cron.textContent = semTempo ? '—' : mmss(aula.resta);
+    cron.classList.toggle('estourou', !semTempo && aula.resta < 0);
+    $('#aula-play').disabled = semTempo;
+    $('#aula-reset').disabled = semTempo;
+    $('#aula-play').textContent = aula.rodando ? '⏸️ Pausar' : '▶️ Iniciar';
+
+    $('#aula-total').textContent = aula.planejado
+      ? `⏱️ ${mmss(aula.decorrido)} de ${duracaoLonga(aula.planejado)}`
+      : '';
+
+    // Progresso: minutos já vencidos das etapas anteriores + o andamento desta.
+    const total = aula.planejado || 1;
+    let feito = 0;
+    for (let k = 0; k < aula.i; k++) feito += aula.etapas[k].min;
+    if (e.min) feito += Math.min(e.min, Math.max(0, e.min * 60 - aula.resta) / 60);
+    const fill = $('#aula-progresso-fill');
+    fill.style.width = `${Math.min(100, (feito / total) * 100)}%`;
+    fill.style.background = e.cor;
+  }
+
+  function pararTick() {
+    if (aula.tick) clearInterval(aula.tick);
+    aula.tick = null;
+    aula.rodando = false;
+  }
+
+  function playPauseAula() {
+    const e = aula.etapas[aula.i];
+    if (!e || !e.min) return;
+    if (aula.rodando) { pararTick(); atualizarRelogio(); return; }
+    aula.rodando = true;
+    aula.tick = setInterval(() => {
+      aula.resta -= 1;
+      aula.decorrido += 1;
+      atualizarRelogio();
+    }, 1000);
+    atualizarRelogio();
+  }
+
+  $('#btn-modoaula').addEventListener('click', abrirModoAula);
+  $('#aula-sair').addEventListener('click', fecharModoAula);
+  $('#aula-prev').addEventListener('click', () => irParaEtapa(aula.i - 1));
+  $('#aula-next').addEventListener('click', () => irParaEtapa(aula.i + 1));
+  $('#aula-play').addEventListener('click', playPauseAula);
+  $('#aula-reset').addEventListener('click', () => {
+    pararTick();
+    aula.resta = aula.etapas[aula.i].min * 60;
+    atualizarRelogio();
+  });
+  $('#aula-toggle-lista').addEventListener('click', ev => {
+    const lista = $('#aula-lista');
+    lista.hidden = !lista.hidden;
+    ev.currentTarget.setAttribute('aria-expanded', String(!lista.hidden));
+  });
+
+  // Teclado: o professor navega sem procurar o mouse no meio da aula.
+  document.addEventListener('keydown', ev => {
+    if ($('#aula-overlay').hidden) return;
+    if (ev.key === 'Escape') { fecharModoAula(); return; }
+    if (ev.key === 'ArrowRight' || ev.key === 'PageDown') { ev.preventDefault(); irParaEtapa(aula.i + 1); }
+    if (ev.key === 'ArrowLeft' || ev.key === 'PageUp') { ev.preventDefault(); irParaEtapa(aula.i - 1); }
+    if (ev.key === ' ') { ev.preventDefault(); playPauseAula(); }
+  });
+
+  // Sair do fullscreen pelo Esc do navegador também fecha o Modo Aula.
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && !$('#aula-overlay').hidden) fecharModoAula();
   });
 
   /* ===== Menu mobile ===== */

@@ -24,6 +24,7 @@
         <a href="#/" class="nav-link" data-route="home">🏠 Início</a>
         <a href="#/curso" class="nav-link" data-route="curso">📋 Plano de Curso</a>
         <a href="#/plano" class="nav-link" data-route="plano">📚 Aula Completa</a>
+        <a href="#/roteiro" class="nav-link" data-route="roteiro">🎬 Modo Aula</a>
         <a href="#/situacao" class="nav-link" data-route="situacao">🧩 Situação de Aprendizagem</a>
         <a href="#/atividade" class="nav-link" data-route="atividade">📝 Gerar Atividade</a>
         <a href="#/prova" class="nav-link" data-route="prova">📄 Gerar Prova</a>
@@ -57,6 +58,11 @@
             <span class="card-icon">📚</span>
             <h3>Aula Completa</h3>
             <p>O conteúdo da aula pronto para ministrar, dividido por tempo.</p>
+          </a>
+          <a href="#/roteiro" class="card">
+            <span class="card-icon">🎬</span>
+            <h3>Modo Aula</h3>
+            <p>O roteiro cronometrado da aula, etapa por etapa, para seguir ao vivo em sala.</p>
           </a>
           <a href="#/situacao" class="card">
             <span class="card-icon">🧩</span>
@@ -178,6 +184,48 @@
           </div>
           <p class="form-hint">Preenchidos sozinhos quando você vem da 📅 Agenda — é o que garante a ligação e a progressão entre as aulas.</p>
           <button type="submit" class="btn-primary">✨ Gerar Aula</button>
+        </form>
+      </section>
+
+      <!-- Roteiro de Aula / Modo Aula -->
+      <section class="view" id="view-roteiro">
+        <h1>🎬 Modo Aula</h1>
+        <p class="subtitle">Gera o <strong>roteiro cronometrado</strong> da aula — etapa por etapa, com o que fazer e quanto tempo dura cada uma — e abre a tela do professor para seguir ao vivo em sala.</p>
+        <form class="gen-form" id="form-roteiro">
+          <label class="uc-field">📦 UC — código para agrupar no histórico
+            <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
+          </label>
+          <div class="grid-2">
+            <label>Disciplina / Unidade Curricular
+              <input type="text" name="disciplina" placeholder="Ex.: Redes de Computadores" required>
+            </label>
+            <label>Tema da aula
+              <input type="text" name="tema" placeholder="Ex.: Sub-redes" required>
+            </label>
+            <label>Duração da aula
+              <input type="text" name="carga" placeholder="Ex.: 3 horas" required>
+            </label>
+            <label>Momento da aula
+              <select name="momento">
+                <option>Conteúdo novo</option>
+                <option>Abertura de unidade</option>
+                <option>Revisão</option>
+                <option>Aula prática</option>
+                <option>Avaliação</option>
+              </select>
+            </label>
+          </div>
+          <label>Recursos disponíveis em sala (opcional)
+            <input type="text" name="recursos" placeholder="Ex.: laboratório com Packet Tracer, projetor, quadro branco">
+            <small>É o que permite instruções concretas do tipo “abra o Packet Tracer e monte a topologia”.</small>
+          </label>
+          <label>Material base (opcional)
+            <textarea name="basematerial" rows="6" placeholder="Preenchido automaticamente ao criar o roteiro a partir de uma Aula Completa. O roteiro vira a execução deste material."></textarea>
+          </label>
+          <label class="check">
+            <input type="checkbox" name="tarefacasa" checked> Incluir tarefa para casa
+          </label>
+          <button type="submit" class="btn-primary">✨ Gerar Roteiro</button>
         </form>
       </section>
 
@@ -502,6 +550,7 @@
         <div class="result-header no-print">
           <h1 id="result-title">Resultado</h1>
           <div class="result-actions">
+            <button class="btn-primary" id="btn-modoaula" hidden>🎬 Iniciar Modo Aula</button>
             <button class="btn-primary" id="btn-present" hidden>📽️ Apresentar</button>
             <button class="btn-secondary" id="btn-edit">✏️ Editar</button>
             <button class="btn-secondary" id="btn-copy">📋 Copiar</button>
@@ -540,6 +589,41 @@
     <div class="reveal">
       <div class="slides"></div>
     </div>
+  </div>
+
+  <!-- Modo Aula: tela do professor, uma etapa por vez, com cronômetro -->
+  <div id="aula-overlay" class="aula-overlay" hidden>
+    <div class="aula-progresso"><div class="aula-progresso-fill" id="aula-progresso-fill"></div></div>
+
+    <header class="aula-top">
+      <div class="aula-top-info">
+        <span class="aula-pos" id="aula-pos"></span>
+        <span class="aula-aula" id="aula-aula"></span>
+      </div>
+      <div class="aula-top-acoes">
+        <button type="button" class="aula-btn" id="aula-toggle-lista" aria-expanded="false">☰ Etapas</button>
+        <button type="button" class="aula-btn" id="aula-sair" aria-label="Sair do Modo Aula">✕ Sair (Esc)</button>
+      </div>
+    </header>
+
+    <div class="aula-corpo">
+      <nav class="aula-lista" id="aula-lista" hidden></nav>
+      <main class="aula-palco" id="aula-palco">
+        <h2 class="aula-etapa-titulo" id="aula-etapa-titulo"></h2>
+        <article class="aula-conteudo" id="aula-conteudo"></article>
+      </main>
+    </div>
+
+    <footer class="aula-bottom">
+      <button type="button" class="aula-nav" id="aula-prev">‹ Anterior</button>
+      <div class="aula-relogio">
+        <span class="aula-cronometro" id="aula-cronometro">--:--</span>
+        <button type="button" class="aula-btn aula-btn-play" id="aula-play">▶️ Iniciar</button>
+        <button type="button" class="aula-btn" id="aula-reset" aria-label="Reiniciar cronômetro da etapa">↺</button>
+        <span class="aula-total" id="aula-total"></span>
+      </div>
+      <button type="button" class="aula-nav" id="aula-next">Próxima ›</button>
+    </footer>
   </div>
 
   <script src="js/storage.js"></script>

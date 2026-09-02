@@ -8,6 +8,7 @@ Plataforma web para professores gerarem **planos de aula, atividades, provas e r
 
 - 👥 **Perfil da turma** — defina uma vez o nível dos alunos (iniciante / já teve contato / avançado) e todo material sai na linguagem certa: termos técnicos explicados, ideia antes do nome, exemplos do cotidiano
 - 📚 **Aula Completa** — o conteúdo da aula pronto para ministrar, dividido em seções temáticas
+- 🎬 **Modo Aula** — gera o **roteiro cronometrado** da aula (etapas, tempo de cada uma, o que fazer, como explicar, o que observar) e abre a **tela do professor**: uma etapa por vez, cronômetro regressivo, lista lateral de etapas e navegação por setas do teclado. É o planejador virando executor — o professor segue a aula pela tela, ao vivo
 - 🧩 **Situação de Aprendizagem** — desafio contextualizado no mundo do trabalho (modelo Senac): contextualização, desafio, percurso, entregas e avaliação formativa
 - 📝 **Gerar Atividade** — múltipla escolha, dissertativa, V/F, projeto ou misto, com gabarito comentado
 - 📄 **Gerar Prova** — prova formal com cabeçalho, pontuação e gabarito separado

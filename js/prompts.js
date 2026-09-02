@@ -1,5 +1,31 @@
 /* Fluxos guiados: cada função transforma os campos do formulário em prompt.
    O professor nunca vê nem escreve isso. */
+
+/* Formato do Roteiro de Aula (Modo Aula). Fica fora do objeto porque o parser
+   e o prompt precisam concordar linha a linha: o player quebra a aula em etapas
+   lendo exatamente o cabeçalho "## ETAPA N | M min | Título". */
+const ROTEIRO_FORMATO = `# [Título da aula]
+**Duração total:** [duração informada]
+**Objetivo da aula:** [1 a 2 linhas: o que o aluno sai sabendo FAZER]
+**Competências mobilizadas:**
+- [competência]
+- [competência]
+**Materiais e recursos:**
+- [o que precisa estar pronto ANTES de a aula começar]
+
+## ETAPA 1 | 15 min | [Nome da etapa]
+**O que fazer:**
+- [ação direta ao professor, verbo no imperativo]
+- [ação]
+
+**Como explicar:** [a analogia ou o exemplo concreto que o professor usa, em 2 a 3 linhas]
+
+**Fique de olho:** [o erro comum ou a dúvida que costuma aparecer nesta etapa]
+
+**Deu certo se:** [sinal observável de que a turma entendeu, 1 linha]
+
+## ETAPA 2 | 30 min | [Nome da etapa]
+[mesma estrutura]`;
 const Prompts = {
   /* Regras de linguagem por nível da turma (definido em Configurações → Perfil da turma).
      É o que separa material didático de material técnico: o modelo, sozinho, copia o
@@ -187,6 +213,43 @@ ${textoParcial}
 === FIM ===`;
   },
 
+  /* Roteiro de Aula — o único material escrito PARA O PROFESSOR, não para o aluno.
+     O system prompt proíbe meta-instruções ("o professor deve..."); aqui a regra é
+     invertida de propósito, e a inversão precisa ser explícita, senão o modelo
+     devolve conteúdo de aluno com carimbo de roteiro. */
+  roteiro(d) {
+    return `Monte o ROTEIRO DE EXECUÇÃO de uma aula: o passo a passo cronometrado que o professor segue AO VIVO, em sala, com a aula acontecendo.
+
+IMPORTANTE — INVERSÃO DA REGRA GERAL: este material NÃO é para o aluno ler. É para o PROFESSOR executar. Escreva no imperativo, dirigido ao professor ("Explique...", "Abra...", "Peça que..."). Meta-instruções são exatamente o que se pede aqui.
+
+- Curso / Disciplina: ${d.disciplina}
+- Tema da aula: ${d.tema}
+- Duração total da aula: ${d.carga}
+${d.momento ? `- Momento da aula no curso: ${d.momento}` : ''}
+${d.recursos ? `- Recursos disponíveis em sala: ${d.recursos}` : ''}
+${d.basematerial ? `
+Baseie o roteiro no material abaixo — mesmo tema, mesmo nível, mesma sequência de conteúdo. O roteiro é a EXECUÇÃO deste material, não um resumo dele:
+=== MATERIAL BASE ===
+${d.basematerial}
+=== FIM DO MATERIAL BASE ===` : ''}
+
+REGRAS:
+1. Divida a aula em 4 a 7 ETAPAS sequenciais. A soma dos minutos das etapas deve dar EXATAMENTE ${d.carga}.
+2. Cada etapa começa numa linha com este formato EXATO, com duas barras verticais: \`## ETAPA N | M min | Nome da etapa\` — N sequencial a partir de 1, M em minutos, só o número inteiro seguido de " min".
+3. Frases CURTAS. O professor lê isso de relance, com a turma olhando. Nada de parágrafo longo, nada de teoria — a teoria já está no material da aula.
+4. Em "O que fazer", escreva AÇÕES concretas e verificáveis${d.recursos ? `, usando os recursos disponíveis (${d.recursos})` : ''}. Ex.: "Abra o Packet Tracer e monte a topologia X", "Divida a turma em duplas", "Passe no quadro o exercício 3".
+5. Em "Como explicar", entregue a analogia ou o exemplo pronto para o professor usar — a fala, não a orientação de que ele deve explicar.
+6. Deixe uma LINHA EM BRANCO antes de cada rótulo em negrito (**Como explicar:**, **Fique de olho:**, **Deu certo se:**). Sem ela o rótulo é engolido pelo item de lista anterior.
+7. Comece por uma etapa de abertura/retomada e termine por uma de síntese e fechamento.${d.tarefacasa ? `
+8. Depois da última etapa, acrescente a seção \`## TAREFA PARA CASA\` com o enunciado pronto para passar aos alunos, o que se espera de entrega e o tempo estimado. Ela fica FORA da contagem de minutos da aula.` : ''}
+
+FORMATO DE SAÍDA (siga EXATAMENTE esta estrutura em Markdown):
+
+${ROTEIRO_FORMATO}
+
+Não escreva nada fora dessa estrutura: sem introdução, sem comentário final.`;
+  },
+
   situacao(d) {
     return `Crie uma SITUAÇÃO DE APRENDIZAGEM (SA) no modelo pedagógico do Senac: um desafio contextualizado no mundo do trabalho que mobiliza competências, com percurso, entregas e avaliação formativa.
 
@@ -365,6 +428,69 @@ Prompts.parseAulas = function (md) {
   return aulas;
 };
 
+
+/* Quebra um Roteiro de Aula nas etapas que o Modo Aula executa uma por vez.
+   O cabeçalho padrão é "## ETAPA 1 | 15 min | Introdução"; a segunda regex
+   aceita variações ("ETAPA 1 — Introdução (15 min)") porque o professor edita
+   o roteiro na tela antes de dar a aula e a barra vertical some fácil.
+   Tudo que vem antes da primeira etapa (título, objetivo, materiais) vira o
+   briefing mostrado na tela de abertura. */
+Prompts.parseEtapas = function (md) {
+  const pipeRe = /^#{0,3}\s*ETAPA\s*(\d+)?\s*\|\s*([^|]*?)\s*\|\s*(.+?)\s*$/i;
+  const soltoRe = /^#{0,3}\s*ETAPA\s*(\d+)?\s*[—\-–:]\s*(.+?)\s*$/i;
+  const tarefaRe = /^#{0,3}\s*TAREFA\s+(?:PARA\s+)?CASA\s*$/i;
+
+  const etapas = [];
+  const cabecalho = [];
+  let atual = null;
+  let tarefa = null;
+
+  (md || '').split(/\r?\n/).forEach(linha => {
+    const t = linha.trim();
+
+    if (tarefaRe.test(t)) {
+      if (atual) { etapas.push(atual); atual = null; }
+      tarefa = [];
+      return;
+    }
+
+    const p = t.match(pipeRe);
+    const s = p ? null : t.match(soltoRe);
+    if (p || s) {
+      if (atual) etapas.push(atual);
+      const titulo = p ? p[3] : s[2];
+      atual = {
+        numero: (p ? p[1] : s[1]) || String(etapas.length + 1),
+        // Minutos: do campo do meio no formato com barras, senão de um "(15 min)" no título.
+        min: minutos(p ? p[2] : titulo),
+        titulo: titulo.replace(/\s*\(?\s*\d+\s*min(?:utos)?\s*\)?\s*$/i, '').trim(),
+        linhas: [],
+      };
+      tarefa = null;
+      return;
+    }
+
+    if (tarefa) tarefa.push(linha);
+    else if (atual) atual.linhas.push(linha);
+    else cabecalho.push(linha);
+  });
+  if (atual) etapas.push(atual);
+
+  etapas.forEach(e => { e.corpo = e.linhas.join('\n').trim(); delete e.linhas; });
+
+  return {
+    cabecalho: cabecalho.join('\n').trim(),
+    etapas,
+    tarefa: tarefa ? tarefa.join('\n').trim() : '',
+    total: etapas.reduce((s, e) => s + e.min, 0),
+  };
+
+  // Primeiro número do texto = minutos. Sem número, 0 (o player mostra "sem tempo").
+  function minutos(txt) {
+    const m = (txt || '').match(/(\d+)/);
+    return m ? Number(m[1]) : 0;
+  }
+};
 /* Título curto para o histórico. */
 Prompts.titulo = {
   curso: d => `Plano de Curso: ${d.unidade}`,
@@ -379,6 +505,7 @@ Prompts.titulo = {
   slides: d => `Slides: ${d.tema} (${d.disciplina})`,
   adaptar: d => `Adaptação: ${d.necessidade}`,
   rubrica: d => `Critérios de Avaliação: ${d.tipoTrabalho} de ${d.disciplina}`,
+  roteiro: d => `Roteiro de Aula: ${d.tema} (${d.disciplina})`,
 };
 
 Prompts.labels = {
@@ -390,6 +517,7 @@ Prompts.labels = {
   slides: '📽️ Slides',
   adaptar: '♿ Adaptação Inclusiva',
   rubrica: '📊 Critérios de Avaliação',
+  roteiro: '🎬 Roteiro de Aula',
 };
 
 /* ===== Encadeamento: gerar um material a partir de outro já pronto ===== */
@@ -422,8 +550,11 @@ const CHAIN_RULES = {
 /* Quais alvos cada tipo de material pode gerar. */
 Prompts.chainTargets = {
   curso: [], // "Plano de Curso" não encadeia por aqui: usa o botão especial "Gerar todas as aulas" (app.js)
-  plano: ['situacao', 'slides', 'atividade', 'prova', 'adaptar'],
-  situacao: ['slides', 'atividade', 'prova', 'adaptar'],
+  plano: ['roteiro', 'situacao', 'slides', 'atividade', 'prova', 'adaptar'],
+  situacao: ['roteiro', 'slides', 'atividade', 'prova', 'adaptar'],
+  // Roteiro não encadeia por prompt: abre o formulário já preenchido (app.js),
+  // porque a duração da aula é decisão do professor, não do material base.
+  roteiro: ['slides', 'atividade', 'adaptar'],
   atividade: ['prova', 'slides', 'adaptar'],
   prova: ['slides', 'adaptar'],
   slides: ['atividade', 'adaptar'],
