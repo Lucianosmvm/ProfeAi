@@ -1,25 +1,26 @@
 # Professor+ AI
 
-Plataforma web para professores gerarem **planos de aula, atividades, provas e rubricas** com IA — preenchendo formulários simples, sem escrever prompts.
+Plataforma web para professores gerarem a **aula** com IA — e, a partir dela, a **atividade**, a **prova** e os **slides**. Preenche um formulário, recebe o material pronto; sem escrever prompt.
 
 100% estática (HTML + CSS + JavaScript puro), sem backend. Funciona direto no GitHub Pages.
 
+## O fluxo
+
+1. **⚙️ Configurações** — cole a chave da API (uma vez só).
+2. **📚 Gerar Aula** — três campos: a UC (opcional), a duração da aula e um texto livre descrevendo a aula que você quer. Se precisar, marque também a **adaptação inclusiva**.
+3. Na aula pronta, um clique gera **📝 Atividade**, **📄 Prova** e **📽️ Slides** — coerentes com a aula e já com a mesma adaptação.
+
 ## Funcionalidades
 
-- 👥 **Perfil da turma** — defina uma vez o nível dos alunos (iniciante / já teve contato / avançado) e todo material sai na linguagem certa: termos técnicos explicados, ideia antes do nome, exemplos do cotidiano
-- 📚 **Aula Completa** — o conteúdo da aula pronto para ministrar, dividido em seções temáticas
-- 🎬 **Modo Aula** — gera o **roteiro cronometrado** da aula (etapas, tempo de cada uma, o que fazer, como explicar, o que observar) e abre a **tela do professor**: uma etapa por vez, cronômetro regressivo, lista lateral de etapas e navegação por setas do teclado. É o planejador virando executor — o professor segue a aula pela tela, ao vivo
-- 🧩 **Situação de Aprendizagem** — desafio contextualizado no mundo do trabalho (modelo Senac): contextualização, desafio, percurso, entregas e avaliação formativa
-- 📝 **Gerar Atividade** — múltipla escolha, dissertativa, V/F, projeto ou misto, com gabarito comentado
-- 📄 **Gerar Prova** — prova formal com cabeçalho, pontuação e gabarito separado
-- 📽️ **Slides** — apresentação pronta para projetar (reveal.js), com notas do apresentador; botão **Apresentar** em tela cheia
-- ♿ **Adaptação Inclusiva** — adapta um material existente para TDAH, dislexia, TEA, baixa visão e outras necessidades, preservando o conteúdo
-- 📊 **Critérios de Avaliação** — avaliação por competências (modelo formativo Senac): indicadores, níveis (Atendeu plenamente/parcialmente/Não atendeu) e parecer descritivo
-- 🔗 **Encadear materiais** — gere um material a partir de outro (ex.: slides ou prova a partir de um plano), mantendo coerência
+- 📚 **Aula Completa** — descreva a aula em texto livre (disciplina, tema, tópicos, público, o que quiser — ou cole o bloco do PDT) e receba o conteúdo pronto para ministrar, dividido em seções temáticas e dimensionado para a duração informada
+- ♿ **Adaptação inclusiva na origem** — marque TDAH, dislexia, TEA, baixa visão e outras necessidades no formulário da aula: a aula já sai adaptada, e a atividade, a prova e os slides gerados a partir dela também
+- 📝 **Atividade** — exercícios variados com gabarito comentado
+- 📄 **Prova** — prova formal com cabeçalho, pontuação e gabarito separado
+- 📽️ **Slides** — a aula vira apresentação com um clique, já no formato do **Gerador de Slides** (o gerador está embutido aqui). Abre um editor com preview slide a slide: ajuste o texto e veja a mudança na hora, depois exporte em **PPTX** (PowerPoint, editável) ou **PDF**
 - ✏️ **Editar antes de exportar** — ajuste o resultado direto na tela; edições entram no PDF, Word e cópia
-- 📅 **Agenda = cronograma** — marque os dias de cada UC e as aulas do Plano de Curso caem automaticamente nos dias, na ordem: a aula 1 no 1º dia, a aula 2 no 2º, e assim por diante. Clique numa data para ver o conteúdo daquela aula, copiar o bloco ou gerar a Aula Completa já com a aula anterior e a próxima preenchidas
-- 📂 **Histórico** — tudo fica salvo no navegador; duplique e adapte para outra turma
-- 💾 **Backup** — exporte tudo num arquivo `.json` e importe em outro PC/navegador (guarde no Drive, se quiser)
+- 📅 **Agenda** — marque os dias de cada UC no calendário e gere a aula de cada dia. A aula fica presa à data, e a aula anterior e a próxima já vêm preenchidas — é o que garante a progressão entre as aulas
+- 📂 **Histórico** — tudo fica salvo no navegador, agrupado por UC; duplique e adapte para outra turma
+- 💾 **Backup** — exporte tudo num arquivo `.json` e importe em outro PC/navegador
 - ⬇️ **Exportação** — PDF (impressão), Word (.doc) e copiar
 
 ## Como usar
@@ -28,10 +29,31 @@ Plataforma web para professores gerarem **planos de aula, atividades, provas e r
 2. Vá em **⚙️ Configurações** e cole sua chave de API:
    - **Google Gemini** (padrão) — grátis, sem cartão: [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
    - **OpenAI** — pago, pré-pago: [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
-3. Ainda em **⚙️ Configurações**, ajuste o **Perfil da turma** — é ele que define a linguagem de todos os materiais. Se o conteúdo estiver saindo técnico demais, baixe o nível dos alunos aqui.
-4. Escolha um fluxo, preencha os campos e clique em **✨ Gerar**.
+3. Volte para **📚 Gerar Aula**, preencha os campos e clique em **✨ Gerar Aula**.
+4. Na aula pronta, use os botões de **Criar a partir desta aula** para a atividade, a prova e os slides.
 
 A chave fica salva **apenas no seu navegador** (localStorage) e é enviada somente para o provedor de IA escolhido. Nenhum dado passa por servidor próprio.
+
+## Formato dos slides
+
+O editor de slides (`js/slides.js`) separa os slides por uma linha com `---` e lê a **primeira linha** de cada bloco como título:
+
+```
+Título da aula
+---
+O que vamos aprender
+- item curto
+- outro item
+---
+Conceito
+Parágrafo com **negrito**.
+
+| Coluna | Coluna |
+| --- | --- |
+| a | b |
+```
+
+Um bloco só com título vira slide de capa. Linhas em branco separam os blocos dentro do slide (lista, parágrafo, tabela, bloco de código). O prompt de geração já entrega nesse formato — se algum slide sair torto, dá para corrigir no próprio editor, ou usar **✂️ Separar slides** quando as quebras `---` vierem faltando.
 
 ## Publicar no GitHub Pages
 

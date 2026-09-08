@@ -82,27 +82,25 @@ body {
 h1 { margin: 0 0 4px; font-size: 1.6rem; }
 .subtitle { margin: 0 0 28px; color: var(--text-muted); }
 
-/* ===== Cards (home) ===== */
-.cards {
+/* ===== Adaptação inclusiva: grade de checkboxes ===== */
+.check-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 36px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 6px 16px;
+  margin-bottom: 16px;
 }
+.check-grid .check { margin: 0; font-size: .9rem; }
 
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px;
-  text-decoration: none;
-  color: var(--text);
-  transition: box-shadow .15s, transform .15s;
+/* Aviso de chave de API ausente na tela inicial. */
+.aviso-chave {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 0 0 20px;
+  font-size: .9rem;
 }
-.card:hover { box-shadow: 0 4px 16px rgba(28,35,51,.08); transform: translateY(-2px); }
-.card-icon { font-size: 1.6rem; }
-.card h3 { margin: 10px 0 6px; font-size: 1.05rem; }
-.card p { margin: 0; font-size: .85rem; color: var(--text-muted); }
+.aviso-chave[hidden] { display: none; }
 
 /* ===== Forms ===== */
 .gen-form {
@@ -317,66 +315,6 @@ input:focus, select:focus, textarea:focus {
 }
 .result-content pre code { background: none; color: inherit; padding: 0; }
 
-/* ===== Geração em lote (todas as aulas do Plano de Curso) ===== */
-.batch-panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px 24px;
-  margin-bottom: 16px;
-}
-.batch-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-  color: var(--text-muted);
-}
-.batch-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 420px;
-  overflow-y: auto;
-}
-.batch-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--bg);
-}
-.batch-item .batch-status {
-  flex: none;
-  width: 20px;
-  text-align: center;
-  line-height: 1.4;
-}
-.batch-item .batch-titulo { flex: 1; }
-.batch-item.batch-error { background: #fef2f2; }
-.batch-item .batch-detail {
-  flex-basis: 100%;
-  font-size: .82rem;
-  color: var(--danger);
-  margin-top: 4px;
-}
-.batch-summary {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-}
-.batch-summary p { margin: 0; flex-basis: 100%; color: var(--text-muted); }
-
 /* ===== Histórico ===== */
 .history-item {
   background: var(--surface);
@@ -537,196 +475,6 @@ input:focus, select:focus, textarea:focus {
 .usage-box small { color: var(--text-muted); }
 .usage-box p { margin: 0 0 12px; }
 .backup-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
-
-/* ===== Overlay de apresentação (reveal.js) ===== */
-.reveal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  background: #fff;
-}
-.reveal-overlay[hidden] { display: none; }
-.reveal-overlay .reveal { width: 100%; height: 100%; }
-.btn-close-present {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 1001;
-  background: rgba(28, 35, 51, .85);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 14px;
-  font-size: .95rem;
-  cursor: pointer;
-}
-.btn-close-present:hover { background: rgba(28, 35, 51, 1); }
-
-/* ===== Modo Aula =====
-   Tela de execução da aula: lida de longe, com a turma na frente. Fonte grande,
-   contraste alto e nada de decoração — o professor olha de relance. */
-.aula-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  background: var(--surface);
-  color: var(--text);
-  display: flex;
-  flex-direction: column;
-}
-.aula-overlay[hidden] { display: none; }
-
-.aula-progresso { height: 6px; background: var(--border); flex: none; }
-.aula-progresso-fill {
-  height: 100%;
-  width: 0;
-  background: var(--primary);
-  transition: width .4s linear;
-}
-
-.aula-top {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--border);
-}
-.aula-top-info { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.aula-pos {
-  flex: none;
-  background: var(--primary);
-  color: #fff;
-  border-radius: 999px;
-  padding: 4px 14px;
-  font-size: .9rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.aula-aula {
-  font-size: 1rem;
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.aula-top-acoes { display: flex; gap: 8px; flex: none; }
-.aula-btn {
-  background: var(--primary-soft);
-  color: var(--primary-dark);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 14px;
-  font-size: .95rem;
-  cursor: pointer;
-}
-.aula-btn:hover:not(:disabled) { background: #e0e7ff; }
-.aula-btn:disabled { opacity: .4; cursor: default; }
-.aula-btn-play { min-width: 120px; }
-
-.aula-corpo { flex: 1; display: flex; min-height: 0; }
-
-.aula-lista {
-  flex: none;
-  width: 280px;
-  border-right: 1px solid var(--border);
-  overflow-y: auto;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.aula-lista[hidden] { display: none; }
-.aula-lista-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
-  border-radius: 8px;
-  padding: 10px 12px;
-  font: inherit;
-  font-size: .95rem;
-  color: var(--text);
-  cursor: pointer;
-}
-.aula-lista-item:hover { background: var(--bg); }
-.aula-lista-item.active { background: var(--primary-soft); font-weight: 600; }
-.aula-lista-item.feita { color: var(--text-muted); }
-.aula-lista-item.feita .aula-lista-txt { text-decoration: line-through; }
-.aula-lista-dot { flex: none; width: 12px; height: 12px; border-radius: 50%; }
-.aula-lista-txt { flex: 1; overflow: hidden; text-overflow: ellipsis; }
-.aula-lista-min { flex: none; color: var(--text-muted); font-size: .85rem; }
-
-.aula-palco {
-  flex: 1;
-  overflow-y: auto;
-  padding: 32px clamp(20px, 6vw, 80px) 40px;
-}
-.aula-etapa-titulo {
-  margin: 0 0 24px;
-  padding-left: 16px;
-  border-left: 6px solid var(--primary);
-  font-size: clamp(1.8rem, 4vw, 2.6rem);
-  line-height: 1.2;
-}
-.aula-conteudo { font-size: clamp(1.05rem, 1.9vw, 1.4rem); line-height: 1.65; }
-.aula-conteudo p { margin: 0 0 14px; }
-.aula-conteudo ul, .aula-conteudo ol { margin: 0 0 18px; padding-left: 1.4em; }
-.aula-conteudo li { margin-bottom: 8px; }
-.aula-conteudo strong { color: var(--primary-dark); }
-.aula-conteudo table { border-collapse: collapse; width: 100%; margin-bottom: 18px; }
-.aula-conteudo td, .aula-conteudo th { border: 1px solid var(--border); padding: 8px 12px; }
-
-.aula-bottom {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 20px;
-  border-top: 1px solid var(--border);
-  background: var(--bg);
-}
-.aula-nav {
-  background: var(--primary);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 12px 22px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-.aula-nav:hover:not(:disabled) { background: var(--primary-dark); }
-.aula-nav:disabled { opacity: .35; cursor: default; }
-
-.aula-relogio { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; }
-.aula-cronometro {
-  font-variant-numeric: tabular-nums;
-  font-size: clamp(2rem, 5vw, 3rem);
-  font-weight: 700;
-  line-height: 1;
-  min-width: 4.5ch;
-  text-align: center;
-}
-/* Etapa estourada: o número vira alerta, sem parar a aula. */
-.aula-cronometro.estourou { color: var(--danger); }
-.aula-total { color: var(--text-muted); font-size: .9rem; white-space: nowrap; }
-
-@media (max-width: 760px) {
-  .aula-lista { position: absolute; inset: 0 auto 0 0; z-index: 2; background: var(--surface); width: 84%; }
-  .aula-corpo { position: relative; }
-  .aula-aula { display: none; }
-  /* No celular o cronômetro sobe para a primeira linha e os dois botões de
-     navegação ficam lado a lado — polegar em cada canto. */
-  .aula-bottom { flex-wrap: wrap; justify-content: space-between; gap: 10px; }
-  .aula-relogio { order: -1; flex-basis: 100%; }
-  .aula-nav { padding: 12px 18px; }
-}
 
 /* ===== Agenda ===== */
 .agenda-toolbar {
@@ -930,7 +678,7 @@ input:focus, select:focus, textarea:focus {
 
 /* ===== Impressão (PDF) ===== */
 @media print {
-  .sidebar, .menu-toggle, .no-print, .reveal-overlay, .aula-overlay { display: none !important; }
+  .sidebar, .menu-toggle, .no-print, .deck-overlay { display: none !important; }
   body, .main { background: #fff; padding: 0; max-width: none; }
   .result-content { border: none; padding: 0; }
   .result-content.editing { outline: none; background: none; }

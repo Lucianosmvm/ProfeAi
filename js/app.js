@@ -1,4 +1,8 @@
-/* Professor+ AI — SPA com roteamento por hash. */
+/* Professor+ AI — SPA com roteamento por hash.
+
+   Fluxo único: configurar a chave → gerar a Aula → e, a partir dela, gerar
+   atividade, prova e slides. A adaptação inclusiva é pedida uma vez, no
+   formulário da aula, e acompanha os materiais derivados. */
 (function () {
   'use strict';
 
@@ -36,13 +40,6 @@
       const k = ucKey(raw);
       if (!map.has(k)) map.set(k, raw);
     });
-    // E as UCs com descritivo do PDT guardado.
-    Object.values(Storage.getUcs()).forEach(u => {
-      const raw = (u.rotulo || '').trim();
-      if (!raw) return;
-      const k = ucKey(raw);
-      if (!map.has(k)) map.set(k, raw);
-    });
     return [...map.values()].sort((a, b) =>
       a.localeCompare(b, 'pt-BR', { numeric: true, sensitivity: 'base' }));
   }
@@ -55,11 +52,11 @@
   }
 
   /* ===== Roteamento ===== */
-  const routes = ['home', 'curso', 'plano', 'roteiro', 'situacao', 'atividade', 'prova', 'slides', 'adaptar', 'rubrica', 'agenda', 'historico', 'config', 'resultado'];
+  const routes = ['aula', 'agenda', 'historico', 'config', 'resultado'];
 
   function route() {
-    const hash = location.hash.replace('#/', '') || 'home';
-    const name = routes.includes(hash) ? hash : 'home';
+    const hash = location.hash.replace('#/', '') || 'aula';
+    const name = routes.includes(hash) ? hash : 'aula';
 
     $$('.view').forEach(v => v.classList.remove('active'));
     $(`#view-${name}`).classList.add('active');
@@ -71,9 +68,7 @@
     $('#sidebar').classList.remove('open');
 
     refreshUcList();
-    if (name === 'home') renderHome();
-    if (name === 'curso') { updateCursoAgendaHint(); restaurarUcNoCurso(); }
-    if (UC_DESTINOS[name]) atualizarUcHint(name);
+    if (name === 'aula') renderTelaAula();
     if (name === 'agenda') renderAgenda();
     if (name === 'historico') renderHistory();
     if (name === 'config') loadConfig();
@@ -81,12 +76,15 @@
 
   window.addEventListener('hashchange', route);
 
-  /* ===== Home ===== */
-  function renderHome() {
+  /* ===== Tela inicial: formulário da aula ===== */
+  function renderTelaAula() {
     const nome = Storage.getNome();
     const hora = new Date().getHours();
     const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
-    $('#greeting').textContent = `👋 ${saudacao}, ${nome ? nome : 'Professor'}!`;
+    $('#greeting').textContent = nome ? `👋 ${saudacao}, ${nome}!` : '📚 Gerar Aula';
+
+    $('#aviso-chave').hidden = !!Storage.getApiKey();
+    updateAulaHint();
 
     const recent = Storage.getHistory().slice(0, 3);
     const box = $('#home-recent');
@@ -95,15 +93,20 @@
     bindHistoryActions(box);
   }
 
-  /* ===== Geração ===== */
-  async function generate(tipo, params) {
-    return runGeneration(tipo, params, Prompts[tipo](params), Prompts.titulo[tipo](params));
-  }
+  /* Checkboxes de adaptação inclusiva, montados a partir da lista de prompts. */
+  (function montarAdaptacoes() {
+    $('#adaptacoes-lista').innerHTML = Prompts.NECESSIDADES.map(n => `
+      <label class="check">
+        <input type="checkbox" name="adaptacoes" value="${escapeHtml(n)}" data-grupo="1">
+        ${escapeHtml(n)}
+      </label>`).join('');
+  })();
 
+  /* ===== Geração ===== */
   async function runGeneration(tipo, params, promptText, titulo) {
     if (state.generating) return;
     state.generating = true;
-    abrirResultado(tipo, params);
+    abrirResultado(tipo, params, titulo);
 
     let texto = '';
     try {
@@ -126,6 +129,7 @@
         conteudo: texto,
         usage,
       });
+      refreshUcList();
       if (Api.truncou()) avisarTruncado();
     } catch (err) {
       mostrarErro(err, texto);
@@ -141,10 +145,9 @@
   }
 
   /* Prepara a tela de Resultado para uma geração nova. */
-  function abrirResultado(tipo, params) {
-    state.current = { tipo, params, conteudo: '' };
-    restoreResultUI(tipo);
-    $('#result-title').textContent = Prompts.labels[tipo];
+  function abrirResultado(tipo, params, titulo) {
+    state.current = { tipo, params, titulo, conteudo: '' };
+    $('#result-title').textContent = titulo || Prompts.labels[tipo] || 'Resultado';
     togglePresentBtn(tipo);
     renderChain(tipo);
     setEditUI(false);
@@ -169,7 +172,7 @@
   /* Emenda a continuação no material já gerado. */
   async function continuarGeracao() {
     if (state.generating || !state.current?.conteudo) return;
-    const { tipo, params, id } = state.current;
+    const { tipo, id } = state.current;
     state.generating = true;
     $('#result-status').hidden = false;
     setStatus('Continuando de onde parou…');
@@ -204,100 +207,42 @@
       : msg;
   }
 
-  /* Plano de Curso longo: gerado em lotes de aulas, emendando um no outro.
-     Numa chamada só, um curso de 32 aulas estoura o limite de saída do modelo
-     e volta cortado (parava lá pela aula 18). */
-  const CURSO_LOTE = 8;
-
-  async function generateCurso(params) {
-    const total = Number(params.aulas) || 0;
-    if (total <= CURSO_LOTE) return generate('curso', params);
-    if (state.generating) return;
-
-    state.generating = true;
-    abrirResultado('curso', params);
-
-    let texto = '';
-    let tokens = 0;
-    try {
-      for (let de = 1; de <= total; de += CURSO_LOTE) {
-        const ate = Math.min(de + CURSO_LOTE - 1, total);
-        setStatus(`Gerando aulas ${de} a ${ate} de ${total}…`);
-
-        const prompt = de === 1
-          ? Prompts.curso({ ...params, ate })
-          : Prompts.cursoContinua(params, texto, de, ate);
-
-        let parcial = '';
-        for await (const chunk of Api.stream(prompt)) {
-          parcial += chunk;
-          $('#result-content').innerHTML = marked.parse(texto + parcial);
-        }
-        texto += (texto ? '\n\n' : '') + parcial.trim();
-        state.current.conteudo = texto;
-        tokens += Api.lastUsage?.total || 0;
-      }
-
-      const id = Date.now().toString(36);
-      state.current.id = id;
-      const usage = { total: tokens };
-      Storage.addUsage(tokens);
-      renderUsage(usage);
-      Storage.addHistoryItem({
-        id,
-        tipo: 'curso',
-        titulo: Prompts.titulo.curso(params),
-        data: new Date().toISOString(),
-        params,
-        conteudo: texto,
-        usage,
-      });
-      $('#result-content').innerHTML = marked.parse(texto);
-      avisarAulasFaltando(texto, total);
-    } catch (err) {
-      mostrarErro(err, texto);
-    } finally {
-      $('#result-status').hidden = true;
-      state.generating = false;
-      refreshUcList();
-    }
-  }
-
-  /* Confere se saíram todas as aulas pedidas — o professor precisa saber
-     antes de montar a Agenda em cima de um plano incompleto. */
-  function avisarAulasFaltando(texto, total) {
-    const geradas = Prompts.parseAulas(texto).length;
-    if (geradas >= total) return;
-    const aviso = document.createElement('div');
-    aviso.className = 'aviso-truncado no-print';
-    aviso.innerHTML = `<p>⚠️ Saíram ${geradas} das ${total} aulas pedidas. `
-      + 'Use <strong>🔄 Gerar novamente</strong> ou continue a partir daqui.</p>'
-      + '<button type="button" class="btn-primary" id="btn-continuar">▶️ Continuar de onde parou</button>';
-    $('#result-content').appendChild(aviso);
-    $('#btn-continuar').addEventListener('click', continuarGeracao);
-  }
-
   function formToObj(form) {
     const data = {};
-    new FormData(form).forEach((v, k) => { data[k] = v.toString().trim(); });
-    // checkboxes desmarcados não entram no FormData
+    const fd = new FormData(form);
+    fd.forEach((v, k) => { data[k] = v.toString().trim(); });
+    // Checkboxes soltos: desmarcados não entram no FormData, viram false.
     form.querySelectorAll('input[type="checkbox"]').forEach(c => {
+      if (c.dataset.grupo) return;   // grupo de mesmo name: tratado abaixo
       data[c.name] = c.checked;
+    });
+    // Grupos (várias caixas com o mesmo name) viram lista.
+    form.querySelectorAll('input[type="checkbox"][data-grupo]').forEach(c => {
+      data[c.name] = fd.getAll(c.name).map(String);
     });
     return data;
   }
 
-  ['curso', 'plano', 'roteiro', 'situacao', 'atividade', 'prova', 'slides', 'adaptar', 'rubrica'].forEach(tipo => {
-    $(`#form-${tipo}`).addEventListener('submit', e => {
-      e.preventDefault();
-      const params = formToObj(e.target);
-      // Curso longo não cabe numa resposta só: vai em lotes de aulas.
-      if (tipo === 'curso') { guardarUcDoCurso(params); generateCurso(params); }
-      else generate(tipo, params);
-    });
+  $('#form-aula').addEventListener('submit', e => {
+    e.preventDefault();
+    const params = formToObj(e.target);
+    // Rótulo curto derivado do pedido: é o que aparece no histórico, na Agenda
+    // e nos materiais gerados a partir desta aula.
+    params.tema = Prompts.resumoPedido(params.pedido);
+    runGeneration('aula', params, Prompts.aula(params), Prompts.titulo.aula(params));
   });
 
   /* ===== Ações do resultado ===== */
+
+  /* Nome do material atual — usado no arquivo do Word. Itens antigos do
+     histórico não têm gerador de título, então cai no título salvo. */
+  function tituloAtual() {
+    const c = state.current;
+    if (!c) return 'documento';
+    const fn = Prompts.titulo[c.tipo];
+    return (fn && fn(c.params || {})) || c.titulo || 'documento';
+  }
+
   $('#btn-copy').addEventListener('click', async () => {
     if (!state.current?.conteudo) return;
     // innerText reflete edições feitas no modo Editar; sem edição, é o markdown renderizado.
@@ -319,18 +264,32 @@
     const blob = new Blob(['﻿', html], { type: 'application/msword' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = sanitizeFilename(state.current ? Prompts.titulo[state.current.tipo](state.current.params) : 'documento') + '.doc';
+    a.download = sanitizeFilename(tituloAtual()) + '.doc';
     a.click();
     URL.revokeObjectURL(a.href);
   });
 
   $('#btn-regenerate').addEventListener('click', () => {
-    if (state.current?.tipo === 'curso' && state.current.params) {
-      generateCurso(state.current.params);
+    const c = state.current;
+    if (!c || state.generating) return;
+    if (c.tipo === 'aula') {
+      runGeneration('aula', c.params, Prompts.aula(c.params), Prompts.titulo.aula(c.params));
       return;
     }
-    if (!state.current || state.generating) return;
-    generate(state.current.tipo, state.current.params);
+    // Materiais derivados: refaz a partir do material base salvo no histórico.
+    // Guardamos só o id da origem — copiar a aula inteira dentro de cada
+    // derivado triplicaria o histórico dentro da cota do localStorage.
+    const origem = c.params?.origemId
+      && Storage.getHistory().find(i => i.id === c.params.origemId);
+    if (!origem) {
+      alert('A aula de origem não está mais no histórico. Abra a aula desejada e gere este material a partir dela.');
+      return;
+    }
+    runGeneration(
+      c.tipo, c.params,
+      Prompts.chain(c.tipo, c.params.origem, origem.conteudo, c.params),
+      c.titulo,
+    );
   });
 
   function renderUsage(u) {
@@ -374,12 +333,59 @@
   }
 
   function escapeHtml(s) {
-    return s.replace(/[&<>"']/g, c => ({
+    return String(s).replace(/[&<>"']/g, c => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
     }[c]));
   }
 
+  /* ===== Encadear: gerar atividade, prova e slides a partir da aula ===== */
+  function renderChain(tipo) {
+    const bar = $('#chain-bar');
+    const box = $('#chain-actions');
+    const targets = Prompts.chainTargets[tipo] || [];
+    if (!targets.length) { bar.hidden = true; box.innerHTML = ''; return; }
+
+    $('.chain-label').textContent = tipo === 'aula'
+      ? '➡️ Criar a partir desta aula:'
+      : '➡️ Criar a partir disto:';
+    bar.hidden = false;
+    box.innerHTML = targets
+      .map(t => `<button class="btn-secondary" data-target="${t}">${Prompts.labels[t]}</button>`)
+      .join('');
+    box.querySelectorAll('button').forEach(b => {
+      b.addEventListener('click', () => generateChain(b.dataset.target));
+    });
+  }
+
+  function generateChain(target) {
+    if (!state.current?.conteudo || state.generating) return;
+    const src = state.current;
+    const p = src.params || {};
+    // innerText inclui edições feitas no modo Editar; fallback para o markdown original.
+    const srcText = $('#result-content').innerText.trim() || src.conteudo;
+
+    // A adaptação inclusiva pedida na aula segue para o material derivado.
+    const params = {
+      uc: p.uc || '',
+      tema: p.tema || '',
+      disciplina: p.disciplina || '',
+      adaptacoes: Prompts.adaptacoes(p),
+      adaptobs: p.adaptobs || '',
+      origem: src.tipo,
+      origemId: src.id || '',
+    };
+    runGeneration(
+      target,
+      params,
+      Prompts.chain(target, src.tipo, srcText, params),
+      Prompts.titulo[target](params),
+    );
+  }
+
   /* ===== Histórico ===== */
+  // Só a Aula volta para o formulário: os demais materiais nascem de uma aula.
+  function podeDuplicar(item) { return item.tipo === 'aula' || item.tipo === 'plano'; }
+
   function historyItemHtml(item) {
     const data = new Date(item.data).toLocaleString('pt-BR', {
       day: '2-digit', month: '2-digit', year: 'numeric',
@@ -387,14 +393,15 @@
     });
     const uc = ucOf(item);
     const ucTag = uc ? `📦 ${escapeHtml(uc)} · ` : '';
+    const label = Prompts.labels[item.tipo] || item.tipo;
     return `<div class="history-item" data-id="${item.id}">
       <div class="info">
         <div class="titulo">${escapeHtml(item.titulo)}</div>
-        <div class="meta">${ucTag}${Prompts.labels[item.tipo]} · ${data}</div>
+        <div class="meta">${ucTag}${label} · ${data}</div>
       </div>
       <div class="actions">
         <button class="btn-secondary" data-action="open">Abrir</button>
-        <button class="btn-secondary" data-action="dup">Duplicar</button>
+        ${podeDuplicar(item) ? '<button class="btn-secondary" data-action="dup">Duplicar</button>' : ''}
         <button class="btn-danger" data-action="del">Excluir</button>
       </div>
     </div>`;
@@ -407,7 +414,7 @@
 
     if (!list.length) {
       controls.innerHTML = '';
-      box.innerHTML = '<p class="empty-msg">Nada gerado ainda. Comece por 📚 Plano de Aula ou 📝 Gerar Atividade.</p>';
+      box.innerHTML = '<p class="empty-msg">Nada gerado ainda. Comece por 📚 Gerar Aula.</p>';
       return;
     }
 
@@ -459,15 +466,51 @@
 
   // Abre um item do histórico na tela de Resultado.
   function openHistoryItem(item) {
-    state.current = { id: item.id, tipo: item.tipo, params: item.params, conteudo: item.conteudo, conteudoHtml: item.conteudoHtml };
-    restoreResultUI(item.tipo);
-    $('#result-title').textContent = Prompts.labels[item.tipo];
+    state.current = {
+      id: item.id, tipo: item.tipo, params: item.params, titulo: item.titulo,
+      conteudo: item.conteudo, conteudoHtml: item.conteudoHtml,
+    };
+    $('#result-title').textContent = item.titulo || Prompts.labels[item.tipo] || 'Resultado';
     setEditUI(false);
     $('#result-content').innerHTML = item.conteudoHtml || marked.parse(item.conteudo);
     togglePresentBtn(item.tipo);
     renderChain(item.tipo);
     renderUsage(item.usage);
     location.hash = '#/resultado';
+  }
+
+  /* Texto do pedido de um item salvo. Itens das versões antigas do app não têm
+     o campo `pedido`: remonta um a partir dos campos que existiam antes. */
+  function pedidoDoItem(params) {
+    if ((params.pedido || '').trim()) return params.pedido;
+    return [
+      params.disciplina ? `Disciplina: ${params.disciplina}` : '',
+      params.tema ? `Tema: ${params.tema}` : '',
+      params.tipoaula ? `Tipo de aula: ${params.tipoaula}` : '',
+      (params.conteudo || params.basecurso || '').trim(),
+    ].filter(Boolean).join('\n');
+  }
+
+  /* Leva os campos de um item de volta ao formulário da aula. */
+  function preencherFormAula(params, { data = '', aulaanterior = '', aulaproxima = '', abertura = '' } = {}) {
+    const form = $('#form-aula');
+    form.elements.uc.value = params.uc || '';
+    form.elements.carga.value = params.carga || '';
+    form.elements.pedido.value = pedidoDoItem(params);
+    form.elements.adaptobs.value = params.adaptobs || '';
+    form.elements.aulaanterior.value = aulaanterior;
+    form.elements.aulaproxima.value = aulaproxima;
+    form.elements.abertura.value = abertura;
+
+    const marcadas = Prompts.adaptacoes(params);
+    form.querySelectorAll('input[name="adaptacoes"]').forEach(c => {
+      c.checked = marcadas.includes(c.value);
+    });
+    $('#aula-adaptacao').open = marcadas.length > 0 || !!params.adaptobs;
+
+    form.elements.data.value = data;
+    location.hash = '#/aula';
+    updateAulaHint();
   }
 
   function bindHistoryActions(container) {
@@ -477,22 +520,14 @@
 
       el.querySelector('[data-action="open"]').addEventListener('click', () => openHistoryItem(item));
 
-      el.querySelector('[data-action="dup"]').addEventListener('click', () => {
-        // reabre o formulário do tipo com os campos preenchidos para adaptar
-        const form = $(`#form-${item.tipo}`);
-        Object.entries(item.params).forEach(([k, v]) => {
-          const field = form.elements[k];
-          if (!field) return;
-          if (field.type === 'checkbox') field.checked = !!v;
-          else field.value = v;
-        });
-        location.hash = `#/${item.tipo}`;
-      });
+      const dup = el.querySelector('[data-action="dup"]');
+      // Duplicar reabre o formulário com os campos preenchidos, mas SEM a data:
+      // a cópia é para outra turma/dia, não para sobrescrever a aula daquele dia.
+      if (dup) dup.addEventListener('click', () => preencherFormAula(item.params || {}));
 
       el.querySelector('[data-action="del"]').addEventListener('click', () => {
         Storage.removeHistoryItem(item.id);
         renderHistory();
-        renderHome();
       });
     });
   }
@@ -505,7 +540,7 @@
     paintState: true,          // no arrasto: selecionar (true) ou tirar (false)
     modo: 'ver',               // 'ver' = consultar a aula do dia; 'marcar' = pintar UCs
     detalhe: null,             // ISO do dia aberto no painel de detalhe
-    crono: {},                 // Cronograma.mapa() do render atual
+    aulas: {},                 // Cronograma.mapa() do render atual
   };
 
   const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -533,8 +568,6 @@
     return t.charAt(0).toUpperCase() + t.slice(1);
   }
 
-  function rotuloAula(a) { return a ? `AULA ${a.numero} — ${a.titulo}` : ''; }
-
   function corDaUc(uc) {
     const k = ucKey(uc);
     let h = 0;
@@ -545,7 +578,7 @@
   function updateAgendaSelInfo() {
     const el = $('#agenda-selinfo');
     if (agenda.modo === 'ver') {
-      el.textContent = 'Clique em um dia para ver a aula daquele dia.';
+      el.textContent = 'Clique em um dia para ver ou gerar a aula daquele dia.';
       return;
     }
     const n = agenda.selected.size;
@@ -562,7 +595,7 @@
     $('#agenda-month').textContent = `${MESES[mes]} de ${ano}`;
 
     const map = Storage.getAgenda();
-    agenda.crono = Cronograma.mapa();
+    agenda.aulas = Cronograma.mapa();
     const primeiro = new Date(ano, mes, 1);
     const diasNoMes = new Date(ano, mes + 1, 0).getDate();
     const hojeISO = toISO(new Date());
@@ -574,20 +607,18 @@
     for (let dia = 1; dia <= diasNoMes; dia++) {
       const iso = toISO(new Date(ano, mes, dia));
       const uc = map[iso];
-      const info = agenda.crono[iso];
+      const item = agenda.aulas[iso];
       const sel = agenda.selected.has(iso);
       const hoje = iso === hojeISO;
       const aberto = iso === agenda.detalhe;
       const style = uc ? ` style="--uc-cor:${corDaUc(uc)}"` : '';
-      const rotulo = info ? rotuloAula(info.aula) : '';
+      const tema = Cronograma.tema(item);
       html += `<div class="agenda-day${uc ? ' has-uc' : ''}${sel ? ' selected' : ''}${hoje ? ' today' : ''}`
-        + `${info ? ' tem-aula' : ''}${aberto ? ' aberto' : ''}"`
-        + ` data-date="${iso}"${style}${rotulo ? ` title="${escapeHtml(rotulo)}"` : ''}>`
+        + `${item ? ' tem-aula' : ''}${aberto ? ' aberto' : ''}"`
+        + ` data-date="${iso}"${style}${tema ? ` title="${escapeHtml(tema)}"` : ''}>`
         + `<span class="agenda-daynum">${dia}</span>`
         + (uc ? `<span class="agenda-uctag">${escapeHtml(uc)}</span>` : '')
-        + (info
-          ? `<span class="agenda-aula"><b>A${escapeHtml(info.aula.numero)}</b> ${escapeHtml(info.aula.titulo)}</span>`
-          : '')
+        + (item ? `<span class="agenda-aula"><b>✓</b> ${escapeHtml(tema)}</span>` : '')
         + '</div>';
     }
     grid.innerHTML = html;
@@ -611,49 +642,40 @@
     updateAgendaSelInfo();
   }
 
-  /* ===== Painel do dia: mostra a aula que cai naquela data ===== */
+  /* ===== Painel do dia: a aula daquela data ===== */
   function renderAgendaDetalhe() {
     const box = $('#agenda-detail');
     const iso = agenda.detalhe;
     if (!iso) { box.hidden = true; box.innerHTML = ''; return; }
 
-    const uc = Storage.getAgenda()[iso] || '';
-    const info = agenda.crono[iso];
+    const info = Cronograma.info(iso);
+    const uc = info ? info.uc : '';
     box.hidden = false;
 
     let corpo;
-    if (!uc) {
+    if (!info) {
       corpo = '<p class="detail-vazio">Nenhuma UC marcada neste dia. Use <strong>✏️ Marcar UCs</strong> para marcar.</p>';
-    } else if (info) {
-      const a = info.aula;
-      const gerada = Cronograma.aulaGerada(uc, a);
-      corpo = `
-        <p class="detail-pos">Aula ${info.indice + 1} de ${info.total}${a.modulo ? ` · ${escapeHtml(a.modulo)}` : ''}</p>
-        <h3 class="detail-titulo">AULA ${escapeHtml(a.numero)} — ${escapeHtml(a.titulo)}</h3>
-        <ul class="detail-topicos">${a.bullets
-          .map(b => `<li>${escapeHtml(b.replace(/^[-*•]\s*/, ''))}</li>`).join('')}</ul>
-        <div class="detail-vizinhas">
-          ${info.anterior ? `<span>⬅️ Antes: ${escapeHtml(rotuloAula(info.anterior))}</span>` : ''}
-          ${info.proxima ? `<span>➡️ Depois: ${escapeHtml(rotuloAula(info.proxima))}</span>` : ''}
-        </div>
-        <div class="detail-acoes">
-          <button type="button" class="btn-secondary" data-act="copiar">📋 Copiar bloco</button>
-          ${gerada
-            ? '<button type="button" class="btn-primary" data-act="abrir">📂 Abrir aula gerada</button>'
-              + '<button type="button" class="btn-secondary" data-act="gerar">🔄 Gerar de novo</button>'
-            : '<button type="button" class="btn-primary" data-act="gerar">📚 Gerar Aula Completa</button>'}
-        </div>`;
     } else {
-      const r = Cronograma.resumo(uc);
-      const pos = Cronograma.dias(uc).indexOf(iso) + 1;
-      corpo = r.plano
-        ? `<p class="detail-vazio">Este é o ${pos}º dia de ${escapeHtml(uc)} na Agenda, mas o Plano de Curso tem só ${r.aulas} aulas.
-             ${r.diasSemAula} ${r.diasSemAula === 1 ? 'dia ficou' : 'dias ficaram'} sem aula — gere um Plano de Curso com ${r.dias} aulas
-             ou tire a marcação destes dias.</p>
-           <div class="detail-acoes"><button type="button" class="btn-secondary" data-act="ir-curso">📋 Ir para Plano de Curso</button></div>`
-        : `<p class="detail-vazio">Ainda não há Plano de Curso para <strong>${escapeHtml(uc)}</strong>.
-             Gere um usando esse mesmo código de UC e as aulas aparecem aqui sozinhas, uma por dia marcado.</p>
-           <div class="detail-acoes"><button type="button" class="btn-secondary" data-act="ir-curso">📋 Ir para Plano de Curso</button></div>`;
+      const pos = `<p class="detail-pos">Aula ${info.indice + 1} de ${info.total} dias marcados de ${escapeHtml(uc)}</p>`;
+      const vizinhas = `
+        <div class="detail-vizinhas">
+          ${info.anterior ? `<span>⬅️ Antes: ${escapeHtml(Cronograma.tema(info.anterior))}</span>` : ''}
+          ${info.proxima ? `<span>➡️ Depois: ${escapeHtml(Cronograma.tema(info.proxima))}</span>` : ''}
+        </div>`;
+      corpo = info.aula
+        ? `${pos}
+           <h3 class="detail-titulo">${escapeHtml(info.aula.titulo)}</h3>
+           ${vizinhas}
+           <div class="detail-acoes">
+             <button type="button" class="btn-primary" data-act="abrir">📂 Abrir aula</button>
+             <button type="button" class="btn-secondary" data-act="gerar">🔄 Gerar outra para este dia</button>
+           </div>`
+        : `${pos}
+           <p class="detail-vazio">Nenhuma aula gerada para este dia ainda.</p>
+           ${vizinhas}
+           <div class="detail-acoes">
+             <button type="button" class="btn-primary" data-act="gerar">📚 Gerar a aula deste dia</button>
+           </div>`;
     }
 
     box.innerHTML = `
@@ -667,53 +689,50 @@
       ${corpo}`;
 
     box.querySelectorAll('[data-act]').forEach(b => {
-      b.addEventListener('click', () => acaoDetalhe(b.dataset.act, iso, uc, info, b));
+      b.addEventListener('click', () => acaoDetalhe(b.dataset.act, iso, info));
     });
   }
 
-  async function acaoDetalhe(act, iso, uc, info, btn) {
+  function acaoDetalhe(act, iso, info) {
     if (act === 'fechar') {
       agenda.detalhe = null;
       renderAgenda();
       return;
     }
-    if (act === 'ir-curso') {
-      $('#form-curso').elements.uc.value = uc;
-      updateCursoAgendaHint();
-      location.hash = '#/curso';
-      return;
-    }
     if (!info) return;
-
-    if (act === 'copiar') {
-      try {
-        await navigator.clipboard.writeText(info.aula.blockText);
-        flash(btn, '✅ Copiado!');
-      } catch {
-        flash(btn, '⚠️ Não foi possível copiar');
-      }
-      return;
-    }
-    if (act === 'abrir') {
-      const item = Cronograma.aulaGerada(uc, info.aula);
-      if (item) openHistoryItem(item);
-      return;
-    }
-    if (act === 'gerar') prefillPlanoDaAgenda(uc, info);
+    if (act === 'abrir' && info.aula) { openHistoryItem(info.aula); return; }
+    if (act === 'gerar') prefillAulaDaAgenda(iso, info);
   }
 
-  /* Leva o bloco da aula (e as aulas vizinhas) para o formulário de Aula Completa. */
-  function prefillPlanoDaAgenda(uc, info) {
-    const form = $('#form-plano');
-    const p = info.plano.params || {};
-    form.elements.uc.value = uc;
-    form.elements.basecurso.value = info.aula.blockText;
-    if (p.unidade) form.elements.disciplina.value = p.unidade;
-    if (p.duracao) form.elements.carga.value = p.duracao;
-    form.elements.tipoaula.value = info.indice === 0 ? 'Abertura de unidade' : 'Conteúdo novo';
-    form.elements.aulaanterior.value = rotuloAula(info.anterior);
-    form.elements.aulaproxima.value = rotuloAula(info.proxima);
-    location.hash = '#/plano';
+  /* Leva o dia da Agenda para o formulário: UC, data e as aulas vizinhas já
+     geradas — é o que garante a progressão entre uma aula e a seguinte. */
+  function prefillAulaDaAgenda(iso, info) {
+    // Dia que já tem aula: reabre o pedido daquela aula para ajustar e refazer.
+    // Dia vazio: só herda o que se repete na UC — o pedido é novo, do professor.
+    const base = info.aula ? (info.aula.params || {}) : herdarDaUc(info.uc);
+    preencherFormAula({ ...base, uc: info.uc }, {
+      data: iso,
+      aulaanterior: Cronograma.tema(info.anterior),
+      aulaproxima: Cronograma.tema(info.proxima),
+      abertura: info.indice === 0 ? 'sim' : '',
+    });
+  }
+
+  /* Duração e adaptações vêm da última aula gerada para a UC — redigitar isso
+     a cada dia do calendário é trabalho à toa. O pedido não se herda: cada
+     aula ensina outra coisa. */
+  function herdarDaUc(uc) {
+    const alvo = ucKey(uc);
+    const anterior = Storage.getHistory().find(
+      i => i.tipo === 'aula' && ucKey(ucOf(i)) === alvo
+    );
+    if (!anterior) return {};
+    const p = anterior.params || {};
+    return {
+      carga: p.carga || '',
+      adaptacoes: Prompts.adaptacoes(p),
+      adaptobs: p.adaptobs || '',
+    };
   }
 
   function paintDay(el) {
@@ -799,253 +818,44 @@
     });
   })();
 
-  /* ===== Plano de Curso: nº de aulas a partir da Agenda ===== */
-  function updateCursoAgendaHint() {
-    const form = $('#form-curso');
-    const hint = $('#curso-agenda-hint');
-    if (!form || !hint) return;
-    const uc = form.elements.uc.value.trim();
-    const dias = uc ? Cronograma.dias(uc).length : 0;
-    if (!dias) { hint.hidden = true; hint.innerHTML = ''; return; }
+  /* ===== Formulário da aula: vínculo com a Agenda ===== */
+  function updateAulaHint() {
+    const form = $('#form-aula');
+    const hint = $('#aula-agenda-hint');
+    const iso = form.elements.data.value;
 
-    hint.hidden = false;
-    const igual = Number(form.elements.aulas.value) === dias;
-    hint.innerHTML = `📅 Você marcou <strong>${dias}</strong> ${dias === 1 ? 'dia' : 'dias'} de `
-      + `${escapeHtml(uc)} na Agenda.`
-      + (igual ? ' O nº de aulas bate — cada aula cai em um dia.'
-               : ` <button type="button" class="btn-link" id="curso-usar-dias">Usar ${dias} aulas</button>`);
-    const btn = $('#curso-usar-dias');
-    if (btn) btn.addEventListener('click', () => {
-      form.elements.aulas.value = dias;
-      updateCursoAgendaHint();
-    });
-  }
-
-  $('#form-curso').elements.uc.addEventListener('input', updateCursoAgendaHint);
-  $('#form-curso').elements.aulas.addEventListener('input', updateCursoAgendaHint);
-
-  /* ===== Plano de Curso: cabeçalho lido do descritivo colado =====
-     O bloco que o professor cola do PDT quase sempre já traz o nome da UC, a
-     carga horária e o nº de aulas. Redigitar o que acabou de ser colado é
-     trabalho à toa — então a gente lê de lá e só pede confirmação. */
-
-  // Só mexe em campo vazio; 'aulas' tem valor padrão, conta como vazio se intocado.
-  function campoVago(el) {
-    return el.name === 'aulas' ? el.value === el.defaultValue : !el.value.trim();
-  }
-
-  /* "2h30", "2,5 h" e "2:30" viram horas decimais — e voltam formatados. */
-  function horasDecimais(num, sep, frac) {
-    const h = Number(num);
-    if (frac === undefined) return h;
-    const min = (sep === ',' || sep === '.')
-      ? Math.round(Number('0.' + frac) * 60)
-      : Number(frac);
-    return h + min / 60;
-  }
-
-  function formatarDuracao(dec) {
-    const h = Math.floor(dec);
-    const m = Math.round((dec - h) * 60);
-    return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
-  }
-
-  function acharUnidade(t) {
-    const linhas = t.split('\n').map(l => l.trim()).filter(Boolean);
-    for (let i = 0; i < linhas.length; i++) {
-      if (!/unidade\s+curricular|^uc\s*\d/i.test(linhas[i])) continue;
-      let nome = linhas[i].replace(/^[-•*\s]+/, '').replace(/[:;.\s]+$/, '');
-      // "UNIDADE CURRICULAR 10" sozinha na linha: o nome vem na linha de baixo.
-      if (/^(unidade\s+curricular|uc)\s*n?[ºo°]?\s*\d*$/i.test(nome) && linhas[i + 1]) {
-        nome += ' — ' + linhas[i + 1].replace(/^[-•*\s]+/, '').replace(/[:;.\s]+$/, '');
-      }
-      if (nome.length <= 160) return nome;
-    }
-    return '';
-  }
-
-  function acharCarga(t) {
-    const m = t.match(/carga\s+hor[áa]ria[^\d]{0,30}(\d{1,4})/i);
-    return m ? `${m[1]} horas` : '';
-  }
-
-  function acharDuracao(t) {
-    const m = t.match(/(?:dura[çc][ãa]o|cada\s+aula|por\s+aula|aulas?\s+de)[^\d]{0,20}(\d{1,2})(?:\s*([h:.,])\s*(\d{1,2}))?/i);
-    if (!m) return '';
-    const dec = horasDecimais(m[1], m[2], m[3]);
-    return dec > 0 && dec <= 12 ? formatarDuracao(dec) : '';
-  }
-
-  function acharAulas(t, carga, duracao) {
-    const m = t.match(/(\d{1,3})\s*aulas\b/i);
-    if (m) return m[1];
-    // Sem nº explícito: carga total dividida pela duração de cada aula.
-    const ch = Number((carga.match(/\d{1,4}/) || [])[0]);
-    const dm = duracao.match(/(\d{1,2})(?:\s*([h:.,])\s*(\d{1,2}))?/);
-    if (!ch || !dm) return '';
-    const dh = horasDecimais(dm[1], dm[2], dm[3]);
-    const n = dh > 0 ? Math.floor(ch / dh) : 0;
-    return n >= 1 && n <= 200 ? String(n) : '';
-  }
-
-  const cursoAuto = { preenchidos: null };
-
-  function autofillCurso() {
-    const form = $('#form-curso');
-    const hint = $('#curso-autofill-hint');
-    const texto = form.elements.descritivo.value;
-    if (texto.trim().length < 40) return;
-
-    const carga = acharCarga(texto);
-    const duracao = acharDuracao(texto);
-    const achados = {
-      unidade: acharUnidade(texto),
-      carga,
-      duracao,
-      aulas: acharAulas(texto, carga, duracao),
-    };
-
-    const antes = {};
-    Object.entries(achados).forEach(([nome, valor]) => {
-      const el = form.elements[nome];
-      if (!valor || !campoVago(el)) return;
-      antes[nome] = el.value;
-      el.value = valor;
-    });
-
-    const nomes = Object.keys(antes);
-    if (!nomes.length) return;
-    cursoAuto.preenchidos = antes;
-    updateCursoAgendaHint();
-
-    const rotulos = { unidade: 'Unidade Curricular', carga: 'carga horária', duracao: 'duração da aula', aulas: 'nº de aulas' };
-    hint.hidden = false;
-    hint.innerHTML = `✍️ Preenchi <strong>${nomes.map(n => rotulos[n]).join('</strong>, <strong>')}</strong> `
-      + 'a partir do texto colado — confira antes de gerar. '
-      + '<button type="button" class="btn-link" id="curso-desfazer">Desfazer</button>';
-    $('#curso-desfazer').addEventListener('click', () => {
-      Object.entries(cursoAuto.preenchidos || {}).forEach(([nome, valor]) => {
-        form.elements[nome].value = valor;
+    if (iso) {
+      // As aulas vizinhas são campos ocultos: o professor precisa ver que elas
+      // estão indo junto, senão o "retomando a aula anterior" parece mágica.
+      const ant = form.elements.aulaanterior.value;
+      const prox = form.elements.aulaproxima.value;
+      const vizinhas = [
+        ant ? `⬅️ vem depois de <em>${escapeHtml(ant)}</em>` : '',
+        prox ? `➡️ e antes de <em>${escapeHtml(prox)}</em>` : '',
+      ].filter(Boolean).join(' ');
+      hint.hidden = false;
+      hint.innerHTML = `📅 Esta aula fica marcada em <strong>${escapeHtml(dataLonga(iso))}</strong> na Agenda`
+        + (vizinhas ? ` — ${vizinhas}` : '') + '. '
+        + '<button type="button" class="btn-link" id="aula-desvincular">Desvincular da data</button>';
+      $('#aula-desvincular').addEventListener('click', () => {
+        form.elements.data.value = '';
+        form.elements.aulaanterior.value = '';
+        form.elements.aulaproxima.value = '';
+        form.elements.abertura.value = '';
+        updateAulaHint();
       });
-      cursoAuto.preenchidos = null;
-      hint.hidden = true;
-      updateCursoAgendaHint();
-    });
-  }
-
-  $('#form-curso').elements.descritivo.addEventListener('input', autofillCurso);
-
-  /* ===== Descritivo do PDT guardado por UC =====
-     Colado uma vez no Plano de Curso, volta sozinho nas próximas gerações da
-     mesma UC — inclusive nos outros formulários, que só precisam de um clique. */
-
-  // "Unidade Curricular 10 — Desenvolver Banco de Dados" -> "Desenvolver Banco de Dados"
-  function nomeCurtoUc(unidade) {
-    const t = (unidade || '').trim();
-    const m = t.match(/[—–-]\s*(.+)$/);
-    const nome = m ? m[1].trim() : t.replace(/^(unidade\s+curricular|uc)\s*n?[ºo°]?\s*\d*\s*[:.]?\s*/i, '').trim();
-    return nome || t;
-  }
-
-  function guardarUcDoCurso(p) {
-    if (!p.uc || !p.descritivo || !p.descritivo.trim()) return;
-    Storage.setUc(p.uc, {
-      descritivo: p.descritivo,
-      unidade: p.unidade,
-      carga: p.carga,
-      duracao: p.duracao,
-      aulas: p.aulas,
-    });
-  }
-
-  // Data curta ("12/03") para o professor saber de quando é o descritivo salvo.
-  function dataCurta(iso) {
-    const d = new Date(iso);
-    return isNaN(d) ? '' : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-  }
-
-  /* Plano de Curso: ao digitar uma UC já conhecida, traz o descritivo de volta. */
-  function restaurarUcNoCurso() {
-    const form = $('#form-curso');
-    const hint = $('#curso-uc-hint');
-    const salvo = Storage.getUc(form.elements.uc.value);
-    if (!salvo || !salvo.descritivo || form.elements.descritivo.value.trim()) {
-      hint.hidden = true;
       return;
     }
 
-    const antes = {};
-    ['descritivo', 'unidade', 'carga', 'duracao', 'aulas'].forEach(nome => {
-      const el = form.elements[nome];
-      if (!salvo[nome] || !campoVago(el)) return;
-      antes[nome] = el.value;
-      el.value = salvo[nome];
-    });
-    if (!Object.keys(antes).length) { hint.hidden = true; return; }
-
-    updateCursoAgendaHint();
-    $('#curso-autofill-hint').hidden = true;
+    const uc = form.elements.uc.value.trim();
+    const dias = uc ? Cronograma.dias(uc).length : 0;
+    if (!dias) { hint.hidden = true; hint.innerHTML = ''; return; }
     hint.hidden = false;
-    hint.innerHTML = `📦 Descritivo desta UC recuperado${salvo.atualizado ? ` (salvo em ${dataCurta(salvo.atualizado)})` : ''}. `
-      + '<button type="button" class="btn-link" id="curso-uc-limpar">Limpar e colar outro</button>';
-    $('#curso-uc-limpar').addEventListener('click', () => {
-      Object.entries(antes).forEach(([nome, valor]) => { form.elements[nome].value = valor; });
-      hint.hidden = true;
-      updateCursoAgendaHint();
-    });
+    hint.innerHTML = `📅 ${escapeHtml(uc)} tem <strong>${dias}</strong> ${dias === 1 ? 'dia marcado' : 'dias marcados'} na Agenda. `
+      + 'Gerando pela <a href="#/agenda">Agenda</a>, cada aula fica presa ao seu dia e já vem com a anterior e a próxima preenchidas.';
   }
 
-  /* Demais formulários: campo de texto que aceita o descritivo do PDT.
-     Aqui não preenche sozinho — o professor decide, porque esses campos também
-     aceitam um recorte menor que o descritivo inteiro. */
-  const UC_DESTINOS = {
-    plano: { disciplina: true },
-    roteiro: { disciplina: true },
-    situacao: { disciplina: true, campo: 'competencias' },
-    atividade: { disciplina: true },
-    prova: { disciplina: true },
-    slides: { disciplina: true },
-    rubrica: { disciplina: true, campo: 'indicadores' },
-  };
-
-  function atualizarUcHint(tipo) {
-    const cfg = UC_DESTINOS[tipo];
-    const form = $(`#form-${tipo}`);
-    const hint = $(`#${tipo}-uc-hint`);
-    if (!cfg || !form || !hint) return;
-
-    const salvo = Storage.getUc(form.elements.uc.value);
-    if (!salvo || !salvo.descritivo) { hint.hidden = true; return; }
-
-    const nome = nomeCurtoUc(salvo.unidade);
-    hint.hidden = false;
-    hint.innerHTML = `📦 Descritivo do PDT salvo${nome ? ` — <strong>${escapeHtml(nome)}</strong>` : ''}. `
-      + `<button type="button" class="btn-link" id="${tipo}-uc-usar">Usar aqui</button>`;
-    $(`#${tipo}-uc-usar`).addEventListener('click', () => {
-      if (cfg.disciplina && form.elements.disciplina && !form.elements.disciplina.value.trim()) {
-        form.elements.disciplina.value = nome;
-      }
-      if (cfg.campo && form.elements[cfg.campo]) {
-        const el = form.elements[cfg.campo];
-        el.value = el.value.trim() ? `${el.value.trim()}\n\n${salvo.descritivo}` : salvo.descritivo;
-      }
-      hint.hidden = true;
-    });
-  }
-
-  // Cria o parágrafo de aviso logo abaixo do campo UC de cada formulário.
-  Object.keys(UC_DESTINOS).forEach(tipo => {
-    const form = $(`#form-${tipo}`);
-    if (!form) return;
-    const p = document.createElement('p');
-    p.className = 'form-hint';
-    p.id = `${tipo}-uc-hint`;
-    p.hidden = true;
-    form.elements.uc.closest('label').after(p);
-    form.elements.uc.addEventListener('input', () => atualizarUcHint(tipo));
-  });
-
-  $('#form-curso').elements.uc.addEventListener('input', restaurarUcNoCurso);
+  $('#form-aula').elements.uc.addEventListener('input', updateAulaHint);
 
   /* ===== Configurações ===== */
   function fillProviderFields(provider) {
@@ -1062,14 +872,6 @@
   function loadConfig() {
     const form = $('#form-config');
     form.elements.nome.value = Storage.getNome();
-
-    const perfil = Storage.getPerfil();
-    form.elements.perfilNivel.innerHTML = Object.entries(Prompts.NIVEIS)
-      .map(([id, n]) => `<option value="${id}">${escapeHtml(n.label)}</option>`).join('');
-    form.elements.perfilNivel.value = perfil.nivel;
-    form.elements.perfilPublico.value = perfil.publico;
-    form.elements.perfilObs.value = perfil.obs;
-
     form.elements.provider.value = Storage.getProvider();
     fillProviderFields(Storage.getProvider());
 
@@ -1086,7 +888,6 @@
     e.preventDefault();
     const d = formToObj(e.target);
     Storage.setNome(d.nome);
-    Storage.setPerfil({ nivel: d.perfilNivel, publico: d.perfilPublico, obs: d.perfilObs });
     Storage.setProvider(d.provider);
     Storage.setApiKey(d.apiKey, d.provider);
     Storage.setModel(d.model, d.provider);
@@ -1118,7 +919,6 @@
       if (confirm(`Importar backup com ${n} ${n === 1 ? 'material' : 'materiais'}? Serão mesclados ao histórico atual (sem apagar o que já existe).`)) {
         Storage.importData(data, { merge: true });
         loadConfig();
-        renderHome();
         alert('✅ Backup importado!');
       }
     } catch (err) {
@@ -1143,499 +943,34 @@
       el.textContent = '🔑 sem chave';
       el.classList.remove('ok');
     }
+    const aviso = $('#aviso-chave');
+    if (aviso) aviso.hidden = !!Storage.getApiKey();
   }
 
-  /* ===== Apresentação (reveal.js) ===== */
-  let deck = null;
+  /* ===== Slides: abre o editor/preview (js/slides.js) ===== */
 
   function togglePresentBtn(tipo) {
     $('#btn-present').hidden = tipo !== 'slides';
-    $('#btn-modoaula').hidden = tipo !== 'roteiro';
   }
 
-  /* ===== Encadear fluxos ===== */
-  function renderChain(tipo) {
-    const bar = $('#chain-bar');
-    const box = $('#chain-actions');
-
-    // Plano de Curso não usa o encadeamento normal: mostra o botão de gerar
-    // todas as Aulas Completas de uma vez, uma para cada bloco "AULA N".
-    if (tipo === 'curso') {
-      bar.hidden = false;
-      $('.chain-label').textContent = '➡️ A partir deste Plano de Curso:';
-      box.innerHTML = `<button class="btn-primary" id="btn-gerar-todas-aulas">🚀 Gerar todas as aulas</button>`;
-      $('#btn-gerar-todas-aulas').addEventListener('click', generateAllAulas);
-      return;
-    }
-    $('.chain-label').textContent = '➡️ Criar a partir disto:';
-
-    const targets = Prompts.chainTargets[tipo] || [];
-    if (!targets.length) { bar.hidden = true; box.innerHTML = ''; return; }
-    bar.hidden = false;
-    box.innerHTML = targets
-      .map(t => `<button class="btn-secondary" data-target="${t}">${Prompts.labels[t]}</button>`)
-      .join('');
-    box.querySelectorAll('button').forEach(b => {
-      b.addEventListener('click', () => generateChain(b.dataset.target));
+  function abrirSlides() {
+    const c = state.current;
+    if (!c || !c.conteudo || state.generating) return;
+    /* Usa o markdown BRUTO, não o innerText da tela: o editor de slides depende
+       dos `---`, dos `- ` e dos `**`, que o innerText perde. Por isso o próprio
+       editor tem um campo de texto — o que for ajustado lá volta para cá. */
+    Deck.open(c.conteudo, {
+      titulo: c.titulo || 'Slides',
+      onChange: texto => {
+        c.conteudo = texto;
+        c.conteudoHtml = null;
+        $('#result-content').innerHTML = marked.parse(texto);
+        if (c.id) Storage.updateHistoryItem(c.id, { conteudo: texto, conteudoHtml: null });
+      },
     });
   }
 
-  /* ===== Gerar todas as aulas do Plano de Curso, de uma vez ===== */
-
-  // Restaura a tela normal de resultado (some com o painel de lote, se estiver visível).
-  function restoreResultUI(tipo) {
-    $('#batch-panel').hidden = true;
-    $('#result-content').hidden = false;
-    $$('.result-actions button').forEach(b => { b.hidden = false; });
-    togglePresentBtn(tipo);
-  }
-
-  function renderBatchPanel(aulas) {
-    restoreResultUI(state.current.tipo);
-    $('#chain-bar').hidden = true;
-    $('#result-status').hidden = true;
-    $('#result-usage').hidden = true;
-    $('#result-content').hidden = true;
-    $$('.result-actions button').forEach(b => { b.hidden = true; });
-
-    $('#batch-panel').hidden = false;
-    $('#btn-batch-cancel').hidden = false;
-    $('#btn-batch-cancel').disabled = false;
-    $('#btn-batch-cancel').textContent = '✖ Cancelar';
-    $('#batch-summary').hidden = true;
-    $('#batch-summary').innerHTML = '';
-    $('#batch-list').innerHTML = aulas.map((a, i) => `
-      <li class="batch-item" data-idx="${i}">
-        <span class="batch-status" data-status="pending">⏳</span>
-        <span class="batch-titulo">AULA ${escapeHtml(a.numero)} — ${escapeHtml(a.titulo)}</span>
-      </li>`).join('');
-  }
-
-  function markBatchStatus(i, status, detail) {
-    const li = $(`#batch-list li[data-idx="${i}"]`);
-    if (!li) return;
-    const icones = { pending: '⏳', running: '<span class="spinner"></span>', done: '✅', error: '⚠️', cancelled: '⏹️' };
-    const st = li.querySelector('.batch-status');
-    st.dataset.status = status;
-    st.innerHTML = icones[status] || '';
-    li.classList.toggle('batch-error', status === 'error');
-    if (status === 'error' && detail) {
-      let d = li.querySelector('.batch-detail');
-      if (!d) {
-        d = document.createElement('span');
-        d.className = 'batch-detail';
-        li.appendChild(d);
-      }
-      d.textContent = detail;
-    }
-  }
-
-  function finishBatchPanel(aulas, okCount, failCount, uc) {
-    $('#btn-batch-cancel').hidden = true;
-    $('#result-title').textContent = `Aulas geradas (${okCount}/${aulas.length})`;
-
-    const resumo = $('#batch-summary');
-    resumo.hidden = false;
-    const msgFalha = failCount
-      ? ` ${failCount} ${failCount === 1 ? 'falhou' : 'falharam'} — você pode gerá-la(s) manualmente em 📚 Aula Completa, colando o bloco correspondente.`
-      : '';
-    resumo.innerHTML = `
-      <p>✅ ${okCount} de ${aulas.length} aulas geradas com sucesso.${msgFalha}</p>
-      <button class="btn-primary" id="btn-batch-historico">📂 Ver no Histórico</button>
-      <button class="btn-secondary" id="btn-batch-voltar">⬅️ Voltar ao Plano de Curso</button>
-    `;
-    $('#btn-batch-historico').addEventListener('click', () => {
-      historyFilter = uc ? ucKey(uc) : 'all';
-      location.hash = '#/historico';
-    });
-    $('#btn-batch-voltar').addEventListener('click', () => {
-      restoreResultUI(state.current.tipo);
-      renderChain(state.current.tipo);
-    });
-  }
-
-  $('#btn-batch-cancel').addEventListener('click', () => {
-    state.batchCancel = true;
-    $('#btn-batch-cancel').disabled = true;
-    $('#btn-batch-cancel').textContent = 'Cancelando após a aula atual…';
-  });
-
-  async function generateAllAulas() {
-    if (!state.current?.conteudo || state.generating || state.current.tipo !== 'curso') return;
-
-    // innerText reflete edições feitas no modo Editar; fallback para o markdown original.
-    const srcText = $('#result-content').innerText.trim() || state.current.conteudo;
-    const aulas = Prompts.parseAulas(srcText);
-    if (!aulas.length) {
-      alert('Não foi possível identificar as aulas neste Plano de Curso. Verifique se o texto contém blocos "AULA N — Título".');
-      return;
-    }
-    const ok = confirm(
-      `Isso vai gerar ${aulas.length} Aulas Completas, uma de cada vez (pode levar vários minutos e consumir tokens da sua chave de API).\n\nDeseja continuar?`
-    );
-    if (!ok) return;
-
-    const baseParams = state.current.params || {};
-    const uc = baseParams.uc || '';
-    const disciplina = baseParams.unidade || '';
-    const cargaAula = baseParams.duracao || '';
-
-    state.generating = true;
-    state.batchCancel = false;
-    renderBatchPanel(aulas);
-
-    let okCount = 0;
-    let failCount = 0;
-
-    for (let i = 0; i < aulas.length; i++) {
-      const a = aulas[i];
-      if (state.batchCancel) { markBatchStatus(i, 'cancelled'); continue; }
-
-      markBatchStatus(i, 'running');
-      $('#result-title').textContent = `Gerando ${i + 1} de ${aulas.length}: AULA ${a.numero} — ${a.titulo}`;
-
-      const params = {
-        uc,
-        disciplina,
-        carga: cargaAula,
-        tipoaula: i === 0 ? 'Abertura de unidade' : 'Conteúdo novo',
-        basecurso: a.blockText,
-        // Sem os vizinhos o modelo inventa o que veio antes e cada aula sai solta.
-        aulaanterior: rotuloAula(aulas[i - 1]),
-        aulaproxima: rotuloAula(aulas[i + 1]),
-      };
-      const titulo = `Plano: AULA ${a.numero} — ${a.titulo}`;
-
-      try {
-        let texto = '';
-        for await (const chunk of Api.stream(Prompts.plano(params))) {
-          texto += chunk;
-        }
-        // Aula cortada no limite: emenda a continuação antes de salvar.
-        let tentativas = 0;
-        while (Api.truncou() && tentativas < 2) {
-          tentativas++;
-          for await (const chunk of Api.stream(Prompts.continuar('plano', texto))) {
-            texto += chunk;
-          }
-        }
-        const usage = Api.lastUsage;
-        const id = Date.now().toString(36) + '_' + i;
-        Storage.addUsage(usage?.total);
-        Storage.addHistoryItem({
-          id, tipo: 'plano', titulo, data: new Date().toISOString(), params, conteudo: texto, usage,
-        });
-        okCount++;
-        markBatchStatus(i, 'done');
-      } catch (err) {
-        failCount++;
-        markBatchStatus(i, 'error', Api.friendlyError(err));
-      }
-    }
-
-    state.generating = false;
-    refreshUcList();
-    finishBatchPanel(aulas, okCount, failCount, uc);
-  }
-
-  function generateChain(target) {
-    if (!state.current?.conteudo || state.generating) return;
-    const srcTipo = state.current.tipo;
-    const uc = state.current.params && state.current.params.uc || '';
-    // innerText inclui edições feitas no modo Editar; fallback para o markdown original.
-    const srcText = $('#result-content').innerText.trim() || state.current.conteudo;
-
-    // Adaptar precisa escolher a necessidade → abre o formulário já preenchido.
-    if (target === 'adaptar') {
-      $('#form-adaptar').elements.material.value = srcText;
-      if (uc) $('#form-adaptar').elements.uc.value = uc;
-      location.hash = '#/adaptar';
-      return;
-    }
-
-    // Roteiro: abre o formulário para o professor confirmar duração e recursos —
-    // são eles que decidem o corte das etapas, e não estão no material base.
-    if (target === 'roteiro') {
-      const form = $('#form-roteiro');
-      const p = state.current.params || {};
-      form.elements.basematerial.value = srcText;
-      if (p.disciplina) form.elements.disciplina.value = p.disciplina;
-      if (p.tema) form.elements.tema.value = p.tema;
-      if (p.carga) form.elements.carga.value = p.carga;
-      if (uc) form.elements.uc.value = uc;
-      location.hash = '#/roteiro';
-      return;
-    }
-
-    // Slides: abre o formulário para o professor definir o nº de slides antes de gerar.
-    if (target === 'slides') {
-      const form = $('#form-slides');
-      const p = state.current.params || {};
-      form.elements.basematerial.value = srcText;
-      if (p.disciplina) form.elements.disciplina.value = p.disciplina;
-      if (p.tema) form.elements.tema.value = p.tema;
-      if (uc) form.elements.uc.value = uc;
-      location.hash = '#/slides';
-      return;
-    }
-
-    runGeneration(
-      target,
-      { origem: srcTipo, uc },
-      Prompts.chain(target, srcTipo, srcText),
-      `${Prompts.labels[target]} (de ${Prompts.labels[srcTipo]})`,
-    );
-  }
-
-  async function present() {
-    const md = state.current?.conteudo;
-    if (!md) return;
-
-    const overlay = $('#reveal-overlay');
-    const revealEl = overlay.querySelector('.reveal');
-    // Recria o template a cada apresentação (o plugin markdown consome o textarea no init).
-    const slides = revealEl.querySelector('.slides');
-    slides.innerHTML =
-      '<section data-markdown data-separator="^\\r?\\n---\\r?\\n$" data-separator-notes="^Note:">' +
-      '<textarea data-template></textarea></section>';
-    slides.querySelector('textarea[data-template]').textContent = md;
-
-    overlay.hidden = false;
-
-    if (deck) { try { deck.destroy(); } catch { /* ignora */ } }
-    deck = new Reveal(revealEl, {
-      hash: false,      // não mexe na URL da SPA
-      keyboard: true,   // setas navegam os slides
-      plugins: [RevealMarkdown],
-    });
-    await deck.initialize();
-
-    if (overlay.requestFullscreen) {
-      try { await overlay.requestFullscreen(); } catch { /* usuário pode ter negado */ }
-    }
-  }
-
-  function closePresent() {
-    $('#reveal-overlay').hidden = true;
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    if (deck) { try { deck.destroy(); } catch { /* ignora */ } deck = null; }
-  }
-
-  $('#btn-present').addEventListener('click', present);
-  $('#btn-close-present').addEventListener('click', closePresent);
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && !$('#reveal-overlay').hidden) closePresent();
-  });
-  document.addEventListener('fullscreenchange', () => {
-    // Sair do fullscreen (Esc do navegador) também fecha o overlay.
-    if (!document.fullscreenElement && !$('#reveal-overlay').hidden) closePresent();
-  });
-
-  /* ===== Modo Aula =====
-     Executa o Roteiro em sala: uma etapa por tela, com cronômetro regressivo.
-     O cronômetro é regressivo mas NÃO trava no zero — vira contagem positiva em
-     vermelho, porque em sala a etapa estourar é informação, não erro. */
-  const aula = {
-    etapas: [],       // [{ titulo, min, corpo, cor, tag }]
-    i: 0,
-    resta: 0,         // segundos restantes da etapa (negativo = estourou)
-    decorrido: 0,     // segundos de aula com o cronômetro rodando
-    planejado: 0,     // soma dos minutos das etapas
-    rodando: false,
-    tick: null,
-  };
-
-  // Uma cor por etapa, ciclando — é o 🟢/🔵/🟠 do roteiro virando sinal visual.
-  const AULA_CORES = ['#16a34a', '#2563eb', '#ea580c', '#7c3aed', '#dc2626', '#0891b2', '#ca8a04'];
-
-  function mmss(seg) {
-    const neg = seg < 0;
-    const s = Math.abs(Math.round(seg));
-    return (neg ? '+' : '') + String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
-  }
-
-  function duracaoLonga(min) {
-    if (min < 60) return `${min} min`;
-    const h = Math.floor(min / 60);
-    const m = min % 60;
-    return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
-  }
-
-  /* Monta a sequência que o professor percorre: briefing (objetivo, competências,
-     materiais) + etapas cronometradas + tarefa de casa. Briefing e tarefa entram
-     com 0 min — são leitura, não etapa de aula. */
-  function montarEtapasAula(md) {
-    const r = Prompts.parseEtapas(md);
-    if (!r.etapas.length) return null;
-
-    const lista = [];
-    // O "# Título" já aparece na barra de cima; repetir no briefing só rouba espaço.
-    const briefing = r.cabecalho.replace(/^#\s+.*$/m, '').trim();
-    if (briefing) {
-      lista.push({ titulo: 'Antes de começar', min: 0, corpo: briefing, cor: '#475569', tag: '🎯 Preparação' });
-    }
-    r.etapas.forEach((e, k) => {
-      lista.push({
-        titulo: e.titulo || `Etapa ${e.numero}`,
-        min: e.min,
-        corpo: e.corpo,
-        cor: AULA_CORES[k % AULA_CORES.length],
-        tag: `Etapa ${e.numero}`,
-      });
-    });
-    if (r.tarefa) {
-      lista.push({ titulo: 'Tarefa para casa', min: 0, corpo: r.tarefa, cor: '#475569', tag: '🏠 Casa' });
-    }
-    return { lista, planejado: r.total };
-  }
-
-  function abrirModoAula() {
-    if (!state.current?.conteudo || state.generating) return;
-    /* Aqui, ao contrário dos outros botões, se lê o markdown BRUTO e não o
-       innerText da tela: o innerText perde negrito, bullets e cabeçalhos, e o
-       Modo Aula depende deles para separar "O que fazer" de "Como explicar".
-       Custo: edições feitas em ✏️ Editar não entram no Modo Aula. */
-    const md = state.current.conteudo;
-    const parsed = montarEtapasAula(md);
-    if (!parsed) {
-      alert('Não encontrei as etapas neste roteiro. O Modo Aula precisa de linhas no formato "ETAPA 1 | 15 min | Título".');
-      return;
-    }
-
-    aula.etapas = parsed.lista;
-    aula.planejado = parsed.planejado;
-    aula.decorrido = 0;
-    pararTick();
-
-    // Título da aula: o "# Título" do roteiro, senão o título do material.
-    const h1 = md.split(/\r?\n/).map(l => l.trim()).find(l => /^#\s+\S/.test(l));
-    $('#aula-aula').textContent = h1 ? h1.replace(/^#\s+/, '') : ($('#result-title').textContent || 'Aula');
-
-    renderListaAula();
-    irParaEtapa(0);
-
-    const ov = $('#aula-overlay');
-    ov.hidden = false;
-    if (ov.requestFullscreen) ov.requestFullscreen().catch(() => { /* usuário pode negar */ });
-  }
-
-  function fecharModoAula() {
-    pararTick();
-    $('#aula-overlay').hidden = true;
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => { /* ignora */ });
-  }
-
-  function renderListaAula() {
-    $('#aula-lista').innerHTML = aula.etapas.map((e, k) => `
-      <button type="button" class="aula-lista-item" data-idx="${k}">
-        <span class="aula-lista-dot" style="background:${e.cor}"></span>
-        <span class="aula-lista-txt">${escapeHtml(e.titulo)}</span>
-        <span class="aula-lista-min">${e.min ? `${e.min} min` : ''}</span>
-      </button>`).join('');
-    $('#aula-lista').querySelectorAll('[data-idx]').forEach(b => {
-      b.addEventListener('click', () => irParaEtapa(Number(b.dataset.idx)));
-    });
-  }
-
-  function irParaEtapa(i) {
-    if (i < 0 || i >= aula.etapas.length) return;
-    pararTick();
-    aula.i = i;
-    const e = aula.etapas[i];
-    aula.resta = e.min * 60;
-
-    $('#aula-pos').textContent = `${e.tag} · ${i + 1} de ${aula.etapas.length}`;
-    $('#aula-pos').style.background = e.cor;
-    $('#aula-etapa-titulo').textContent = e.titulo;
-    $('#aula-etapa-titulo').style.borderColor = e.cor;
-    $('#aula-conteudo').innerHTML = marked.parse(e.corpo || '_(sem detalhes)_');
-
-    $('#aula-prev').disabled = i === 0;
-    $('#aula-next').disabled = i === aula.etapas.length - 1;
-
-    $('#aula-lista').querySelectorAll('.aula-lista-item').forEach((b, k) => {
-      b.classList.toggle('active', k === i);
-      b.classList.toggle('feita', k < i);
-    });
-
-    $('#aula-palco').scrollTop = 0;
-    atualizarRelogio();
-  }
-
-  function atualizarRelogio() {
-    const e = aula.etapas[aula.i];
-    if (!e) return;
-    const cron = $('#aula-cronometro');
-    const semTempo = !e.min;
-
-    cron.textContent = semTempo ? '—' : mmss(aula.resta);
-    cron.classList.toggle('estourou', !semTempo && aula.resta < 0);
-    $('#aula-play').disabled = semTempo;
-    $('#aula-reset').disabled = semTempo;
-    $('#aula-play').textContent = aula.rodando ? '⏸️ Pausar' : '▶️ Iniciar';
-
-    $('#aula-total').textContent = aula.planejado
-      ? `⏱️ ${mmss(aula.decorrido)} de ${duracaoLonga(aula.planejado)}`
-      : '';
-
-    // Progresso: minutos já vencidos das etapas anteriores + o andamento desta.
-    const total = aula.planejado || 1;
-    let feito = 0;
-    for (let k = 0; k < aula.i; k++) feito += aula.etapas[k].min;
-    if (e.min) feito += Math.min(e.min, Math.max(0, e.min * 60 - aula.resta) / 60);
-    const fill = $('#aula-progresso-fill');
-    fill.style.width = `${Math.min(100, (feito / total) * 100)}%`;
-    fill.style.background = e.cor;
-  }
-
-  function pararTick() {
-    if (aula.tick) clearInterval(aula.tick);
-    aula.tick = null;
-    aula.rodando = false;
-  }
-
-  function playPauseAula() {
-    const e = aula.etapas[aula.i];
-    if (!e || !e.min) return;
-    if (aula.rodando) { pararTick(); atualizarRelogio(); return; }
-    aula.rodando = true;
-    aula.tick = setInterval(() => {
-      aula.resta -= 1;
-      aula.decorrido += 1;
-      atualizarRelogio();
-    }, 1000);
-    atualizarRelogio();
-  }
-
-  $('#btn-modoaula').addEventListener('click', abrirModoAula);
-  $('#aula-sair').addEventListener('click', fecharModoAula);
-  $('#aula-prev').addEventListener('click', () => irParaEtapa(aula.i - 1));
-  $('#aula-next').addEventListener('click', () => irParaEtapa(aula.i + 1));
-  $('#aula-play').addEventListener('click', playPauseAula);
-  $('#aula-reset').addEventListener('click', () => {
-    pararTick();
-    aula.resta = aula.etapas[aula.i].min * 60;
-    atualizarRelogio();
-  });
-  $('#aula-toggle-lista').addEventListener('click', ev => {
-    const lista = $('#aula-lista');
-    lista.hidden = !lista.hidden;
-    ev.currentTarget.setAttribute('aria-expanded', String(!lista.hidden));
-  });
-
-  // Teclado: o professor navega sem procurar o mouse no meio da aula.
-  document.addEventListener('keydown', ev => {
-    if ($('#aula-overlay').hidden) return;
-    if (ev.key === 'Escape') { fecharModoAula(); return; }
-    if (ev.key === 'ArrowRight' || ev.key === 'PageDown') { ev.preventDefault(); irParaEtapa(aula.i + 1); }
-    if (ev.key === 'ArrowLeft' || ev.key === 'PageUp') { ev.preventDefault(); irParaEtapa(aula.i - 1); }
-    if (ev.key === ' ') { ev.preventDefault(); playPauseAula(); }
-  });
-
-  // Sair do fullscreen pelo Esc do navegador também fecha o Modo Aula.
-  document.addEventListener('fullscreenchange', () => {
-    if (!document.fullscreenElement && !$('#aula-overlay').hidden) fecharModoAula();
-  });
+  $('#btn-present').addEventListener('click', abrirSlides);
 
   /* ===== Menu mobile ===== */
   $('#menu-toggle').addEventListener('click', () => {

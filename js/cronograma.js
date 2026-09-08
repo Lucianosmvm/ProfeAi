@@ -1,10 +1,9 @@
-/* Cronograma: junta a Agenda (dias marcados por UC) com o Plano de Curso
-   (aulas numeradas). A regra é direta: a aula N de uma UC cai no N-ésimo dia
-   marcado com aquela UC, em ordem cronológica.
+/* Cronograma: liga a Agenda (dias marcados por UC) às aulas já geradas.
 
-   A Agenda continua sendo a ÚNICA fonte das datas — o Plano de Curso não guarda
-   data nenhuma. Assim, mexer no calendário (feriado, recesso, dia de projeto)
-   reorganiza as aulas sozinho, sem precisar gerar o plano de novo. */
+   Cada aula gerada a partir de um dia da Agenda guarda a data em `params.data`.
+   É essa data que amarra os dois lados — a Agenda continua sendo a única fonte
+   do calendário, e mexer nela (feriado, recesso) não invalida nada do que já
+   foi gerado. */
 const Cronograma = {
   chaveUc(uc) { return (uc || '').trim().toUpperCase(); },
 
@@ -18,84 +17,48 @@ const Cronograma = {
       .sort();
   },
 
-  /* Plano de Curso mais recente da UC. O histórico já vem do mais novo para o
-     mais antigo, então o primeiro achado é o que vale. */
-  plano(uc) {
-    const alvo = this.chaveUc(uc);
-    if (!alvo) return null;
+  /* Aula gerada para aquela data. O histórico vem do mais novo para o mais
+     antigo, então o primeiro achado é a versão mais recente do dia. */
+  aulaDoDia(iso) {
+    if (!iso) return null;
     return Storage.getHistory().find(
-      i => i.tipo === 'curso' && this.chaveUc(i.params && i.params.uc) === alvo
+      i => i.tipo === 'aula' && i.params && i.params.data === iso
     ) || null;
   },
 
-  /* Aulas do Plano de Curso da UC, na ordem em que foram geradas. */
-  aulas(uc) {
-    const p = this.plano(uc);
-    return p ? Prompts.parseAulas(p.conteudo) : [];
-  },
-
-  /* Mapa { "AAAA-MM-DD": { uc, plano, aula, indice, total, anterior, proxima } }
-     com todos os dias que já têm uma aula correspondente. */
+  /* Mapa { "AAAA-MM-DD": item } com todos os dias que já têm aula gerada —
+     usado para pintar o calendário numa passada só. */
   mapa() {
-    const porUc = new Map(); // chave -> { uc, dias: [] }
-    Object.entries(Storage.getAgenda())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .forEach(([iso, uc]) => {
-        const k = this.chaveUc(uc);
-        if (!k) return;
-        if (!porUc.has(k)) porUc.set(k, { uc, dias: [] });
-        porUc.get(k).dias.push(iso);
-      });
-
     const out = {};
-    porUc.forEach(({ uc, dias }) => {
-      const plano = this.plano(uc);
-      if (!plano) return;
-      const aulas = Prompts.parseAulas(plano.conteudo);
-      dias.forEach((iso, i) => {
-        if (i >= aulas.length) return; // sobram dias: o plano acabou antes
-        out[iso] = {
-          uc,
-          plano,
-          aula: aulas[i],
-          indice: i,
-          total: aulas.length,
-          anterior: aulas[i - 1] || null,
-          proxima: aulas[i + 1] || null,
-        };
-      });
+    Storage.getHistory().forEach(i => {
+      const iso = i.tipo === 'aula' && i.params && i.params.data;
+      // O histórico vem do mais novo para o mais antigo: não sobrescreve.
+      if (iso && !out[iso]) out[iso] = i;
     });
     return out;
   },
 
-  /* Situação de uma UC: quantos dias marcados x quantas aulas no plano. */
-  resumo(uc) {
+  /* Situação de um dia: posição dentro da UC e as aulas vizinhas já geradas.
+     As vizinhas alimentam os campos "aula anterior/próxima" do formulário —
+     é o que garante a progressão entre as aulas. */
+  info(iso) {
+    const uc = Storage.getAgenda()[iso] || '';
+    if (!uc) return null;
     const dias = this.dias(uc);
-    const plano = this.plano(uc);
-    const aulas = plano ? Prompts.parseAulas(plano.conteudo) : [];
+    const indice = dias.indexOf(iso);
     return {
       uc,
-      plano,
-      dias: dias.length,
-      aulas: aulas.length,
-      diasSemAula: Math.max(0, dias.length - aulas.length),
-      aulasSemDia: Math.max(0, aulas.length - dias.length),
+      indice,
+      total: dias.length,
+      aula: this.aulaDoDia(iso),
+      anterior: indice > 0 ? this.aulaDoDia(dias[indice - 1]) : null,
+      proxima: indice >= 0 && indice < dias.length - 1 ? this.aulaDoDia(dias[indice + 1]) : null,
     };
   },
 
-  /* Número da aula ("3") a partir do bloco colado no campo "Aula do Plano de Curso". */
-  numeroDoBloco(texto) {
-    const m = (texto || '').match(/^#{0,3}\s*AULA\s+(\d+)\s*[—\-–:]/im);
-    return m ? m[1] : null;
-  },
-
-  /* Aula Completa já gerada para essa aula do plano (mesma UC, mesmo número). */
-  aulaGerada(uc, aula) {
-    const alvo = this.chaveUc(uc);
-    return Storage.getHistory().find(i =>
-      i.tipo === 'plano'
-      && this.chaveUc(i.params && i.params.uc) === alvo
-      && this.numeroDoBloco(i.params && i.params.basecurso) === aula.numero
-    ) || null;
+  /* Tema da aula de um item do histórico, para rótulos curtos. */
+  tema(item) {
+    if (!item) return '';
+    return (item.params && item.params.tema) || item.titulo || '';
   },
 };

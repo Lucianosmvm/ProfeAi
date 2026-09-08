@@ -3,14 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Professor+ AI — Planeje aulas em minutos</title>
-  <meta name="description" content="Plataforma para professores gerarem planos de aula, atividades, provas e rubricas com IA. Preencha um formulário, receba material pronto.">
+  <title>Professor+ AI — Gere a aula em minutos</title>
+  <meta name="description" content="Gere a aula completa com IA e, a partir dela, a atividade, a prova e os slides. Preencha um formulário, receba material pronto.">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/theme/white.css" id="reveal-theme">
+  <link rel="stylesheet" href="css/slides.css">
   <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/markdown/markdown.js"></script>
 </head>
 <body>
   <div class="layout">
@@ -21,16 +18,7 @@
         <span class="brand-name">Professor<span class="brand-plus">+</span> AI</span>
       </div>
       <nav class="nav">
-        <a href="#/" class="nav-link" data-route="home">🏠 Início</a>
-        <a href="#/curso" class="nav-link" data-route="curso">📋 Plano de Curso</a>
-        <a href="#/plano" class="nav-link" data-route="plano">📚 Aula Completa</a>
-        <a href="#/roteiro" class="nav-link" data-route="roteiro">🎬 Modo Aula</a>
-        <a href="#/situacao" class="nav-link" data-route="situacao">🧩 Situação de Aprendizagem</a>
-        <a href="#/atividade" class="nav-link" data-route="atividade">📝 Gerar Atividade</a>
-        <a href="#/prova" class="nav-link" data-route="prova">📄 Gerar Prova</a>
-        <a href="#/slides" class="nav-link" data-route="slides">📽️ Slides</a>
-        <a href="#/adaptar" class="nav-link" data-route="adaptar">♿ Adaptação Inclusiva</a>
-        <a href="#/rubrica" class="nav-link" data-route="rubrica">📊 Critérios de Avaliação</a>
+        <a href="#/" class="nav-link" data-route="aula">📚 Gerar Aula</a>
         <a href="#/agenda" class="nav-link" data-route="agenda">📅 Agenda</a>
         <a href="#/historico" class="nav-link" data-route="historico">📂 Histórico</a>
         <a href="#/config" class="nav-link" data-route="config">⚙️ Configurações</a>
@@ -44,411 +32,56 @@
     <main class="main">
       <button class="menu-toggle" id="menu-toggle" aria-label="Menu">☰</button>
 
-      <!-- Home -->
-      <section class="view" id="view-home">
-        <h1 id="greeting">👋 Olá, Professor!</h1>
-        <p class="subtitle">O que vamos preparar hoje?</p>
-        <div class="cards">
-          <a href="#/curso" class="card">
-            <span class="card-icon">📋</span>
-            <h3>Plano de Curso</h3>
-            <p>Transforma o descritivo do PDT em módulos e aulas prontos.</p>
-          </a>
-          <a href="#/plano" class="card">
-            <span class="card-icon">📚</span>
-            <h3>Aula Completa</h3>
-            <p>O conteúdo da aula pronto para ministrar, dividido por tempo.</p>
-          </a>
-          <a href="#/roteiro" class="card">
-            <span class="card-icon">🎬</span>
-            <h3>Modo Aula</h3>
-            <p>O roteiro cronometrado da aula, etapa por etapa, para seguir ao vivo em sala.</p>
-          </a>
-          <a href="#/situacao" class="card">
-            <span class="card-icon">🧩</span>
-            <h3>Situação de Aprendizagem</h3>
-            <p>Desafio contextualizado no mundo do trabalho, no modelo Senac.</p>
-          </a>
-          <a href="#/atividade" class="card">
-            <span class="card-icon">📝</span>
-            <h3>Gerar Atividade</h3>
-            <p>Exercícios, projetos e desafios com gabarito.</p>
-          </a>
-          <a href="#/prova" class="card">
-            <span class="card-icon">📄</span>
-            <h3>Gerar Prova</h3>
-            <p>Prova pronta com gabarito separado.</p>
-          </a>
-          <a href="#/slides" class="card">
-            <span class="card-icon">📽️</span>
-            <h3>Slides</h3>
-            <p>Apresentação pronta para projetar em sala.</p>
-          </a>
-          <a href="#/adaptar" class="card">
-            <span class="card-icon">♿</span>
-            <h3>Adaptação Inclusiva</h3>
-            <p>Adapta um material para TDAH, dislexia, TEA e outras necessidades.</p>
-          </a>
-          <a href="#/rubrica" class="card">
-            <span class="card-icon">📊</span>
-            <h3>Critérios de Avaliação</h3>
-            <p>Avaliação por competências: indicadores, níveis e parecer descritivo.</p>
-          </a>
-        </div>
-        <div id="home-recent"></div>
-      </section>
+      <!-- Gerar Aula (tela inicial) -->
+      <section class="view" id="view-aula">
+        <h1 id="greeting">📚 Gerar Aula</h1>
+        <p class="subtitle">Preencha os campos e receba o conteúdo da aula pronto para ministrar. Depois, com um clique, a atividade, a prova e os slides saem da mesma aula.</p>
 
-      <!-- Plano de Curso -->
-      <section class="view" id="view-curso">
-        <h1>📋 Plano de Curso</h1>
-        <p class="subtitle">Cole o descritivo da Unidade Curricular (do PDT) e receba o curso dividido em módulos e aulas.</p>
-        <form class="gen-form" id="form-curso">
-          <label class="uc-field">📦 UC — código para agrupar no histórico
-            <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
-          </label>
-          <p class="form-hint" id="curso-uc-hint" hidden></p>
-          <label>Unidade Curricular
-            <input type="text" name="unidade" placeholder="Ex.: Unidade Curricular 10 — Desenvolver Banco de Dados" required>
-          </label>
-          <div class="grid-2">
-            <label>Carga horária total
-              <input type="text" name="carga" placeholder="Ex.: 72 horas" required>
-            </label>
-            <label>Duração de cada aula
-              <input type="text" name="duracao" placeholder="Ex.: 2h30" required>
-            </label>
-            <label>Nº de aulas
-              <input type="number" name="aulas" value="32" min="1" max="200" required>
-            </label>
-          </div>
-          <p class="form-hint" id="curso-agenda-hint" hidden></p>
-          <label>Descritivo da Unidade Curricular (do PDT)
-            <textarea name="descritivo" rows="10" placeholder="Selecione o bloco inteiro da UC no PDT (indicadores, conhecimentos, habilidades, atitudes) e cole tudo aqui de uma vez — não precisa separar."></textarea>
-          </label>
-          <p class="form-hint" id="curso-autofill-hint" hidden></p>
-          <details class="form-avancado">
-            <summary>Ajuste fino — separar por seção (opcional)</summary>
-            <p class="form-hint">Só preencha se quiser controlar cada seção. O que você escrever aqui é somado ao descritivo acima.</p>
-            <label>Indicadores de competência
-              <textarea name="indicadores" rows="4" placeholder="Um indicador por linha…"></textarea>
-            </label>
-            <label>Conhecimentos
-              <textarea name="conhecimentos" rows="6" placeholder="Lista de conhecimentos…"></textarea>
-            </label>
-            <label>Habilidades
-              <textarea name="habilidades" rows="3" placeholder="Habilidades…"></textarea>
-            </label>
-            <label>Atitudes / Valores
-              <textarea name="atitudes" rows="3" placeholder="Atitudes e valores…"></textarea>
-            </label>
-          </details>
-          <button type="submit" class="btn-primary">✨ Gerar Plano de Curso</button>
-        </form>
-      </section>
+        <p class="aviso-chave" id="aviso-chave" hidden>
+          🔑 Falta a chave de API. <a href="#/config">Configure em ⚙️ Configurações</a> para começar a gerar.
+        </p>
 
-      <!-- Aula Completa -->
-      <section class="view" id="view-plano">
-        <h1>📚 Aula Completa</h1>
-        <p class="subtitle">Cole a aula do Plano de Curso e receba o conteúdo pronto para ministrar, dividido pelo tempo.</p>
-        <form class="gen-form" id="form-plano">
-          <label class="uc-field">📦 UC — código para agrupar no histórico
-            <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
-          </label>
-          <label>Aula do Plano de Curso
-            <textarea name="basecurso" rows="7" placeholder="Cole o bloco da aula gerado no Plano de Curso. Ex.:&#10;MÓDULO 1 — Fundamentos e Modelagem Conceitual (Aulas 1 a 5)&#10;AULA 1 — Introdução a SGBDs e Levantamento de Requisitos&#10;- Apresentação da Unidade Curricular e Termos Técnicos.&#10;- Levantamento de dados e especificação de requisitos.&#10;- Dicionário de dados e Arquitetura de arquivos de dados." required></textarea>
-          </label>
+        <form class="gen-form" id="form-aula">
           <div class="grid-2">
-            <label>Curso / Disciplina
-              <input type="text" name="disciplina" placeholder="Ex.: Desenvolver Banco de Dados" required>
-            </label>
-            <label>Carga horária da aula
-              <input type="text" name="carga" placeholder="Ex.: 2h30" required>
-            </label>
-            <label>Tipo de aula
-              <select name="tipoaula">
-                <option>Abertura de unidade</option>
-                <option selected>Conteúdo novo</option>
-                <option>Prática / laboratório</option>
-                <option>Exercício integrador</option>
-                <option>Avaliação / Projeto</option>
-              </select>
-            </label>
-          </div>
-          <div class="grid-2">
-            <label>Aula anterior (opcional)
-              <input type="text" name="aulaanterior" placeholder="Ex.: AULA 2 — Modelo Entidade-Relacionamento">
-            </label>
-            <label>Próxima aula (opcional)
-              <input type="text" name="aulaproxima" placeholder="Ex.: AULA 4 — Normalização">
-            </label>
-          </div>
-          <p class="form-hint">Preenchidos sozinhos quando você vem da 📅 Agenda — é o que garante a ligação e a progressão entre as aulas.</p>
-          <button type="submit" class="btn-primary">✨ Gerar Aula</button>
-        </form>
-      </section>
-
-      <!-- Roteiro de Aula / Modo Aula -->
-      <section class="view" id="view-roteiro">
-        <h1>🎬 Modo Aula</h1>
-        <p class="subtitle">Gera o <strong>roteiro cronometrado</strong> da aula — etapa por etapa, com o que fazer e quanto tempo dura cada uma — e abre a tela do professor para seguir ao vivo em sala.</p>
-        <form class="gen-form" id="form-roteiro">
-          <label class="uc-field">📦 UC — código para agrupar no histórico
-            <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
-          </label>
-          <div class="grid-2">
-            <label>Disciplina / Unidade Curricular
-              <input type="text" name="disciplina" placeholder="Ex.: Redes de Computadores" required>
-            </label>
-            <label>Tema da aula
-              <input type="text" name="tema" placeholder="Ex.: Sub-redes" required>
+            <label class="uc-field">📦 UC — código para agrupar no histórico (opcional)
+              <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
             </label>
             <label>Duração da aula
-              <input type="text" name="carga" placeholder="Ex.: 3 horas" required>
-            </label>
-            <label>Momento da aula
-              <select name="momento">
-                <option>Conteúdo novo</option>
-                <option>Abertura de unidade</option>
-                <option>Revisão</option>
-                <option>Aula prática</option>
-                <option>Avaliação</option>
-              </select>
+              <input type="text" name="carga" placeholder="Ex.: 2h30" required>
             </label>
           </div>
-          <label>Recursos disponíveis em sala (opcional)
-            <input type="text" name="recursos" placeholder="Ex.: laboratório com Packet Tracer, projetor, quadro branco">
-            <small>É o que permite instruções concretas do tipo “abra o Packet Tracer e monte a topologia”.</small>
-          </label>
-          <label>Material base (opcional)
-            <textarea name="basematerial" rows="6" placeholder="Preenchido automaticamente ao criar o roteiro a partir de uma Aula Completa. O roteiro vira a execução deste material."></textarea>
-          </label>
-          <label class="check">
-            <input type="checkbox" name="tarefacasa" checked> Incluir tarefa para casa
-          </label>
-          <button type="submit" class="btn-primary">✨ Gerar Roteiro</button>
-        </form>
-      </section>
+          <p class="form-hint" id="aula-agenda-hint" hidden></p>
 
-      <!-- Situação de Aprendizagem -->
-      <section class="view" id="view-situacao">
-        <h1>🧩 Situação de Aprendizagem</h1>
-        <p class="subtitle">Um desafio contextualizado no mundo do trabalho que mobiliza competências — no modelo pedagógico Senac.</p>
-        <form class="gen-form" id="form-situacao">
-          <label class="uc-field">📦 UC — código para agrupar no histórico
-            <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
+          <label>O que a aula deve ensinar
+            <textarea name="pedido" rows="8" required placeholder="Descreva a aula que você quer. Ex.:&#10;&#10;Aula de Banco de Dados sobre Modelo Entidade-Relacionamento para turma de técnico noturno. Cobrir entidades, atributos, chaves e cardinalidade, com um exemplo de uma locadora. Terminar com exercício de modelagem.&#10;&#10;Pode colar a ementa ou o bloco do PDT aqui também."></textarea>
+            <small>Escreva à vontade: disciplina, tema, tópicos, público, o que quiser. É isso que vira a aula.</small>
           </label>
-          <div class="grid-2">
-            <label>Unidade Curricular / Disciplina
-              <input type="text" name="disciplina" placeholder="Ex.: Desenvolver Banco de Dados" required>
-            </label>
-            <label>Tema / conteúdo
-              <input type="text" name="tema" placeholder="Ex.: Modelagem de dados para um e-commerce" required>
-            </label>
-            <label>Contexto do mundo do trabalho (opcional)
-              <input type="text" name="contexto" placeholder="Ex.: uma startup de logística">
-            </label>
-            <label>Duração prevista (opcional)
-              <input type="text" name="aulas" placeholder="Ex.: 3 aulas">
-            </label>
-            <label>Público (opcional)
-              <input type="text" name="publico" placeholder="Ex.: Curso Técnico, turma da noite">
-            </label>
-          </div>
-          <label>Competências / indicadores (opcional — cole do PDT)
-            <textarea name="competencias" rows="4" placeholder="Cole as competências e indicadores do PDT, um por linha. Se deixar em branco, a IA deriva a partir do tema."></textarea>
-          </label>
-          <button type="submit" class="btn-primary">✨ Gerar Situação de Aprendizagem</button>
-        </form>
-      </section>
 
-      <!-- Atividade -->
-      <section class="view" id="view-atividade">
-        <h1>📝 Gerar Atividade</h1>
-        <p class="subtitle">Exercícios prontos para usar, sem escrever prompt.</p>
-        <form class="gen-form" id="form-atividade">
-          <label class="uc-field">📦 UC — código para agrupar no histórico
-            <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
-          </label>
-          <div class="grid-2">
-            <label>Disciplina
-              <input type="text" name="disciplina" placeholder="Ex.: Banco de Dados" required>
+          <details class="form-avancado" id="aula-adaptacao">
+            <summary>♿ Adaptação inclusiva (opcional)</summary>
+            <p class="form-hint">Marque as necessidades da turma. A aula já sai adaptada — e a atividade, a prova e os slides gerados a partir dela também.</p>
+            <div class="check-grid" id="adaptacoes-lista"></div>
+            <label>Observações sobre o aluno / turma (opcional)
+              <input type="text" name="adaptobs" placeholder="Ex.: aluno usa leitor de tela">
             </label>
-            <label>Tema
-              <input type="text" name="tema" placeholder="Ex.: Comandos SELECT" required>
-            </label>
-            <label>Quantidade de questões
-              <input type="number" name="quantidade" value="5" min="1" max="30" required>
-            </label>
-            <label>Nível
-              <select name="nivel">
-                <option>Básico</option>
-                <option selected>Intermediário</option>
-                <option>Avançado</option>
-              </select>
-            </label>
-            <label>Tipo
-              <select name="tipo">
-                <option>Múltipla escolha</option>
-                <option>Dissertativa</option>
-                <option>Verdadeiro ou Falso</option>
-                <option>Projeto prático</option>
-                <option selected>Misto</option>
-              </select>
-            </label>
-            <label>Público
-              <input type="text" name="publico" placeholder="Ex.: Ensino Médio, 2º ano">
-            </label>
-          </div>
-          <label class="check">
-            <input type="checkbox" name="gabarito" checked> Incluir gabarito comentado
-          </label>
-          <button type="submit" class="btn-primary">✨ Gerar Atividade</button>
-        </form>
-      </section>
+          </details>
 
-      <!-- Prova -->
-      <section class="view" id="view-prova">
-        <h1>📄 Gerar Prova</h1>
-        <p class="subtitle">Prova formatada com gabarito separado no final.</p>
-        <form class="gen-form" id="form-prova">
-          <label class="uc-field">📦 UC — código para agrupar no histórico
-            <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
-          </label>
-          <div class="grid-2">
-            <label>Disciplina
-              <input type="text" name="disciplina" placeholder="Ex.: Lógica de Programação" required>
-            </label>
-            <label>Temas cobrados
-              <input type="text" name="tema" placeholder="Ex.: Condicionais, laços, vetores" required>
-            </label>
-            <label>Quantidade de questões
-              <input type="number" name="quantidade" value="10" min="1" max="30" required>
-            </label>
-            <label>Alternativas por questão
-              <select name="alternativas">
-                <option value="4">4 (A–D)</option>
-                <option value="5" selected>5 (A–E)</option>
-              </select>
-            </label>
-            <label>Nível
-              <select name="nivel">
-                <option>Básico</option>
-                <option selected>Intermediário</option>
-                <option>Avançado</option>
-              </select>
-            </label>
-            <label>Valor total
-              <input type="text" name="valor" placeholder="Ex.: 10 pontos" value="10 pontos">
-            </label>
-          </div>
-          <button type="submit" class="btn-primary">✨ Gerar Prova</button>
+          <!-- Preenchidos pela Agenda: a data do dia e as aulas vizinhas, que
+               garantem a progressão de uma aula para a seguinte. -->
+          <input type="hidden" name="data">
+          <input type="hidden" name="aulaanterior">
+          <input type="hidden" name="aulaproxima">
+          <input type="hidden" name="abertura">
+          <button type="submit" class="btn-primary">✨ Gerar Aula</button>
         </form>
-      </section>
 
-      <!-- Slides -->
-      <section class="view" id="view-slides">
-        <h1>📽️ Slides</h1>
-        <p class="subtitle">Apresentação pronta para projetar. Clique em “Apresentar” no resultado.</p>
-        <form class="gen-form" id="form-slides">
-          <label class="uc-field">📦 UC — código para agrupar no histórico
-            <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
-          </label>
-          <div class="grid-2">
-            <label>Disciplina (opcional se houver material base)
-              <input type="text" name="disciplina" placeholder="Ex.: Programação Web">
-            </label>
-            <label>Tema (opcional se houver material base)
-              <input type="text" name="tema" placeholder="Ex.: Formulários em HTML">
-            </label>
-            <label>Nº de slides
-              <input type="number" name="quantidade" value="12" min="3" max="40" required>
-            </label>
-            <label>Público
-              <input type="text" name="publico" placeholder="Ex.: Ensino Médio, 2º ano">
-            </label>
-          </div>
-          <label>Objetivo da aula (opcional)
-            <textarea name="objetivo" rows="2" placeholder="Ex.: Apresentar os principais campos de formulário"></textarea>
-          </label>
-          <label>Material base (opcional)
-            <textarea name="basematerial" rows="6" placeholder="Preenchido automaticamente ao criar slides a partir de um plano de aula. Os slides seguem este material."></textarea>
-          </label>
-          <label class="check">
-            <input type="checkbox" name="aulacompleta" checked> Seguir a estrutura completa da aula (seções e tempos)
-          </label>
-          <button type="submit" class="btn-primary">✨ Gerar Slides</button>
-        </form>
-      </section>
-
-      <!-- Adaptação Inclusiva -->
-      <section class="view" id="view-adaptar">
-        <h1>♿ Adaptação Inclusiva</h1>
-        <p class="subtitle">Cole um material e adapte para uma necessidade específica, sem perder o conteúdo.</p>
-        <form class="gen-form" id="form-adaptar">
-          <label class="uc-field">📦 UC — código para agrupar no histórico
-            <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
-          </label>
-          <div class="grid-2">
-            <label>Necessidade / público
-              <select name="necessidade">
-                <option>TDAH</option>
-                <option>Dislexia</option>
-                <option>TEA (Transtorno do Espectro Autista)</option>
-                <option>Deficiência intelectual</option>
-                <option>Baixa visão</option>
-                <option>Surdez / deficiência auditiva</option>
-                <option>Discalculia</option>
-                <option>Altas habilidades / superdotação</option>
-                <option>Baixa proficiência em leitura</option>
-              </select>
-            </label>
-            <label>Observações (opcional)
-              <input type="text" name="observacoes" placeholder="Ex.: aluno usa leitor de tela">
-            </label>
-          </div>
-          <label>Material a adaptar
-            <textarea name="material" rows="10" placeholder="Cole aqui a atividade, prova ou texto já pronto…" required></textarea>
-          </label>
-          <button type="submit" class="btn-primary">✨ Adaptar Material</button>
-        </form>
-      </section>
-
-      <!-- Rubrica -->
-      <section class="view" id="view-rubrica">
-        <h1>📊 Critérios de Avaliação</h1>
-        <p class="subtitle">Avaliação por competências (modelo formativo Senac): indicadores, níveis e parecer descritivo.</p>
-        <form class="gen-form" id="form-rubrica">
-          <label class="uc-field">📦 UC — código para agrupar no histórico
-            <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
-          </label>
-          <div class="grid-2">
-            <label>Tipo de trabalho / instrumento
-              <select name="tipoTrabalho">
-                <option selected>Projeto</option>
-                <option>Situação de Aprendizagem</option>
-                <option>Apresentação / Seminário</option>
-                <option>Trabalho escrito</option>
-                <option>Atividade prática</option>
-              </select>
-            </label>
-            <label>Unidade Curricular / Disciplina
-              <input type="text" name="disciplina" placeholder="Ex.: Desenvolvimento de Sistemas" required>
-            </label>
-          </div>
-          <label>Descrição do trabalho / desafio
-            <textarea name="descricao" rows="3" placeholder="Ex.: Sistema CRUD em C# com banco de dados, apresentado em grupo" required></textarea>
-          </label>
-          <label>Indicadores de competência (opcional — cole do PDT)
-            <textarea name="indicadores" rows="4" placeholder="Cole os indicadores de competência do PDT, um por linha. Se deixar em branco, a IA deriva a partir da descrição."></textarea>
-          </label>
-          <button type="submit" class="btn-primary">✨ Gerar Critérios</button>
-        </form>
+        <div id="home-recent"></div>
       </section>
 
       <!-- Agenda -->
       <section class="view" id="view-agenda">
         <h1>📅 Agenda</h1>
-        <p class="subtitle">Seu cronograma: cada dia mostra a aula que cai nele. Em <strong>Ver aulas</strong>, clique num dia para abrir o conteúdo e gerar a Aula Completa. Em <strong>Marcar UCs</strong>, selecione dias e aplique a UC.</p>
+        <p class="subtitle">Seu cronograma: marque os dias de cada UC e gere a aula de cada dia. Em <strong>Ver aulas</strong>, clique num dia para abrir a aula daquela data. Em <strong>Marcar UCs</strong>, selecione dias e aplique a UC.</p>
 
         <div class="agenda-toolbar no-print">
           <div class="agenda-nav">
@@ -495,18 +128,6 @@
             <input type="text" name="nome" placeholder="Ex.: Luciano">
           </label>
 
-          <h3 class="form-section">👥 Perfil da turma</h3>
-          <p class="form-section-hint">Define a linguagem de <strong>todos</strong> os materiais gerados. Se o conteúdo está saindo técnico demais, ajuste aqui.</p>
-          <label>Nível dos alunos
-            <select name="perfilNivel"></select>
-          </label>
-          <label>Quem são seus alunos (opcional)
-            <input type="text" name="perfilPublico" placeholder="Ex.: curso técnico noturno, adultos que trabalham de dia">
-          </label>
-          <label>Observações sobre a turma (opcional)
-            <textarea name="perfilObs" rows="2" placeholder="Ex.: a maioria nunca programou; traduzir todo termo em inglês"></textarea>
-          </label>
-
           <h3 class="form-section">🤖 Inteligência Artificial</h3>
           <label>Provedor de IA
             <select name="provider">
@@ -550,8 +171,7 @@
         <div class="result-header no-print">
           <h1 id="result-title">Resultado</h1>
           <div class="result-actions">
-            <button class="btn-primary" id="btn-modoaula" hidden>🎬 Iniciar Modo Aula</button>
-            <button class="btn-primary" id="btn-present" hidden>📽️ Apresentar</button>
+            <button class="btn-primary" id="btn-present" hidden>📽️ Abrir slides</button>
             <button class="btn-secondary" id="btn-edit">✏️ Editar</button>
             <button class="btn-secondary" id="btn-copy">📋 Copiar</button>
             <button class="btn-secondary" id="btn-print">🖨️ PDF / Imprimir</button>
@@ -560,16 +180,8 @@
           </div>
         </div>
         <div class="result-chain no-print" id="chain-bar" hidden>
-          <span class="chain-label">➡️ Criar a partir disto:</span>
+          <span class="chain-label">➡️ Criar a partir desta aula:</span>
           <span id="chain-actions"></span>
-        </div>
-        <div class="batch-panel no-print" id="batch-panel" hidden>
-          <div class="batch-header">
-            <span>📚 Gerando as Aulas Completas de cada bloco do Plano de Curso, uma por uma.</span>
-            <button class="btn-secondary" id="btn-batch-cancel">✖ Cancelar</button>
-          </div>
-          <ol class="batch-list" id="batch-list"></ol>
-          <div class="batch-summary" id="batch-summary" hidden></div>
         </div>
         <div id="result-status" class="result-status no-print" hidden>
           <span class="spinner"></span> Gerando…
@@ -583,53 +195,50 @@
   <!-- UCs já usadas, para autocompletar o campo UC dos formulários -->
   <datalist id="uc-list"></datalist>
 
-  <!-- Overlay de apresentação (reveal.js) -->
-  <div id="reveal-overlay" class="reveal-overlay" hidden>
-    <button id="btn-close-present" class="btn-close-present" aria-label="Sair">✕ Sair (Esc)</button>
-    <div class="reveal">
-      <div class="slides"></div>
-    </div>
-  </div>
-
-  <!-- Modo Aula: tela do professor, uma etapa por vez, com cronômetro -->
-  <div id="aula-overlay" class="aula-overlay" hidden>
-    <div class="aula-progresso"><div class="aula-progresso-fill" id="aula-progresso-fill"></div></div>
-
-    <header class="aula-top">
-      <div class="aula-top-info">
-        <span class="aula-pos" id="aula-pos"></span>
-        <span class="aula-aula" id="aula-aula"></span>
-      </div>
-      <div class="aula-top-acoes">
-        <button type="button" class="aula-btn" id="aula-toggle-lista" aria-expanded="false">☰ Etapas</button>
-        <button type="button" class="aula-btn" id="aula-sair" aria-label="Sair do Modo Aula">✕ Sair (Esc)</button>
-      </div>
+  <!-- Editor de Slides (portado do app Gerador de Slides) -->
+  <div id="deck-overlay" class="deck-overlay" hidden>
+    <header class="deck-top">
+      <h2 id="deck-titulo">Slides</h2>
+      <span class="deck-spacer"></span>
+      <button type="button" class="deck-btn" id="deck-sep">✂️ Separar slides</button>
+      <button type="button" class="deck-btn" id="deck-pptx">📥 Exportar PPTX</button>
+      <button type="button" class="deck-btn primary" id="deck-pdf">🖨️ Exportar / Imprimir PDF</button>
+      <button type="button" class="deck-btn" id="deck-fechar">✕ Fechar (Esc)</button>
     </header>
 
-    <div class="aula-corpo">
-      <nav class="aula-lista" id="aula-lista" hidden></nav>
-      <main class="aula-palco" id="aula-palco">
-        <h2 class="aula-etapa-titulo" id="aula-etapa-titulo"></h2>
-        <article class="aula-conteudo" id="aula-conteudo"></article>
-      </main>
-    </div>
-
-    <footer class="aula-bottom">
-      <button type="button" class="aula-nav" id="aula-prev">‹ Anterior</button>
-      <div class="aula-relogio">
-        <span class="aula-cronometro" id="aula-cronometro">--:--</span>
-        <button type="button" class="aula-btn aula-btn-play" id="aula-play">▶️ Iniciar</button>
-        <button type="button" class="aula-btn" id="aula-reset" aria-label="Reiniciar cronômetro da etapa">↺</button>
-        <span class="aula-total" id="aula-total"></span>
+    <div class="deck-main">
+      <div class="deck-editor">
+        <div class="deck-hint">
+          Cada slide fica separado por uma linha com <code>---</code>.
+          A primeira linha do slide é o título. Linhas com <code>- </code> viram lista,
+          <code>**negrito**</code> vira negrito e tabelas em markdown viram tabela.
+          Edite aqui: a preview e a exportação acompanham.
+        </div>
+        <textarea id="deck-src" spellcheck="false"></textarea>
       </div>
-      <button type="button" class="aula-nav" id="aula-next">Próxima ›</button>
-    </footer>
+
+      <div class="deck-preview">
+        <div class="deck-thumbs" id="deck-thumbs"></div>
+        <div class="deck-stage-outer" id="deck-stage-outer">
+          <div class="deck-stage-frame" id="deck-stage-frame">
+            <div class="deck-stage" id="deck-stage"></div>
+          </div>
+        </div>
+        <div class="deck-nav">
+          <button type="button" class="deck-btn" id="deck-prev">&larr; Anterior</button>
+          <span class="deck-page" id="deck-page">1 / 1</span>
+          <button type="button" class="deck-btn" id="deck-next">Próximo &rarr;</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="js/storage.js"></script>
   <script src="js/prompts.js"></script>
   <script src="js/cronograma.js"></script>
   <script src="js/api.js"></script>
+  <script src="js/vendor/pptxgen.bundle.js"></script>
+  <script src="js/slides.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
