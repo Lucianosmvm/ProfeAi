@@ -200,6 +200,7 @@
     <header class="deck-top">
       <h2 id="deck-titulo">Slides</h2>
       <span class="deck-spacer"></span>
+      <button type="button" class="deck-btn" id="deck-base-btn">🎨 Base do slide</button>
       <button type="button" class="deck-btn" id="deck-sep">✂️ Separar slides</button>
       <button type="button" class="deck-btn" id="deck-pptx">📥 Exportar PPTX</button>
       <button type="button" class="deck-btn primary" id="deck-pdf">🖨️ Exportar / Imprimir PDF</button>
@@ -213,6 +214,15 @@
           A primeira linha do slide é o título. Linhas com <code>- </code> viram lista,
           <code>**negrito**</code> vira negrito e tabelas em markdown viram tabela.
           Edite aqui: a preview e a exportação acompanham.
+          Em <strong>🎨 Base do slide</strong> você monta o fundo e as cores.
+        </div>
+        <div class="deck-acoes">
+          <button type="button" class="deck-btn" id="deck-img-btn">➕ Adicionar imagem</button>
+          <input type="file" id="deck-img-input" accept="image/*" multiple hidden>
+        </div>
+        <div class="img-galeria" id="deck-galeria" hidden>
+          <div class="img-galeria-hint">Clique numa imagem para inserir no slide, onde o cursor estiver. Depois arraste e redimensione direto na preview.</div>
+          <div class="img-galeria-row" id="deck-galeria-row"></div>
         </div>
         <textarea id="deck-src" spellcheck="false"></textarea>
       </div>
@@ -231,12 +241,72 @@
         </div>
       </div>
     </div>
+
+    <!-- Montador da base: fundo, formas e cores, com as áreas de título e conteúdo à mostra -->
+    <div class="base-modal" id="base-modal" hidden>
+      <div class="base-box">
+        <header class="base-head">
+          <h3>🎨 Base do slide</h3>
+          <button type="button" class="deck-btn" id="base-fechar" aria-label="Fechar">✕</button>
+        </header>
+
+        <div class="base-corpo">
+          <div class="base-lado-preview">
+            <div class="base-canvas" id="base-canvas"></div>
+            <div class="base-barra-preview" id="base-barra-preview"></div>
+            <p class="base-legenda">
+              As áreas tracejadas mostram onde o <strong>título</strong> e o <strong>conteúdo</strong> caem.
+              Elas são só guia — não aparecem no slide nem na exportação.
+            </p>
+          </div>
+
+          <div class="base-controles">
+            <label>Formas
+              <select id="base-forma">
+                <option value="grade">Hachura (padrão)</option>
+                <option value="limpo">Sem formas</option>
+                <option value="faixa">Faixa lateral</option>
+                <option value="topo">Barra no topo</option>
+                <option value="canto">Bloco no canto</option>
+                <option value="diagonal">Diagonais</option>
+              </select>
+            </label>
+
+            <div class="base-cores">
+              <label>Fundo <input type="color" id="base-fundo"></label>
+              <label>Destaque <input type="color" id="base-destaque"></label>
+              <label>Título <input type="color" id="base-cor-titulo"></label>
+              <label>Texto <input type="color" id="base-cor-texto"></label>
+            </div>
+
+            <label class="base-check">
+              <input type="checkbox" id="base-barra"> Faixa colorida no rodapé
+            </label>
+
+            <div class="base-imagem">
+              <button type="button" class="deck-btn" id="base-img-btn">🖼️ Usar imagem como fundo</button>
+              <input type="file" id="base-img-input" accept="image/*" hidden>
+              <small>Substitui as formas. Use 16:9 (ex.: 1600×900) e deixe as áreas tracejadas livres.</small>
+            </div>
+
+            <button type="button" class="deck-btn" id="base-reset">↺ Restaurar padrão</button>
+          </div>
+        </div>
+
+        <footer class="base-rodape">
+          <span class="base-nota">A base vale para <strong>todos</strong> os slides, agora e nos próximos.</span>
+          <button type="button" class="deck-btn" id="base-cancelar">Cancelar</button>
+          <button type="button" class="deck-btn primary" id="base-aplicar">Aplicar</button>
+        </footer>
+      </div>
+    </div>
   </div>
 
   <script src="js/storage.js"></script>
   <script src="js/prompts.js"></script>
   <script src="js/cronograma.js"></script>
   <script src="js/api.js"></script>
+  <script src="js/imagens.js"></script>
   <script src="js/vendor/pptxgen.bundle.js"></script>
   <script src="js/slides.js"></script>
   <script src="js/app.js"></script>

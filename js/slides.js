@@ -36,6 +36,17 @@ window.Deck = (function () {
   let onChange = null;      // avisa o app quando o texto é editado aqui dentro
   let titulo = 'Slides';
   let els = null;           // preenchido no primeiro open()
+  let imageLibrary = {};    // { id: {dataUrl, w, h} } das imagens usadas neste material
+  let base = null;          // base (template) do slide, vinda do Storage
+
+  /* Zonas do slide, em % — as mesmas coordenadas usadas na exportação PPTX.
+     São elas que o montador de base desenha por cima, para o professor ver
+     onde o título e o conteúdo vão cair antes de escolher fundo e formas. */
+  const ZONAS = {
+    titulo: { x: 4.5, y: 6, w: 90.75, h: 13.33 },
+    conteudo: { x: 4.5, y: 20.67, w: 90.75, h: 74.53 },
+    barra: { x: 0, y: 97.86, w: 100, h: 2.14 },
+  };
 
   /* ===================== Parser ===================== */
 
@@ -89,6 +100,37 @@ window.Deck = (function () {
 
   function codeHtml(code) {
     return `<pre class="slide-code"><code>${escapeHtml(code)}</code></pre>`;
+  }
+
+  /* ---------- Imagens ----------
+     No texto a imagem é `![id]` (entra no fluxo, entre os parágrafos) ou
+     `![id x=35 y=40 w=30 k=ab12]` (solta, arrastável). O `k` é uma marca única
+     por inserção: é por ele que o arrasto sabe qual tag reescrever quando a
+     mesma imagem aparece duas vezes no mesmo slide. */
+  function parseImgTagInner(inner) {
+    const m = inner.match(/^([\w-]+)(?:\s+x=(-?[\d.]+)\s+y=(-?[\d.]+)\s+w=(-?[\d.]+)\s+k=([A-Za-z0-9]+))?$/);
+    if (!m) return null;
+    const [, id, x, y, w, k] = m;
+    if (x !== undefined) {
+      return { id, positioned: true, x: parseFloat(x), y: parseFloat(y), w: parseFloat(w), k };
+    }
+    return { id, positioned: false };
+  }
+
+  function imgTagHtml(id) {
+    const img = imageLibrary[id];
+    if (!img) {
+      return `<p style="color:#b23b3b;font-style:italic;">[imagem "${escapeHtml(id)}" não encontrada]</p>`;
+    }
+    return `<img src="${img.dataUrl}" alt="${escapeHtml(id)}" class="slide-img">`;
+  }
+
+  /* Ids de imagem citados num texto — usado para carregar do IndexedDB só o
+     que este material usa. */
+  function idsNoTexto(txt) {
+    const ids = [];
+    (txt || '').replace(/!\[([\w-]+)(?:\s[^\]]*)?\]/g, (_, id) => { ids.push(id); return ''; });
+    return ids;
   }
 
   /* ---------- Tabelas ----------
@@ -328,6 +370,15 @@ window.Deck = (function () {
           return;
         }
 
+        const tagImg = chunkLines.length === 1 && chunkLines[0].match(/^!\[(.+?)\]$/);
+        const imgInfo = tagImg ? parseImgTagInner(tagImg[1].trim()) : null;
+        if (imgInfo) {
+          // A imagem posicionada não entra no fluxo: é desenhada solta por cima.
+          if (!imgInfo.positioned) bodyHtml += imgTagHtml(imgInfo.id);
+          blocks.push({ type: 'img', ...imgInfo });
+          return;
+        }
+
         const isTable = chunkLines.length > 1 && chunkLines.every(isPipeLine);
         if (isTable) {
           const rows = cellsFromLines(chunkLines);
@@ -357,20 +408,113 @@ window.Deck = (function () {
     });
   }
 
+  /* ===================== Base (template) do slide ===================== */
+
+  const BASE_SVG_W = 1600;
+  const BASE_SVG_H = 900;
+
+  /* Hachura diagonal do fundo padrão, em três direções — é o desenho do app
+     original, refeito em <pattern> para poder ser rasterizado junto do fundo. */
+  function hachuraSvg(cor) {
+    const p = (id, ang, passo) => `<pattern id="${id}" width="${passo}" height="${passo}"
+        patternUnits="userSpaceOnUse" patternTransform="rotate(${ang})">
+        <line x1="0" y1="0" x2="0" y2="${passo}" stroke="${cor}" stroke-width="1.4"/></pattern>`;
+    return `<defs>${p('h1', 60, 46)}${p('h2', -60, 46)}${p('h3', 90, 40)}</defs>
+      <rect width="100%" height="100%" fill="url(#h1)"/>
+      <rect width="100%" height="100%" fill="url(#h2)"/>
+      <rect width="100%" height="100%" fill="url(#h3)"/>`;
+  }
+
+  function formasSvg(b) {
+    const W = BASE_SVG_W, H = BASE_SVG_H, d = b.destaque;
+    switch (b.forma) {
+      case 'grade':
+        return hachuraSvg(d + '2b');                       // ~17% de opacidade
+      case 'faixa':
+        return `<rect x="0" y="0" width="${W * 0.055}" height="${H}" fill="${d}"/>`;
+      case 'topo':
+        return `<rect x="0" y="0" width="${W}" height="${H * 0.09}" fill="${d}"/>`;
+      case 'canto':
+        return `<path d="M${W * 0.78},0 L${W},0 L${W},${H * 0.30} Z" fill="${d}"/>`
+          + `<circle cx="${W * 0.055}" cy="${H * 0.93}" r="${H * 0.045}" fill="${d}" opacity="0.35"/>`;
+      case 'diagonal':
+        return `<path d="M0,${H} L${W * 0.5},${H} L0,${H * 0.5} Z" fill="${d}" opacity="0.16"/>`
+          + `<path d="M${W},0 L${W},${H * 0.42} L${W * 0.66},0 Z" fill="${d}" opacity="0.10"/>`;
+      default:
+        return '';                                          // 'limpo'
+    }
+  }
+
+  function baseSvg(b) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${BASE_SVG_W}" height="${BASE_SVG_H}"
+      viewBox="0 0 ${BASE_SVG_W} ${BASE_SVG_H}">
+      <rect width="100%" height="100%" fill="${b.fundo}"/>${formasSvg(b)}</svg>`;
+  }
+
+  function svgDataUrl(svg) {
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg.replace(/\s+/g, ' '));
+  }
+
+  /* O PPTX precisa de bitmap: SVG não é formato de imagem aceito pelo
+     PowerPoint. Rasteriza uma vez, na hora de aplicar a base. */
+  function svgParaPng(svg) {
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = BASE_SVG_W;
+        c.height = BASE_SVG_H;
+        c.getContext('2d').drawImage(img, 0, 0, BASE_SVG_W, BASE_SVG_H);
+        resolve(c.toDataURL('image/png'));
+      };
+      img.onerror = () => resolve('');
+      img.src = svgDataUrl(svg);
+    });
+  }
+
+  function baseAtual() {
+    return base || (base = Storage.getBase());
+  }
+
+  /* Estilo do fundo de um slide: a base do professor, ou nada (o CSS cai na
+     hachura padrão quando não há imagem). */
+  function bgStyle() {
+    const b = baseAtual();
+    return b.png
+      ? ` style="background-image:url('${b.png}');background-size:cover;background-position:center;"`
+      : '';
+  }
+
   /* ===================== Preview ===================== */
 
   function barHtml() {
+    if (!baseAtual().barra) return '';
     return '<div class="bar">'
       + BAR_COLORS.map(c => `<div style="background:#${c}"></div>`).join('')
       + '</div>';
   }
 
-  function slideHtml(s) {
-    return `<div class="slide-bg"></div>
+  /* Imagens soltas: ficam fora do fluxo do texto, nas coordenadas guardadas. */
+  function posicionadasHtml(s) {
+    return s.blocks.filter(b => b.type === 'img' && b.positioned).map(b => {
+      const img = imageLibrary[b.id];
+      if (!img) return '';
+      return `<img src="${img.dataUrl}" alt="${escapeHtml(b.id)}"
+        style="position:absolute;left:${b.x}%;top:${b.y}%;width:${b.w}%;height:auto;z-index:5;border-radius:4px;">`;
+    }).join('');
+  }
+
+  /* Na preview as imagens soltas são elementos interativos, montados à parte
+     (arrastar/redimensionar); no PDF elas entram já aqui, estáticas. */
+  function slideHtml(s, opts) {
+    const b = baseAtual();
+    const soltas = (opts && opts.comPosicionadas) ? posicionadasHtml(s) : '';
+    return `<div class="slide-bg"${b.png ? ' data-base="1"' : ''}${bgStyle()}></div>
       <div class="slide-content">
         <h1 class="slide-title">${inlineFormat(s.title)}</h1>
         <div class="slide-body">${s.bodyHtml}</div>
       </div>
+      ${soltas}
       ${barHtml()}`;
   }
 
@@ -427,12 +571,123 @@ window.Deck = (function () {
     const s = slides[current];
 
     els.stage.className = 'deck-stage' + (s.isTitleSlide ? ' title-slide' : '');
+    aplicarCoresTexto(els.stage);
     els.stage.innerHTML = slideHtml(s);
     els.page.textContent = `${current + 1} / ${slides.length}`;
     els.prev.disabled = current === 0;
     els.next.disabled = current === slides.length - 1;
     renderThumbs();
+    renderPosicionadas(s);
     scaleStage();
+  }
+
+  /* As cores do texto vêm da base e entram como variáveis CSS. */
+  function aplicarCoresTexto(el) {
+    const b = baseAtual();
+    el.style.setProperty('--slide-titulo', b.corTitulo);
+    el.style.setProperty('--slide-texto', b.corTexto);
+  }
+
+  /* ===================== Imagens soltas: arrastar e redimensionar ===================== */
+
+  function renderPosicionadas(s) {
+    s.blocks.filter(b => b.type === 'img' && b.positioned).forEach(b => {
+      const img = imageLibrary[b.id];
+      const wrap = document.createElement('div');
+      wrap.className = 'floating-wrap';
+      wrap.dataset.k = b.k;
+      wrap.style.left = b.x + '%';
+      wrap.style.top = b.y + '%';
+      wrap.style.width = b.w + '%';
+
+      const imgEl = document.createElement('img');
+      imgEl.src = img ? img.dataUrl : '';
+      imgEl.alt = b.id;
+      imgEl.draggable = false;
+      wrap.appendChild(imgEl);
+
+      const handle = document.createElement('div');
+      handle.className = 'resize-handle';
+      wrap.appendChild(handle);
+
+      arrastar(wrap, b);
+      redimensionar(handle, wrap, b);
+      els.stage.appendChild(wrap);
+    });
+  }
+
+  function arrastar(el, block) {
+    let startX, startY, startPctX, startPctY, dragging = false;
+
+    el.addEventListener('pointerdown', e => {
+      if (e.target.classList.contains('resize-handle')) return;
+      e.preventDefault();
+      dragging = true;
+      el.setPointerCapture(e.pointerId);
+      startX = e.clientX;
+      startY = e.clientY;
+      startPctX = block.x;
+      startPctY = block.y;
+      el.classList.add('dragging');
+    });
+
+    el.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      const rect = els.stage.getBoundingClientRect();
+      const dxPct = ((e.clientX - startX) / rect.width) * 100;
+      const dyPct = ((e.clientY - startY) / rect.height) * 100;
+      el._x = Math.max(0, Math.min(100 - block.w, startPctX + dxPct));
+      el._y = Math.max(0, Math.min(95, startPctY + dyPct));
+      el.style.left = el._x + '%';
+      el.style.top = el._y + '%';
+    });
+
+    el.addEventListener('pointerup', () => {
+      if (!dragging) return;
+      dragging = false;
+      el.classList.remove('dragging');
+      if (el._x !== undefined) gravarPosicao(block.k, el._x, el._y, block.w);
+    });
+  }
+
+  function redimensionar(handle, wrap, block) {
+    let startX, startW, resizing = false;
+
+    handle.addEventListener('pointerdown', e => {
+      e.stopPropagation();
+      e.preventDefault();
+      resizing = true;
+      handle.setPointerCapture(e.pointerId);
+      startX = e.clientX;
+      startW = block.w;
+      wrap.classList.add('resizing');
+    });
+
+    handle.addEventListener('pointermove', e => {
+      if (!resizing) return;
+      const rect = els.stage.getBoundingClientRect();
+      const dxPct = ((e.clientX - startX) / rect.width) * 100;
+      wrap._w = Math.max(5, Math.min(100 - block.x, startW + dxPct));
+      wrap.style.width = wrap._w + '%';
+    });
+
+    handle.addEventListener('pointerup', () => {
+      if (!resizing) return;
+      resizing = false;
+      wrap.classList.remove('resizing');
+      if (wrap._w !== undefined) gravarPosicao(block.k, block.x, block.y, wrap._w);
+    });
+  }
+
+  /* A posição mora no texto, não num estado paralelo: assim o que o professor
+     arrasta some junto com o material se ele apagar a linha, e o histórico
+     guarda tudo num campo só. */
+  function gravarPosicao(k, x, y, w) {
+    const n = v => Math.round(v * 10) / 10;
+    const re = new RegExp('(!\\[[\\w-]+\\s+x=)(-?[\\d.]+)(\\s+y=)(-?[\\d.]+)(\\s+w=)(-?[\\d.]+)(\\s+k=' + k + '\\])');
+    els.src.value = els.src.value.replace(re, `$1${n(x)}$3${n(y)}$5${n(w)}$7`);
+    update();
+    if (onChange) onChange(els.src.value);
   }
 
   function update() {
@@ -451,17 +706,19 @@ window.Deck = (function () {
   .pageBox{width:100%;max-width:1280px;aspect-ratio:16/9;margin:0 auto;page-break-after:always;break-after:page;background:#fff;}
   .pageBox:last-child{page-break-after:auto;break-after:auto;}
   .pslide{position:relative;width:100%;height:100%;overflow:hidden;background:#fff;display:flex;flex-direction:column;}
-  .slide-bg{position:absolute;inset:0;background-image:
+  .slide-bg{position:absolute;inset:0;}
+  .slide-bg:not([data-base]){background-image:
     repeating-linear-gradient(60deg, rgba(200,205,215,.35) 0px, rgba(200,205,215,.35) 1.5px, transparent 1.5px, transparent 46px),
     repeating-linear-gradient(-60deg, rgba(200,205,215,.35) 0px, rgba(200,205,215,.35) 1.5px, transparent 1.5px, transparent 46px),
     repeating-linear-gradient(0deg, rgba(200,205,215,.3) 0px, rgba(200,205,215,.3) 1.5px, transparent 1.5px, transparent 40px);}
+  .slide-img{display:block;max-width:100%;max-height:35%;object-fit:contain;margin:.4em auto;border-radius:6px;}
   .slide-content{position:relative;flex:1;padding:6% 7% 4% 7%;display:flex;flex-direction:column;gap:14px;z-index:1;min-height:0;}
-  .slide-title{font-size:2.6em;font-weight:800;color:#3d4a5c;margin:0 0 .1em 0;line-height:1.15;}
-  .slide-body{font-size:1.05em;color:#3d4a5c;line-height:1.55;}
+  .slide-title{font-size:2.6em;font-weight:800;color:var(--slide-titulo,#3d4a5c);margin:0 0 .1em 0;line-height:1.15;}
+  .slide-body{font-size:1.05em;color:var(--slide-texto,#3d4a5c);line-height:1.55;}
   .slide-body p{margin:0 0 .7em 0;}
   .slide-body ul{margin:.2em 0 0 0;padding-left:1.2em;list-style:disc;}
   .slide-body li{margin-bottom:.35em;}
-  .slide-body strong{color:#3d4a5c;}
+  .slide-body strong{color:var(--slide-texto,#3d4a5c);}
   .slide-body .slide-code{background:#f4f6f8;border:1px solid #e2e6ec;border-left:3px solid #9aa5b4;border-radius:4px;padding:.5em .7em;margin:.5em 0 .8em 0;overflow-x:auto;}
   .slide-body .slide-code code{font-family:Consolas,"Courier New",monospace;font-size:.88em;line-height:1.45;white-space:pre;color:#2f3b4c;display:block;}
   .slide-body .slide-table{width:100%;border-collapse:collapse;margin:.5em 0 .8em 0;font-size:.92em;line-height:1.35;}
@@ -477,12 +734,16 @@ window.Deck = (function () {
 
   function exportPrint() {
     if (!slides.length) { alert('Sem slides para exportar.'); return; }
+    const b = baseAtual();
     const corpo = slides.map(s =>
-      `<div class="pageBox"><section class="pslide${s.isTitleSlide ? ' title-slide' : ''}">${slideHtml(s)}</section></div>`
+      `<div class="pageBox"><section class="pslide${s.isTitleSlide ? ' title-slide' : ''}">`
+      + slideHtml(s, { comPosicionadas: true }) + '</section></div>'
     ).join('\n');
 
+    // As cores da base entram como variáveis no :root da janela de impressão.
+    const vars = `:root{--slide-titulo:${b.corTitulo};--slide-texto:${b.corTexto};}`;
     const doc = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
-<title>${escapeHtml(titulo)}</title><style>${PRINT_CSS}</style></head><body>
+<title>${escapeHtml(titulo)}</title><style>${vars}${PRINT_CSS}</style></head><body>
 ${corpo}
 <script>window.onload=function(){setTimeout(function(){window.print();},250);};<\/script>
 </body></html>`;
@@ -508,10 +769,15 @@ ${corpo}
 
   /* O pptx não tem fluxo automático de texto como o HTML: os blocos são
      empilhados de cima para baixo, com a altura estimada linha a linha. */
+  /* '#4f46e5' -> '4F46E5' — o pptxgenjs quer hex sem '#'. */
+  function hex(c) { return String(c || '').replace('#', '').toUpperCase() || '3D4A5C'; }
+
   function renderPptxBody(slide, blocks, x, y, w) {
     const CHARS_PER_LINE = 85;
     const LINE_H = 0.25;
     const PARA_GAP = 0.12;
+    const IMG_MAX_H = 2.6;
+    const corTexto = hex(baseAtual().corTexto);
     let cursorY = y;
     let pendingRuns = [];
     let estLines = 0;
@@ -521,7 +787,7 @@ ${corpo}
       const height = Math.max(estLines, 1) * LINE_H + PARA_GAP;
       slide.addText(pendingRuns, {
         x, y: cursorY, w, h: height,
-        fontSize: 15, color: '3D4A5C', fontFace: 'Arial', valign: 'top',
+        fontSize: 15, color: corTexto, fontFace: 'Arial', valign: 'top',
       });
       cursorY += height;
       pendingRuns = [];
@@ -529,7 +795,18 @@ ${corpo}
     }
 
     blocks.forEach(block => {
-      if (block.type === 'code') {
+      if (block.type === 'img') {
+        // As soltas são posicionadas à parte, em coordenadas absolutas.
+        if (block.positioned) return;
+        flushText();
+        const img = imageLibrary[block.id];
+        if (img) {
+          let dispW = w, dispH = dispW * (img.h / img.w);
+          if (dispH > IMG_MAX_H) { dispH = IMG_MAX_H; dispW = dispH * (img.w / img.h); }
+          slide.addImage({ data: img.dataUrl, x: x + (w - dispW) / 2, y: cursorY, w: dispW, h: dispH });
+          cursorY += dispH + PARA_GAP;
+        }
+      } else if (block.type === 'code') {
         flushText();
         const nLinhas = block.text.split('\n').length;
         const h = Math.max(0.45, nLinhas * 0.24 + 0.22);
@@ -549,7 +826,7 @@ ${corpo}
           text: c, options: { bold: true, color: '2F3B4C', fill: { color: 'EEF1F5' }, valign: 'middle' },
         }));
         const bodyRows = block.rows.map(r => r.map(c => ({
-          text: c, options: { color: '3D4A5C', valign: 'middle' },
+          text: c, options: { color: '3D4A5C', valign: 'middle' },   // fundo claro fixo da tabela
         })));
         slide.addTable([headRow, ...bodyRows], {
           x, y: cursorY, w, colW,
@@ -568,7 +845,7 @@ ${corpo}
                 bold: seg.bold,
                 breakLine: i === segs.length - 1,
                 bullet: i === 0 ? { code: '25CF' } : undefined,
-                fontSize: 15, color: '3D4A5C', fontFace: 'Arial',
+                fontSize: 15, color: corTexto, fontFace: 'Arial',
               },
             });
           });
@@ -583,7 +860,7 @@ ${corpo}
               bold: seg.bold,
               breakLine: i === segs.length - 1,
               paraSpaceAfter: i === segs.length - 1 ? 10 : 0,
-              fontSize: 15, color: '3D4A5C', fontFace: 'Arial',
+              fontSize: 15, color: corTexto, fontFace: 'Arial',
             },
           });
         });
@@ -595,6 +872,23 @@ ${corpo}
 
   function sanitizeFilename(name) {
     return (name || 'slides').replace(/[\\/:*?"<>|]/g, '-').slice(0, 80);
+  }
+
+  /* Imagens arrastadas: x/y/w em % viram polegadas no slide de 13,333 x 7,5. */
+  function renderPptxPosicionadas(slide, blocks) {
+    const SLIDE_W = 13.333, SLIDE_H = 7.5;
+    blocks.filter(b => b.type === 'img' && b.positioned).forEach(b => {
+      const img = imageLibrary[b.id];
+      if (!img) return;
+      const wIn = (b.w / 100) * SLIDE_W;
+      slide.addImage({
+        data: img.dataUrl,
+        x: (b.x / 100) * SLIDE_W,
+        y: (b.y / 100) * SLIDE_H,
+        w: wIn,
+        h: wIn * (img.h / img.w),
+      });
+    });
   }
 
   function exportPptx() {
@@ -613,33 +907,42 @@ ${corpo}
       pptx.defineLayout({ name: 'WIDE', width: 13.333, height: 7.5 });
       pptx.layout = 'WIDE';
 
+      const b = baseAtual();
+      const corTitulo = hex(b.corTitulo);
+
       slides.forEach(s => {
         const slide = pptx.addSlide();
-        slide.background = { color: 'FFFFFF' };
+        slide.background = { color: hex(b.fundo) };
+
+        // A base montada (ou a imagem de fundo) entra como imagem de página inteira.
+        if (b.png) slide.addImage({ data: b.png, x: 0, y: 0, w: 13.333, h: 7.5 });
 
         // faixa colorida do rodapé (espelha o template da tela)
-        const barY = 7.5 - 0.16;
-        const segW = 13.333 / BAR_COLORS.length;
-        BAR_COLORS.forEach((hex, i) => {
-          slide.addShape('rect', {
-            x: i * segW, y: barY, w: segW, h: 0.16,
-            fill: { color: hex }, line: { type: 'none' },
+        if (b.barra) {
+          const barY = 7.5 - 0.16;
+          const segW = 13.333 / BAR_COLORS.length;
+          BAR_COLORS.forEach((cor, i) => {
+            slide.addShape('rect', {
+              x: i * segW, y: barY, w: segW, h: 0.16,
+              fill: { color: cor }, line: { type: 'none' },
+            });
           });
-        });
+        }
 
         if (s.isTitleSlide) {
           slide.addText(s.title, {
             x: 0.6, y: 0, w: 13.333 - 1.2, h: 7.5 - 0.16,
             align: 'center', valign: 'middle',
-            fontSize: 40, bold: true, color: '3D4A5C', fontFace: 'Arial',
+            fontSize: 40, bold: true, color: corTitulo, fontFace: 'Arial',
           });
         } else {
           slide.addText(s.title, {
             x: 0.6, y: 0.45, w: 13.333 - 1.2, h: 1.0,
-            fontSize: 32, bold: true, color: '3D4A5C', fontFace: 'Arial',
+            fontSize: 32, bold: true, color: corTitulo, fontFace: 'Arial',
           });
           renderPptxBody(slide, s.blocks, 0.6, 1.55, 13.333 - 1.2);
         }
+        renderPptxPosicionadas(slide, s.blocks);
       });
 
       pptx.writeFile({ fileName: sanitizeFilename(titulo) + '.pptx' })
@@ -649,6 +952,135 @@ ${corpo}
       restaura();
       alert('Não foi possível gerar o arquivo PPTX.');
     }
+  }
+
+  /* ===================== Galeria de imagens ===================== */
+
+  function montarGaleria() {
+    const ids = Object.keys(imageLibrary);
+    els.galeria.hidden = !ids.length;
+    els.galeriaRow.innerHTML = '';
+    ids.forEach(id => {
+      const chip = document.createElement('div');
+      chip.className = 'img-chip';
+      chip.innerHTML = `<img src="${imageLibrary[id].dataUrl}" alt="${escapeHtml(id)}">`
+        + '<span class="img-del" title="remover">\u00d7</span>';
+      chip.querySelector('img').addEventListener('click', () => inserirTagImagem(id));
+      chip.querySelector('.img-del').addEventListener('click', ev => {
+        ev.stopPropagation();
+        if (!confirm('Remover esta imagem? Ela sai dos slides que a usam.')) return;
+        delete imageLibrary[id];
+        Imagens.remover(id);
+        // Tira do texto as tags que apontavam para ela.
+        els.src.value = els.src.value.replace(
+          new RegExp('^\\s*!\\[' + id + '(?:\\s[^\\]]*)?\\]\\s*$\n?', 'gm'), '');
+        montarGaleria();
+        update();
+        if (onChange) onChange(els.src.value);
+      });
+      els.galeriaRow.appendChild(chip);
+    });
+  }
+
+  /* Insere a imagem como bloco próprio no ponto onde o cursor está. Nasce
+     posicionada (x/y/w) para poder ser arrastada logo em seguida. */
+  function inserirTagImagem(id) {
+    const k = Math.random().toString(36).slice(2, 8);
+    const tag = `![${id} x=35 y=38 w=30 k=${k}]`;
+    const ta = els.src;
+    const start = ta.selectionStart ?? ta.value.length;
+    const end = ta.selectionEnd ?? ta.value.length;
+    const antes = ta.value.slice(0, start);
+    const depois = ta.value.slice(end);
+    const quebra = antes.length && !antes.endsWith('\n') ? '\n\n' : '';
+    const insercao = quebra + tag + '\n\n';
+    ta.value = antes + insercao + depois;
+    const caret = (antes + insercao).length;
+    ta.focus();
+    ta.setSelectionRange(caret, caret);
+    update();
+    if (onChange) onChange(ta.value);
+  }
+
+  async function adicionarImagens(files) {
+    for (const file of files) {
+      const rec = await Imagens.adicionar(file);
+      if (rec) imageLibrary[rec.id] = rec;
+    }
+    montarGaleria();
+    update();
+  }
+
+  /* ===================== Montador da base ===================== */
+
+  let baseRascunho = null;   // cópia editada enquanto o painel está aberto
+
+  function abrirBase() {
+    baseRascunho = { ...baseAtual() };
+    els.baseForma.value = baseRascunho.forma;
+    els.baseFundo.value = baseRascunho.fundo;
+    els.baseDestaque.value = baseRascunho.destaque;
+    els.baseCorTitulo.value = baseRascunho.corTitulo;
+    els.baseCorTexto.value = baseRascunho.corTexto;
+    els.baseBarra.checked = !!baseRascunho.barra;
+    els.baseModal.hidden = false;
+    renderBasePreview();
+  }
+
+  function fecharBase() {
+    els.baseModal.hidden = true;
+    baseRascunho = null;
+  }
+
+  function lerControles() {
+    baseRascunho.forma = els.baseForma.value;
+    baseRascunho.fundo = els.baseFundo.value;
+    baseRascunho.destaque = els.baseDestaque.value;
+    baseRascunho.corTitulo = els.baseCorTitulo.value;
+    baseRascunho.corTexto = els.baseCorTexto.value;
+    baseRascunho.barra = els.baseBarra.checked;
+    // Mexer nas formas volta a base para o modo "montada".
+    if (baseRascunho.origem === 'imagem' && els.baseForma.value !== baseRascunho.forma) {
+      baseRascunho.origem = 'formas';
+    }
+  }
+
+  /* Preview do painel: mostra a base com as zonas de título e conteúdo por
+     cima. As zonas são só guia — nunca entram no slide. */
+  function renderBasePreview() {
+    const b = baseRascunho;
+    const fundo = b.origem === 'imagem' && b.png ? b.png : svgDataUrl(baseSvg(b));
+    els.baseCanvas.style.backgroundImage = `url('${fundo}')`;
+
+    const zona = (z, classe, rotulo) =>
+      `<div class="base-zona ${classe}" style="left:${z.x}%;top:${z.y}%;width:${z.w}%;height:${z.h}%">`
+      + `<span>${rotulo}</span></div>`;
+
+    els.baseCanvas.innerHTML =
+      `<div class="base-amostra" style="left:${ZONAS.titulo.x}%;top:${ZONAS.titulo.y}%;`
+      + `width:${ZONAS.titulo.w}%;color:${b.corTitulo}">Título do slide</div>`
+      + `<div class="base-amostra base-amostra-corpo" style="left:${ZONAS.conteudo.x}%;`
+      + `top:${ZONAS.conteudo.y}%;width:${ZONAS.conteudo.w}%;color:${b.corTexto}">`
+      + 'Texto do conteúdo, bullets e tabelas caem aqui.</div>'
+      + zona(ZONAS.titulo, 'z-titulo', 'ÁREA DO TÍTULO')
+      + zona(ZONAS.conteudo, 'z-conteudo', 'ÁREA DO CONTEÚDO')
+      + (b.barra ? zona(ZONAS.barra, 'z-barra', '') : '');
+
+    els.baseBarraPreview.hidden = !b.barra;
+  }
+
+  async function aplicarBase() {
+    const b = baseRascunho;
+    els.baseAplicar.disabled = true;
+    els.baseAplicar.textContent = 'Aplicando…';
+    // Formas montadas viram PNG: o PowerPoint não aceita SVG como imagem.
+    if (b.origem !== 'imagem') b.png = await svgParaPng(baseSvg(b));
+    Storage.setBase(b);
+    base = Storage.getBase();
+    els.baseAplicar.disabled = false;
+    els.baseAplicar.textContent = 'Aplicar';
+    fecharBase();
+    renderStage();
   }
 
   /* ===================== Abrir / fechar ===================== */
@@ -670,6 +1102,28 @@ ${corpo}
       pdfBtn: $('deck-pdf'),
       sepBtn: $('deck-sep'),
       fechar: $('deck-fechar'),
+      // imagens
+      imgBtn: $('deck-img-btn'),
+      imgInput: $('deck-img-input'),
+      galeria: $('deck-galeria'),
+      galeriaRow: $('deck-galeria-row'),
+      // base do slide
+      baseBtn: $('deck-base-btn'),
+      baseModal: $('base-modal'),
+      baseCanvas: $('base-canvas'),
+      baseForma: $('base-forma'),
+      baseFundo: $('base-fundo'),
+      baseDestaque: $('base-destaque'),
+      baseCorTitulo: $('base-cor-titulo'),
+      baseCorTexto: $('base-cor-texto'),
+      baseBarra: $('base-barra'),
+      baseBarraPreview: $('base-barra-preview'),
+      baseImgBtn: $('base-img-btn'),
+      baseImgInput: $('base-img-input'),
+      baseReset: $('base-reset'),
+      baseAplicar: $('base-aplicar'),
+      baseCancelar: $('base-cancelar'),
+      baseFechar: $('base-fechar'),
     };
 
     els.src.addEventListener('input', () => {
@@ -697,10 +1151,56 @@ ${corpo}
       alert(`Separadores inseridos: ${qtd} slides.\n\nConfira o texto — os --- foram deduzidos pelo formato, então algum pode precisar ser movido ou apagado.`);
     });
 
+    // --- imagens ---
+    els.imgBtn.addEventListener('click', () => els.imgInput.click());
+    els.imgInput.addEventListener('change', async e => {
+      const files = Array.from(e.target.files || []);
+      e.target.value = '';
+      if (files.length) await adicionarImagens(files);
+    });
+
+    // --- base do slide ---
+    els.baseBtn.addEventListener('click', abrirBase);
+    els.baseCancelar.addEventListener('click', fecharBase);
+    els.baseFechar.addEventListener('click', fecharBase);
+    els.baseAplicar.addEventListener('click', aplicarBase);
+    [els.baseForma, els.baseFundo, els.baseDestaque, els.baseCorTitulo,
+      els.baseCorTexto, els.baseBarra].forEach(el => {
+      el.addEventListener('input', () => { lerControles(); renderBasePreview(); });
+      el.addEventListener('change', () => { lerControles(); renderBasePreview(); });
+    });
+    els.baseImgBtn.addEventListener('click', () => els.baseImgInput.click());
+    els.baseImgInput.addEventListener('change', async e => {
+      const file = (e.target.files || [])[0];
+      e.target.value = '';
+      if (!file) return;
+      const rec = await Imagens.adicionar(file);
+      if (!rec) { alert('Não foi possível ler esta imagem.'); return; }
+      // A imagem de fundo não entra na galeria: ela é a base, não um elemento do slide.
+      Imagens.remover(rec.id);
+      baseRascunho.origem = 'imagem';
+      baseRascunho.png = rec.dataUrl;
+      renderBasePreview();
+    });
+    els.baseReset.addEventListener('click', () => {
+      baseRascunho = { ...Storage.BASE_PADRAO };
+      els.baseForma.value = baseRascunho.forma;
+      els.baseFundo.value = baseRascunho.fundo;
+      els.baseDestaque.value = baseRascunho.destaque;
+      els.baseCorTitulo.value = baseRascunho.corTitulo;
+      els.baseCorTexto.value = baseRascunho.corTexto;
+      els.baseBarra.checked = baseRascunho.barra;
+      renderBasePreview();
+    });
+
     window.addEventListener('resize', requestScaleStage);
     if (window.ResizeObserver) new ResizeObserver(requestScaleStage).observe(els.stageOuter);
     document.addEventListener('keydown', e => {
       if (els.overlay.hidden) return;
+      if (!els.baseModal.hidden) {                   // painel da base abre na frente
+        if (e.key === 'Escape') fecharBase();
+        return;
+      }
       if (e.target === els.src) return;              // digitando: setas andam no texto
       if (e.key === 'Escape') { close(); return; }
       if (e.key === 'ArrowRight' || e.key === 'PageDown') { current++; renderStage(); }
@@ -708,11 +1208,12 @@ ${corpo}
     });
   }
 
-  function open(texto, opts) {
+  async function open(texto, opts) {
     if (!els) bind();
     const o = opts || {};
     titulo = o.titulo || 'Slides';
     onChange = o.onChange || null;
+    base = Storage.getBase();
     els.titulo.textContent = titulo;
     els.src.value = texto || '';
     current = 0;
@@ -720,10 +1221,19 @@ ${corpo}
     lastScale = -1;
     update();
     requestScaleStage();
+
+    /* As imagens vêm do IndexedDB (assíncrono): a preview aparece na hora com
+       o texto e se completa quando elas chegam. */
+    imageLibrary = await Imagens.carregar(idsNoTexto(texto));
+    montarGaleria();
+    update();
   }
 
   function close() {
-    if (els) els.overlay.hidden = true;
+    if (els) {
+      els.overlay.hidden = true;
+      els.baseModal.hidden = true;
+    }
     onChange = null;
   }
 

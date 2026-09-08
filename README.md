@@ -17,6 +17,8 @@ Plataforma web para professores gerarem a **aula** com IA — e, a partir dela, 
 - 📝 **Atividade** — exercícios variados com gabarito comentado
 - 📄 **Prova** — prova formal com cabeçalho, pontuação e gabarito separado
 - 📽️ **Slides** — a aula vira apresentação com um clique, já no formato do **Gerador de Slides** (o gerador está embutido aqui). Abre um editor com preview slide a slide: ajuste o texto e veja a mudança na hora, depois exporte em **PPTX** (PowerPoint, editável) ou **PDF**
+- 🖼️ **Imagens nos slides** — envie imagens, clique para inserir no slide e depois **arraste e redimensione** direto na preview. A posição fica gravada no próprio texto, e as imagens vão para o PDF e o PPTX
+- 🎨 **Base do slide** — monte seu template sem sair do app: cor de fundo, cor de destaque, uma forma (faixa lateral, barra no topo, bloco no canto, diagonais ou hachura) e as cores do título e do texto. Enquanto monta, as **áreas do título e do conteúdo aparecem tracejadas**, para você não colocar forma nenhuma em cima do texto. Também dá para usar uma imagem sua como fundo. A base vale para todos os slides e vai junto no PDF e no PPTX
 - ✏️ **Editar antes de exportar** — ajuste o resultado direto na tela; edições entram no PDF, Word e cópia
 - 📅 **Agenda** — marque os dias de cada UC no calendário e gere a aula de cada dia. A aula fica presa à data, e a aula anterior e a próxima já vêm preenchidas — é o que garante a progressão entre as aulas
 - 📂 **Histórico** — tudo fica salvo no navegador, agrupado por UC; duplique e adapte para outra turma
@@ -54,6 +56,8 @@ Parágrafo com **negrito**.
 ```
 
 Um bloco só com título vira slide de capa. Linhas em branco separam os blocos dentro do slide (lista, parágrafo, tabela, bloco de código). O prompt de geração já entrega nesse formato — se algum slide sair torto, dá para corrigir no próprio editor, ou usar **✂️ Separar slides** quando as quebras `---` vierem faltando.
+
+Imagens entram como um bloco próprio, `![id x=43 y=46 w=30 k=ab12]` — `x`, `y` e `w` em % do slide. Você não escreve isso à mão: o botão **➕ Adicionar imagem** insere a tag, e arrastar ou redimensionar na preview reescreve os números. As imagens ficam no **IndexedDB** do navegador (`js/imagens.js`), não no localStorage — em base64 elas estourariam a cota que o histórico inteiro divide. Por isso **não entram no backup `.json`**: ao restaurar um backup em outro PC, os slides voltam com o aviso de imagem não encontrada e é preciso enviá-las de novo.
 
 ## Publicar no GitHub Pages
 

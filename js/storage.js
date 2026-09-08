@@ -8,6 +8,7 @@ const Storage = {
     history: 'profe_history',
     stats: 'profe_stats',
     agenda: 'profe_agenda',
+    base: 'profe_slide_base',
   },
 
   DEFAULT_MODELS: {
@@ -95,6 +96,37 @@ const Storage = {
     this.saveAgenda(map);
   },
 
+  /* ===== Base (template) dos slides =====
+     Vale para todos os slides: fundo, formas e cores do texto. `png` é o fundo
+     já rasterizado — é ele que vai para a preview, para o PDF e para o PPTX,
+     venha de formas montadas aqui ou de uma imagem enviada pelo professor. */
+  BASE_PADRAO: {
+    origem: 'formas',      // 'formas' | 'imagem'
+    forma: 'grade',        // limpo | grade | faixa | topo | canto | diagonal
+    fundo: '#ffffff',
+    destaque: '#4f46e5',
+    corTitulo: '#3d4a5c',
+    corTexto: '#3d4a5c',
+    barra: true,           // faixa colorida no rodapé
+    png: '',               // data URL do fundo (vazio = sem fundo próprio)
+  },
+
+  getBase() {
+    try {
+      return { ...this.BASE_PADRAO, ...(JSON.parse(localStorage.getItem(this.KEYS.base)) || {}) };
+    } catch {
+      return { ...this.BASE_PADRAO };
+    }
+  },
+
+  setBase(b) {
+    localStorage.setItem(this.KEYS.base, JSON.stringify({ ...this.BASE_PADRAO, ...b }));
+  },
+
+  resetBase() {
+    localStorage.removeItem(this.KEYS.base);
+  },
+
   /* Contadores de uso: nº de gerações e total de tokens gastos neste navegador. */
   getStats() {
     try {
@@ -124,6 +156,7 @@ const Storage = {
       stats: this.getStats(),
       history: this.getHistory(),
       agenda: this.getAgenda(),
+      base: this.getBase(),
     };
   },
 
@@ -138,6 +171,8 @@ const Storage = {
       if (data.models.openai) this.setModel(data.models.openai, 'openai');
     }
     if (data.stats) localStorage.setItem(this.KEYS.stats, JSON.stringify(data.stats));
+
+    if (data.base && typeof data.base === 'object') this.setBase(data.base);
 
     if (data.agenda && typeof data.agenda === 'object') {
       const atual = merge ? this.getAgenda() : {};
