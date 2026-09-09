@@ -4,6 +4,10 @@
    É essa data que amarra os dois lados — a Agenda continua sendo a única fonte
    do calendário, e mexer nela (feriado, recesso) não invalida nada do que já
    foi gerado. */
+/* `##` e `###` do markdown: é assim que Prompts.aula manda a IA dividir a aula. */
+const TITULO_SECAO = /^ {0,3}#{2,3} +(.+?) *$/;
+const QUEBRA = /\r?\n/;
+
 const Cronograma = {
   chaveUc(uc) { return (uc || '').trim().toUpperCase(); },
 
@@ -54,6 +58,21 @@ const Cronograma = {
       anterior: indice > 0 ? this.aulaDoDia(dias[indice - 1]) : null,
       proxima: indice >= 0 && indice < dias.length - 1 ? this.aulaDoDia(dias[indice + 1]) : null,
     };
+  },
+
+  /* Títulos de seção do material de uma aula já gerada.
+
+     O tema sozinho não diz o que foi DADO — com ele o modelo reensina o que a
+     turma já viu ou pula o que ficou faltando. Estes títulos são o conteúdo
+     real da aula vizinha, e é isso que amarra uma aula na seguinte. */
+  topicos(item) {
+    if (!item || !item.conteudo) return [];
+    const out = [];
+    String(item.conteudo).split(QUEBRA).forEach(linha => {
+      const m = linha.match(TITULO_SECAO);
+      if (m) out.push(m[1].replace(/[*_`]/g, '').trim());
+    });
+    return out.filter(Boolean).slice(0, 12);
   },
 
   /* Tema da aula de um item do histórico, para rótulos curtos. */

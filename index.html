@@ -57,6 +57,16 @@
             <small>Escreva à vontade: disciplina, tema, tópicos, público, o que quiser. É isso que vira a aula.</small>
           </label>
 
+          <details class="form-avancado" id="aula-referencia">
+            <summary>📎 Referência da UC — ementa, PDT, capítulo (opcional)</summary>
+            <p class="form-hint">Cole <strong>uma vez</strong>: vale para todas as aulas desta UC. A IA passa a usar isso como fonte — terminologia e escopo saem daí, em vez de serem inventados.</p>
+            <textarea name="referencia" rows="6" maxlength="20000" placeholder="Cole aqui a ementa da UC, o bloco do PDT ou o trecho do livro que a UC segue."></textarea>
+            <div class="ref-acoes">
+              <small id="ref-status"></small>
+              <button type="button" class="btn-link" id="ref-limpar">Limpar referência</button>
+            </div>
+          </details>
+
           <details class="form-avancado" id="aula-adaptacao">
             <summary>♿ Adaptação inclusiva (opcional)</summary>
             <p class="form-hint">Marque as necessidades da turma. A aula já sai adaptada — e a atividade, a prova e os slides gerados a partir dela também.</p>
@@ -70,7 +80,9 @@
                garantem a progressão de uma aula para a seguinte. -->
           <input type="hidden" name="data">
           <input type="hidden" name="aulaanterior">
+          <input type="hidden" name="aulaanteriortopicos">
           <input type="hidden" name="aulaproxima">
+          <input type="hidden" name="aulaproximatopicos">
           <input type="hidden" name="abertura">
           <button type="submit" class="btn-primary">✨ Gerar Aula</button>
         </form>

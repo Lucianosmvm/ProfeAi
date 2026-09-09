@@ -9,6 +9,7 @@ const Storage = {
     stats: 'profe_stats',
     agenda: 'profe_agenda',
     base: 'profe_slide_base',
+    referencias: 'profe_referencias',
     slidesOpts: 'profe_slides_opts',
   },
 
@@ -165,6 +166,39 @@ const Storage = {
     localStorage.setItem(this.KEYS.stats, JSON.stringify(s));
   },
 
+  /* ===== Referência da UC =====
+     Ementa, bloco do PDT ou capítulo que vale para TODAS as aulas de uma UC.
+     Guardada por UC, e não por aula: o professor cola uma vez e cada aula
+     daquela UC nasce presa à fonte, em vez de o modelo preencher lacuna com
+     invenção plausível. Fica fora do histórico de propósito — uma cópia do
+     texto em cada material estouraria a cota do localStorage. */
+  REF_MAX: 20000,
+
+  /* UC é digitada à mão: "uc10", "UC10 " e "Uc10" são a mesma coisa. */
+  chaveRef(uc) { return (uc || '').trim().toUpperCase(); },
+
+  getReferencias() {
+    try {
+      return JSON.parse(localStorage.getItem(this.KEYS.referencias)) || {};
+    } catch {
+      return {};
+    }
+  },
+
+  getReferencia(uc) {
+    const k = this.chaveRef(uc);
+    return k ? (this.getReferencias()[k] || '') : '';
+  },
+
+  setReferencia(uc, texto) {
+    const k = this.chaveRef(uc);
+    if (!k) return;
+    const map = this.getReferencias();
+    const t = (texto || '').trim().slice(0, this.REF_MAX);
+    if (t) map[k] = t; else delete map[k];
+    localStorage.setItem(this.KEYS.referencias, JSON.stringify(map));
+  },
+
   /* ===== Backup (export/import) ===== */
   /* A chave de API NÃO é incluída de propósito — o arquivo pode ser compartilhado. */
   exportData() {
@@ -179,6 +213,7 @@ const Storage = {
       history: this.getHistory(),
       agenda: this.getAgenda(),
       base: this.getBase(),
+      referencias: this.getReferencias(),
     };
   },
 
@@ -195,6 +230,12 @@ const Storage = {
     if (data.stats) localStorage.setItem(this.KEYS.stats, JSON.stringify(data.stats));
 
     if (data.base && typeof data.base === 'object') this.setBase(data.base);
+
+    if (data.referencias && typeof data.referencias === 'object') {
+      const atuais = merge ? this.getReferencias() : {};
+      localStorage.setItem(this.KEYS.referencias,
+        JSON.stringify({ ...atuais, ...data.referencias }));
+    }
 
     if (data.agenda && typeof data.agenda === 'object') {
       const atual = merge ? this.getAgenda() : {};

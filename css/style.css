@@ -438,6 +438,16 @@ input:focus, select:focus, textarea:focus {
   .agenda-aula { display: none; }
 }
 
+/* Rodapé da referência da UC: status à esquerda, limpar à direita. */
+.ref-acoes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ref-acoes small { color: var(--text-muted); font-size: .78rem; }
+
 /* ===== Encadear fluxos ===== */
 .result-chain {
   display: flex;

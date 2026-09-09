@@ -229,7 +229,19 @@
     // Rótulo curto derivado do pedido: é o que aparece no histórico, na Agenda
     // e nos materiais gerados a partir desta aula.
     params.tema = Prompts.resumoPedido(params.pedido);
-    runGeneration('aula', params, Prompts.aula(params), Prompts.titulo.aula(params));
+
+    // A referência fica guardada na UC, não em cada aula: são milhares de
+    // caracteres, e uma cópia por item do histórico estouraria a cota.
+    const referencia = params.referencia || '';
+    Storage.setReferencia(params.uc, referencia);
+    refCarregada = referencia;
+    delete params.referencia;
+
+    runGeneration(
+      'aula', params,
+      Prompts.aula({ ...params, referencia }),
+      Prompts.titulo.aula(params),
+    );
   });
 
   /* ===== Ações do resultado ===== */
@@ -273,7 +285,13 @@
     const c = state.current;
     if (!c || state.generating) return;
     if (c.tipo === 'aula') {
-      runGeneration('aula', c.params, Prompts.aula(c.params), Prompts.titulo.aula(c.params));
+      // A referência não vive no histórico: vem da UC, como na primeira geração.
+      const referencia = Storage.getReferencia(c.params && c.params.uc);
+      runGeneration(
+        'aula', c.params,
+        Prompts.aula({ ...c.params, referencia }),
+        Prompts.titulo.aula(c.params),
+      );
       return;
     }
     // Materiais derivados: refaz a partir do material base salvo no histórico.
@@ -528,7 +546,10 @@
   }
 
   /* Leva os campos de um item de volta ao formulário da aula. */
-  function preencherFormAula(params, { data = '', aulaanterior = '', aulaproxima = '', abertura = '' } = {}) {
+  function preencherFormAula(params, {
+    data = '', aulaanterior = '', aulaproxima = '', abertura = '',
+    aulaanteriortopicos = '', aulaproximatopicos = '',
+  } = {}) {
     const form = $('#form-aula');
     form.elements.uc.value = params.uc || '';
     form.elements.carga.value = params.carga || '';
@@ -536,6 +557,8 @@
     form.elements.adaptobs.value = params.adaptobs || '';
     form.elements.aulaanterior.value = aulaanterior;
     form.elements.aulaproxima.value = aulaproxima;
+    form.elements.aulaanteriortopicos.value = aulaanteriortopicos;
+    form.elements.aulaproximatopicos.value = aulaproximatopicos;
     form.elements.abertura.value = abertura;
 
     const marcadas = Prompts.adaptacoes(params);
@@ -545,6 +568,8 @@
     $('#aula-adaptacao').open = marcadas.length > 0 || !!params.adaptobs;
 
     form.elements.data.value = data;
+    refCarregada = '';            // formulário novo: pode trazer a referência da UC
+    carregarReferencia();
     location.hash = '#/aula';
     updateAulaHint();
   }
@@ -750,6 +775,9 @@
       data: iso,
       aulaanterior: Cronograma.tema(info.anterior),
       aulaproxima: Cronograma.tema(info.proxima),
+      // Não só o título: os títulos de seção dizem o que a aula vizinha cobriu.
+      aulaanteriortopicos: Cronograma.topicos(info.anterior).join(' · '),
+      aulaproximatopicos: Cronograma.topicos(info.proxima).join(' · '),
       abertura: info.indice === 0 ? 'sim' : '',
     });
   }
@@ -854,6 +882,53 @@
     });
   })();
 
+  /* ===== Referência da UC =====
+     A referência é da UC, não da aula: trocar a UC no formulário troca o texto.
+     `refCarregada` guarda o que foi posto automaticamente, para não apagar por
+     cima do que o professor acabou de digitar. */
+  let refCarregada = '';
+
+  function carregarReferencia() {
+    const form = $('#form-aula');
+    const ta = form.elements.referencia;
+    const salva = Storage.getReferencia(form.elements.uc.value);
+    if (salva) {
+      // A referência salva na UC sempre vence: sem isso, passar pela UC errada
+      // ao digitar sobrescreveria a ementa dela com o texto de outra.
+      ta.value = salva;
+      refCarregada = salva;
+      $('#aula-referencia').open = true;
+    } else if (ta.value === refCarregada) {
+      // O que está na caixa veio da UC anterior, não foi digitado: a UC nova
+      // não tem referência, então a caixa esvazia.
+      ta.value = '';
+      refCarregada = '';
+    }
+    // Texto digitado e UC nova sem referência: segue como rascunho desta UC.
+    atualizarRefStatus();
+  }
+
+  function atualizarRefStatus() {
+    const form = $('#form-aula');
+    const uc = form.elements.uc.value.trim();
+    const n = form.elements.referencia.value.trim().length;
+    const status = $('#ref-status');
+    if (!n) { status.textContent = ''; return; }
+    const chars = `${n.toLocaleString('pt-BR')} caracteres`;
+    status.textContent = uc
+      ? `Vale para todas as aulas de ${uc} · ${chars}`
+      : `Sem UC informada: vale só para esta aula · ${chars}`;
+  }
+
+  $('#form-aula').elements.referencia.addEventListener('input', atualizarRefStatus);
+  $('#ref-limpar').addEventListener('click', () => {
+    const form = $('#form-aula');
+    form.elements.referencia.value = '';
+    refCarregada = '';
+    Storage.setReferencia(form.elements.uc.value, '');
+    atualizarRefStatus();
+  });
+
   /* ===== Formulário da aula: vínculo com a Agenda ===== */
   function updateAulaHint() {
     const form = $('#form-aula');
@@ -877,6 +952,8 @@
         form.elements.data.value = '';
         form.elements.aulaanterior.value = '';
         form.elements.aulaproxima.value = '';
+        form.elements.aulaanteriortopicos.value = '';
+        form.elements.aulaproximatopicos.value = '';
         form.elements.abertura.value = '';
         updateAulaHint();
       });
@@ -891,7 +968,10 @@
       + 'Gerando pela <a href="#/agenda">Agenda</a>, cada aula fica presa ao seu dia e já vem com a anterior e a próxima preenchidas.';
   }
 
-  $('#form-aula').elements.uc.addEventListener('input', updateAulaHint);
+  $('#form-aula').elements.uc.addEventListener('input', () => {
+    updateAulaHint();
+    carregarReferencia();
+  });
 
   /* ===== Configurações ===== */
   function fillProviderFields(provider) {

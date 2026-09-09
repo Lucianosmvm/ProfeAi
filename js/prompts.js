@@ -115,14 +115,80 @@ Contexto adicional da turma/aluno: ${d.adaptobs.trim()}` : ''}
 ${this.slidesDensidade(d).conteudo}`;
   },
 
+  /* Referência da UC no prompt.
+
+     Sem ela o modelo preenche o que não sabe com conteúdo plausível — e quem
+     está começando não tem como detectar. As regras abaixo existem porque a
+     referência tem duas armadilhas: ela cobre a UC inteira (o modelo tenta dar
+     tudo numa aula só) e é escrita em jargão de PDT (o modelo copia o registro). */
+  blocoReferencia(d) {
+    const t = ((d && d.referencia) || '').trim();
+    if (!t) return '';
+    return `
+
+=== REFERÊNCIA DA UC (ementa, PDT ou material de origem) ===
+${t}
+=== FIM DA REFERÊNCIA ===
+
+Como usar a referência:
+- Ela é a FONTE desta UC: terminologia, definições e recorte do conteúdo saem daí. Não invente conteúdo fora do que ela delimita.
+- Ela cobre a UC INTEIRA, não a aula de hoje. Quem diz qual pedaço dela vira esta aula é o PEDIDO DO PROFESSOR — não tente cobrir a referência toda.
+- Se o pedido trouxer algo que a referência não menciona, ensine assim mesmo, sem ampliar o escopo por conta própria.
+- Ela é fonte, NÃO é modelo de escrita: não copie competências, indicadores nem o jargão do documento. O aluno lê a sua explicação, não o PDT.`;
+  },
+
+  /* ===== Dimensionamento da aula pelo tempo =====
+     "Dimensione para ocupar 2h30" é adjetivo, e adjetivo o modelo ignora: saía
+     aula de 40 minutos com rótulo de 2h30. Estes números saem da duração que o
+     professor já informou — nenhum campo novo no formulário. */
+  DIM_MIN_POR_SECAO: 25,      // minutos de aula que uma seção de conteúdo ocupa
+  DIM_MIN_POR_EXERCICIO: 15,  // minutos por exercício de verificação
+  DIM_FATIA_MOLDURA: 0.15,    // do tempo total: retomada inicial + fechamento
+
+  /* Duração em minutos a partir do campo livre: "2h30", "1h40", "90min",
+     "2,5h", "45". O que não der para ler devolve 0 e cai na regra antiga. */
+  minutos(carga) {
+    const t = String(carga || '').toLowerCase().replace(/,/g, '.').trim();
+    if (!t) return 0;
+    const comHora = t.match(/(\d+(?:\.\d+)?) *h(?:oras?)? *(\d{1,2})?/);
+    if (comHora) {
+      return Math.round(parseFloat(comHora[1]) * 60) + (parseInt(comHora[2], 10) || 0);
+    }
+    const comMinuto = t.match(/(\d+) *(?:min|minutos?|m\b)/);
+    if (comMinuto) return parseInt(comMinuto[1], 10);
+    // Número solto: só vale como minutos se for grande — "3" tanto pode ser
+    // 3 horas quanto 3 aulas, e chutar errado estraga o dimensionamento.
+    const solto = t.match(/^(\d+)$/);
+    if (solto) { const n = parseInt(solto[1], 10); return n >= 20 ? n : 0; }
+    return 0;
+  },
+
+  /* Quantidades mínimas para a aula caber no tempo. null = duração ilegível. */
+  dimensao(carga) {
+    const min = this.minutos(carga);
+    if (!min) return null;
+    const util = min * (1 - this.DIM_FATIA_MOLDURA);
+    return {
+      secoes: Math.max(2, Math.min(10, Math.round(util / this.DIM_MIN_POR_SECAO))),
+      exercicios: Math.max(3, Math.min(15, Math.round(util / this.DIM_MIN_POR_EXERCICIO))),
+    };
+  },
+
   aula(d) {
     // Aulas vizinhas (vêm preenchidas da Agenda): sem elas o modelo INVENTA o
     // que foi visto antes, e cada aula sai desconectada da anterior.
+    // Os tópicos vêm da Agenda (Cronograma.topicos): sem eles o modelo só sabe
+    // o TÍTULO da aula vizinha e chuta o que ela cobriu.
+    const secoesDela = (t, verbo) => (t || '').trim() ? `
+  Seções que ela ${verbo}: ${t.trim()}` : '';
     const vizinhas = [
-      d.aulaanterior ? `- Aula anterior (já dada): ${d.aulaanterior}` : '',
-      d.aulaproxima ? `- Próxima aula (ainda não dada): ${d.aulaproxima}` : '',
+      d.aulaanterior
+        ? `- Aula anterior (já dada): ${d.aulaanterior}${secoesDela(d.aulaanteriortopicos, 'cobriu')}` : '',
+      d.aulaproxima
+        ? `- Próxima aula (ainda não dada): ${d.aulaproxima}${secoesDela(d.aulaproximatopicos, 'vai cobrir')}` : '',
     ].filter(Boolean).join('\n');
     const abertura = d.abertura === 'sim' || d.abertura === true;
+    const dim = this.dimensao(d.carga);
 
     return `Gere a AULA COMPLETA, pronta para ser ministrada: o CONTEÚDO em si que será ensinado. NÃO é um plano de aula, NÃO é um roteiro de instruções ao professor. É o material da aula — explicações, definições, exemplos, tabelas e atividades — desenvolvido para preencher todo o tempo da aula.
 
@@ -132,17 +198,18 @@ ${vizinhas}
 O professor descreveu assim a aula que quer. Siga este pedido como escopo — o que ele pediu entra, o que ele não pediu fica de fora. Se o pedido trouxer disciplina, público ou tópicos, use-os; se não trouxer, deduza do próprio texto e siga em frente sem pedir esclarecimento:
 === PEDIDO DO PROFESSOR ===
 ${(d.pedido || '').trim()}
-=== FIM DO PEDIDO ===
+=== FIM DO PEDIDO ===${this.blocoReferencia(d)}
 
 Regras:
 - Comece com o **título da aula** e 2–3 linhas de objetivos de aprendizagem.
-- Divida a aula em SEÇÕES na ordem em que serão trabalhadas, com título temático, ex.: \`## Levantamento de Requisitos\`. NÃO inclua tempos/minutos nos títulos nem no corpo.
+- Divida a aula em SEÇÕES na ordem em que serão trabalhadas, com título temático, ex.: \`## Levantamento de Requisitos\`.
+- NADA DE TEMPO NO MATERIAL: não escreva minutos, horas, duração, "tempo estimado" nem cronograma — em título nenhum, no corpo nenhum, em tabela nenhuma. A duração serve só para você dimensionar o material; o aluno não vê relógio.
 - Em cada seção, ENTREGUE O CONTEÚDO de fato: explique o conceito de forma didática, com exemplos concretos do cotidiano e tabelas quando ajudarem. Escreva o material que o aluno vê/estuda — nada de "o professor deve...", nada de meta-instruções.
-- Inclua ao menos uma ATIVIDADE PRÁTICA para os alunos resolverem e uma VERIFICAÇÃO de aprendizagem (exercícios ou perguntas com respostas), dimensionadas ao tempo.
-- Dimensione a profundidade e a quantidade de exemplos/exercícios para realmente ocupar ${d.carga} de aula.
+- Inclua ao menos uma ATIVIDADE PRÁTICA para os alunos resolverem e uma VERIFICAÇÃO de aprendizagem (exercícios ou perguntas com respostas).
+- TAMANHO DO MATERIAL${dim ? ` — mínimos calculados para ${d.carga} de aula` : ''}: ${dim ? `${dim.secoes} seções de conteúdo, 2 exemplos concretos para cada conceito novo e ${dim.exercicios} exercícios somando a atividade prática e a verificação. São pisos: passe deles se o tema pedir, nunca fique abaixo.` : `dimensione a profundidade e a quantidade de exemplos e exercícios para preencher toda a aula (${d.carga}).`}
 - ${abertura ? 'Esta é a abertura da unidade: comece apresentando o tema novo e situando o aluno no percurso do curso.' : (d.aulaanterior ? 'Comece retomando em poucas linhas o que foi visto na aula anterior, citando-a pelo título.' : 'Comece retomando em poucas linhas a base necessária para o tema.')}
 - Termine ${d.aulaproxima ? 'conectando com a próxima aula, citando-a pelo título' : 'com uma síntese e uma ponte para o próximo tema'}.${vizinhas ? `
-- CONTINUIDADE: trate o conteúdo da aula anterior como já conhecido — retome, não reensine — e não invada o conteúdo da próxima aula. A retomada e a ponte final devem se referir às aulas informadas acima, nunca a temas inventados.` : ''}${this.blocoAdaptacao(d)}`;
+- CONTINUIDADE: as seções listadas acima são o que a turma JÁ viu (aula anterior) e o que ainda vai ver (próxima aula). Trate o que já foi dado como conhecido — retome em uma frase, não reensine — e não entre no conteúdo reservado à próxima aula. A retomada e a ponte final citam essas aulas pelo título, nunca temas inventados.` : ''}${this.blocoAdaptacao(d)}`;
   },
 
   /* Rótulo curto do pedido, para o título do histórico e para a Agenda.
