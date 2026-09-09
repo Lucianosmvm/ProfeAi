@@ -494,6 +494,58 @@ input:focus, select:focus, textarea:focus {
   color: var(--text-muted);
 }
 
+/* Escolha do estilo visual, dentro do painel de opções dos slides. */
+.slides-estilo { flex-basis: 100%; display: flex; flex-direction: column; gap: 8px; }
+.slides-estilo-titulo { font-size: .85rem; font-weight: 600; color: var(--text-muted); }
+.slides-temas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 8px;
+}
+.slides-temas .tema-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: border-color .12s, box-shadow .12s, transform .12s;
+}
+.slides-temas .tema-card:hover { border-color: var(--primary); transform: translateY(-1px); }
+.slides-temas .tema-card.sel {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, .16);
+}
+.slides-temas .tema-card img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 5px;
+  display: block;
+  background: #f2f4f7;
+}
+.slides-temas .tema-card span {
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.slides-temas .tema-card-icone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  font-size: 22px;
+  border-radius: 5px;
+  background: #f2f4f7;
+}
+
 /* ===== Editar resultado ===== */
 .result-content.editing {
   outline: 2px dashed var(--primary);

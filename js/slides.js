@@ -491,14 +491,33 @@ window.Deck = (function () {
 
   /* Fundo: a imagem enviada OU a cor + a forma pronta. Os elementos vêm sempre
      por cima dos dois — é o que permite escrever sobre uma imagem de fundo. */
-  function baseSvg(b, semElementos) {
+  function baseSvg(b, semElementos, capa) {
     const img = b.origem === 'imagem' && (b.imgPng || b.png);
-    const fundo = img
-      ? `<image href="${img}" x="0" y="0" width="${BASE_SVG_W}" height="${BASE_SVG_H}"
-          preserveAspectRatio="xMidYMid slice"/>`
-      : `<rect width="100%" height="100%" fill="${b.fundo}"/>${formasSvg(b)}`;
+    let fundo;
+    if (img) {
+      fundo = `<image href="${img}" x="0" y="0" width="${BASE_SVG_W}" height="${BASE_SVG_H}"
+          preserveAspectRatio="xMidYMid slice"/>`;
+    } else if (b.tema && window.Temas && Temas.get(b.tema)) {
+      fundo = Temas.desenho(b.tema, b, capa);
+    } else {
+      fundo = `<rect width="100%" height="100%" fill="${b.fundo}"/>${formasSvg(b)}`;
+    }
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${BASE_SVG_W}" height="${BASE_SVG_H}"
       viewBox="0 0 ${BASE_SVG_W} ${BASE_SVG_H}">${fundo}${semElementos ? '' : elementosSvg(b)}</svg>`;
+  }
+
+  /* Um estilo pronto tem dois fundos: o de conteúdo e o da capa (o slide que só
+     tem título). Sem estilo pronto, a capa usa o mesmo fundo dos demais. */
+  function temCapaPropria(b) {
+    return !!(b.pngCapa && b.tema && b.origem !== 'imagem');
+  }
+
+  /* Cor do texto no slide: na capa o fundo é o gradiente inteiro, então vale a
+     cor de capa do tema. */
+  function coresDoSlide(b, capa) {
+    return (capa && temCapaPropria(b))
+      ? { titulo: b.capaCor || '#ffffff', texto: b.capaCor || '#ffffff' }
+      : { titulo: b.corTitulo, texto: b.corTexto };
   }
 
   function svgDataUrl(svg) {
@@ -507,7 +526,7 @@ window.Deck = (function () {
 
   /* O PPTX precisa de bitmap: SVG não é formato de imagem aceito pelo
      PowerPoint. Rasteriza uma vez, na hora de aplicar a base. */
-  function svgParaPng(svg, jpeg) {
+  function svgParaPng(svg, jpeg, q) {
     return new Promise(resolve => {
       const img = new Image();
       img.onload = () => {
@@ -518,7 +537,7 @@ window.Deck = (function () {
         // JPEG não tem transparência: sem este fundo a foto sai sobre preto.
         if (jpeg) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, BASE_SVG_W, BASE_SVG_H); }
         ctx.drawImage(img, 0, 0, BASE_SVG_W, BASE_SVG_H);
-        resolve(jpeg ? c.toDataURL('image/jpeg', 0.88) : c.toDataURL('image/png'));
+        resolve(jpeg ? c.toDataURL('image/jpeg', q || 0.88) : c.toDataURL('image/png'));
       };
       img.onerror = () => resolve('');
       img.src = svgDataUrl(svg);
@@ -529,12 +548,77 @@ window.Deck = (function () {
     return base || (base = Storage.getBase());
   }
 
+  /* Rasteriza a base e guarda. Estilo pronto e imagem de fundo saem em JPEG:
+     são gradientes de ponta a ponta e em PNG passariam de 1 MB, estourando a
+     cota do localStorage. A base montada à mão continua PNG. */
+  async function rasterizarBase(b) {
+    const chapado = b.origem === 'imagem' || !!b.tema;
+    const composto = await svgParaPng(baseSvg(b), chapado, 0.94);
+    if (composto) b.png = composto;
+    b.pngCapa = (b.tema && b.origem !== 'imagem')
+      ? (await svgParaPng(baseSvg(b, false, true), true, 0.94) || '')
+      : '';
+    return b;
+  }
+
+  function salvarBase(b) {
+    try {
+      Storage.setBase(b);
+    } catch (err) {
+      alert('Não foi possível salvar a base do slide: o armazenamento do navegador está cheio. '
+        + 'Apague materiais antigos do histórico e tente de novo.');
+      return false;
+    }
+    base = Storage.getBase();
+    return true;
+  }
+
+  /* Base salva sem o bitmap (estilo padrão de fábrica, ou troca de versão):
+     desenha uma vez, na primeira abertura. */
+  async function garantirBasePng() {
+    const b = Storage.getBase();
+    if (b.origem === 'imagem' || !b.tema || (b.png && b.pngCapa)) return;
+    await rasterizarBase(b);
+    salvarBase(b);
+  }
+
+  /* ---------- API para o resto do app (painel de geração) ---------- */
+
+  async function aplicarTema(id) {
+    const patch = window.Temas ? Temas.patchBase(id) : null;
+    if (!patch) return false;
+    const b = { ...Storage.getBase(), ...patch, imgPng: '' };
+    await rasterizarBase(b);
+    if (!salvarBase(b)) return false;
+    if (els && !els.overlay.hidden) renderStage();
+    return true;
+  }
+
+  async function usarImagemBase(file) {
+    const rec = await Imagens.adicionar(file);
+    if (!rec) return false;
+    // A imagem de fundo não entra na galeria: ela é a base, não um elemento.
+    Imagens.remover(rec.id);
+    const b = { ...Storage.getBase(), origem: 'imagem', imgPng: rec.dataUrl, png: rec.dataUrl };
+    await rasterizarBase(b);
+    if (!salvarBase(b)) return false;
+    if (els && !els.overlay.hidden) renderStage();
+    return true;
+  }
+
+  /* O que está aplicado agora — o painel de geração usa para marcar o cartão. */
+  function baseInfo() {
+    const b = Storage.getBase();
+    return { tema: b.tema, origem: b.origem, forma: b.forma };
+  }
+
   /* Estilo do fundo de um slide: a base do professor, ou nada (o CSS cai na
      hachura padrão quando não há imagem). */
-  function bgStyle() {
+  function bgStyle(capa) {
     const b = baseAtual();
-    return b.png
-      ? ` style="background-image:url('${b.png}');background-size:cover;background-position:center;"`
+    const png = (capa && temCapaPropria(b)) ? b.pngCapa : b.png;
+    return png
+      ? ` style="background-image:url('${png}');background-size:cover;background-position:center;"`
       : '';
   }
 
@@ -562,8 +646,14 @@ window.Deck = (function () {
   function slideHtml(s, opts) {
     const b = baseAtual();
     const soltas = (opts && opts.comPosicionadas) ? posicionadasHtml(s) : '';
-    return `<div class="slide-bg"${b.png ? ' data-base="1"' : ''}${bgStyle()}></div>
-      <div class="slide-content">
+    const capa = !!s.isTitleSlide;
+    const png = (capa && temCapaPropria(b)) ? b.pngCapa : b.png;
+    // As cores vão inline no slide: a capa pode ter cor própria, e assim a
+    // janela de impressão herda a mesma regra sem depender do :root.
+    const c = coresDoSlide(b, capa);
+    const vars = ` style="--slide-titulo:${c.titulo};--slide-texto:${c.texto};"`;
+    return `<div class="slide-bg"${png ? ' data-base="1"' : ''}${bgStyle(capa)}></div>
+      <div class="slide-content"${vars}>
         <h1 class="slide-title">${inlineFormat(s.title)}</h1>
         <div class="slide-body">${s.bodyHtml}</div>
       </div>
@@ -624,7 +714,7 @@ window.Deck = (function () {
     const s = slides[current];
 
     els.stage.className = 'deck-stage' + (s.isTitleSlide ? ' title-slide' : '');
-    aplicarCoresTexto(els.stage);
+    aplicarCoresTexto(els.stage, s.isTitleSlide);
     els.stage.innerHTML = slideHtml(s);
     els.page.textContent = `${current + 1} / ${slides.length}`;
     els.prev.disabled = current === 0;
@@ -635,10 +725,10 @@ window.Deck = (function () {
   }
 
   /* As cores do texto vêm da base e entram como variáveis CSS. */
-  function aplicarCoresTexto(el) {
-    const b = baseAtual();
-    el.style.setProperty('--slide-titulo', b.corTitulo);
-    el.style.setProperty('--slide-texto', b.corTexto);
+  function aplicarCoresTexto(el, capa) {
+    const c = coresDoSlide(baseAtual(), capa);
+    el.style.setProperty('--slide-titulo', c.titulo);
+    el.style.setProperty('--slide-texto', c.texto);
   }
 
   /* ===================== Imagens soltas: arrastar e redimensionar ===================== */
@@ -961,14 +1051,17 @@ ${corpo}
       pptx.layout = 'WIDE';
 
       const b = baseAtual();
-      const corTitulo = hex(b.corTitulo);
 
       slides.forEach(s => {
         const slide = pptx.addSlide();
+        const capa = !!s.isTitleSlide;
+        const corDoTitulo = hex(coresDoSlide(b, capa).titulo);
         slide.background = { color: hex(b.fundo) };
 
-        // A base montada (ou a imagem de fundo) entra como imagem de página inteira.
-        if (b.png) slide.addImage({ data: b.png, x: 0, y: 0, w: 13.333, h: 7.5 });
+        // A base montada (ou a imagem de fundo) entra como imagem de página
+        // inteira; a capa tem a sua, quando o estilo pronto define uma.
+        const fundoPng = (capa && temCapaPropria(b)) ? b.pngCapa : b.png;
+        if (fundoPng) slide.addImage({ data: fundoPng, x: 0, y: 0, w: 13.333, h: 7.5 });
 
         // faixa colorida do rodapé (espelha o template da tela)
         if (b.barra) {
@@ -982,16 +1075,16 @@ ${corpo}
           });
         }
 
-        if (s.isTitleSlide) {
+        if (capa) {
           slide.addText(s.title, {
             x: 0.6, y: 0, w: 13.333 - 1.2, h: 7.5 - 0.16,
             align: 'center', valign: 'middle',
-            fontSize: 40, bold: true, color: corTitulo, fontFace: 'Arial',
+            fontSize: 40, bold: true, color: corDoTitulo, fontFace: 'Arial',
           });
         } else {
           slide.addText(s.title, {
             x: 0.6, y: 0.45, w: 13.333 - 1.2, h: 1.0,
-            fontSize: 32, bold: true, color: corTitulo, fontFace: 'Arial',
+            fontSize: 32, bold: true, color: corDoTitulo, fontFace: 'Arial',
           });
           renderPptxBody(slide, s.blocks, 0.6, 1.55, 13.333 - 1.2);
         }
@@ -1079,13 +1172,14 @@ ${corpo}
     }
     elFerramenta = null;
     elSel = null;
-    els.baseForma.value = baseRascunho.forma;
+    els.baseVerCapa.checked = false;
     els.baseFundo.value = baseRascunho.fundo;
     els.baseDestaque.value = baseRascunho.destaque;
     els.baseCorTitulo.value = baseRascunho.corTitulo;
     els.baseCorTexto.value = baseRascunho.corTexto;
     els.baseBarra.checked = !!baseRascunho.barra;
     els.baseModal.hidden = false;
+    renderTemas();
     renderBasePreview();
   }
 
@@ -1098,26 +1192,90 @@ ${corpo}
   }
 
   function lerControles() {
-    // Trocar a forma pronta volta a base para o modo "montada" — e o unico
-    // jeito de tirar uma imagem de fundo sem resetar tudo.
-    const formaAntes = baseRascunho.forma;
-    baseRascunho.forma = els.baseForma.value;
     baseRascunho.fundo = els.baseFundo.value;
     baseRascunho.destaque = els.baseDestaque.value;
     baseRascunho.corTitulo = els.baseCorTitulo.value;
     baseRascunho.corTexto = els.baseCorTexto.value;
     baseRascunho.barra = els.baseBarra.checked;
-    if (baseRascunho.origem === 'imagem' && baseRascunho.forma !== formaAntes) {
-      baseRascunho.origem = 'formas';
-    }
+  }
+
+  /* ---------- Galeria de estilos do painel ----------
+     Um cartão por estilo pronto (js/temas.js) e um por forma básica. Escolher
+     um cartão é também o jeito de sair de uma imagem de fundo sem resetar tudo. */
+  const FORMAS_BASICAS = [
+    { forma: 'grade', nome: 'Hachura' },
+    { forma: 'limpo', nome: 'Sem formas' },
+    { forma: 'faixa', nome: 'Faixa lateral' },
+    { forma: 'topo', nome: 'Barra no topo' },
+    { forma: 'canto', nome: 'Bloco no canto' },
+    { forma: 'diagonal', nome: 'Diagonais' },
+  ];
+
+  function miniaturaBasica(forma) {
+    const b = baseRascunho || baseAtual();
+    return svgDataUrl(baseSvg({ ...b, tema: '', origem: 'formas', forma }, true));
+  }
+
+  function cartaoTema(sel, url, nome, dataset) {
+    return `<button type="button" class="tema-card${sel ? ' sel' : ''}" ${dataset}
+      title="${escapeHtml(nome)}"><img src="${url}" alt=""><span>${escapeHtml(nome)}</span></button>`;
+  }
+
+  function renderTemas() {
+    const b = baseRascunho;
+    const usandoImagem = b.origem === 'imagem';
+    const prontos = (window.Temas ? Temas.LISTA : []).map(t => cartaoTema(
+      !usandoImagem && b.tema === t.id,
+      Temas.previewUrl(t.id, false, null),
+      t.nome,
+      `data-tema="${t.id}"`,
+    )).join('');
+    const basicas = FORMAS_BASICAS.map(f => cartaoTema(
+      !usandoImagem && !b.tema && b.forma === f.forma,
+      miniaturaBasica(f.forma),
+      f.nome,
+      `data-forma="${f.forma}"`,
+    )).join('');
+    els.baseTemas.innerHTML =
+      `<div class="tema-grupo"><span class="tema-grupo-nome">Profissionais (cores vivas)</span>
+        <div class="tema-grade">${prontos}</div></div>
+       <div class="tema-grupo"><span class="tema-grupo-nome">Básicos</span>
+        <div class="tema-grade">${basicas}</div></div>`;
+  }
+
+  /* Escolher um estilo troca as cores junto: é o pacote fechado do tema. O
+     professor pode ajustar as cores logo depois, nos seletores ao lado. */
+  function escolherTema(id) {
+    const patch = window.Temas ? Temas.patchBase(id) : null;
+    if (!patch) return;
+    Object.assign(baseRascunho, patch);
+    els.baseFundo.value = baseRascunho.fundo;
+    els.baseDestaque.value = baseRascunho.destaque;
+    els.baseCorTitulo.value = baseRascunho.corTitulo;
+    els.baseCorTexto.value = baseRascunho.corTexto;
+    els.baseBarra.checked = !!baseRascunho.barra;
+    renderTemas();
+    renderBasePreview();
+  }
+
+  function escolherForma(forma) {
+    baseRascunho.tema = '';
+    baseRascunho.forma = forma;
+    baseRascunho.origem = 'formas';
+    renderTemas();
+    renderBasePreview();
   }
 
   /* Preview do painel: mostra a base com as zonas de título e conteúdo por
      cima. As zonas são só guia — nunca entram no slide. */
   function renderBasePreview() {
     const b = baseRascunho;
+    // A capa só existe nos estilos prontos; nos demais o botão não muda nada.
+    const capa = els.baseVerCapa.checked && !!b.tema && b.origem !== 'imagem';
+    const corT = capa ? (b.capaCor || '#ffffff') : b.corTitulo;
+    const corC = capa ? (b.capaCor || '#ffffff') : b.corTexto;
     // Fundo sem os elementos: eles entram como HTML, para poderem ser arrastados.
-    els.baseCanvas.style.backgroundImage = `url('${svgDataUrl(baseSvg(b, true))}')`;
+    els.baseCanvas.style.backgroundImage = `url('${svgDataUrl(baseSvg(b, true, capa))}')`;
 
     const zona = (z, classe, rotulo) =>
       `<div class="base-zona ${classe}" style="left:${z.x}%;top:${z.y}%;width:${z.w}%;height:${z.h}%">`
@@ -1125,9 +1283,9 @@ ${corpo}
 
     els.baseCanvas.innerHTML =
       `<div class="base-amostra" style="left:${ZONAS.titulo.x}%;top:${ZONAS.titulo.y}%;`
-      + `width:${ZONAS.titulo.w}%;color:${b.corTitulo}">Título do slide</div>`
+      + `width:${ZONAS.titulo.w}%;color:${corT}">Título do slide</div>`
       + `<div class="base-amostra base-amostra-corpo" style="left:${ZONAS.conteudo.x}%;`
-      + `top:${ZONAS.conteudo.y}%;width:${ZONAS.conteudo.w}%;color:${b.corTexto}">`
+      + `top:${ZONAS.conteudo.y}%;width:${ZONAS.conteudo.w}%;color:${corC}">`
       + 'Texto do conteúdo, bullets e tabelas caem aqui.</div>'
       + zona(ZONAS.titulo, 'z-titulo', 'ÁREA DO TÍTULO')
       + zona(ZONAS.conteudo, 'z-conteudo', 'ÁREA DO CONTEÚDO')
@@ -1359,13 +1517,10 @@ ${corpo}
     const b = baseRascunho;
     els.baseAplicar.disabled = true;
     els.baseAplicar.textContent = 'Aplicando…';
-    // Tudo vira um bitmap so — fundo, forma pronta e elementos — porque o
-    // PowerPoint nao aceita SVG. Com foto de fundo sai JPEG: em PNG a base
-    // sozinha passaria de 1 MB e estouraria a cota do localStorage.
-    const composto = await svgParaPng(baseSvg(b), b.origem === 'imagem');
-    if (composto) b.png = composto;
-    Storage.setBase(b);
-    base = Storage.getBase();
+    // Tudo vira bitmap — fundo, estilo e elementos — porque o PowerPoint não
+    // aceita SVG.
+    await rasterizarBase(b);
+    salvarBase(b);
     els.baseAplicar.disabled = false;
     els.baseAplicar.textContent = 'Aplicar';
     fecharBase();
@@ -1400,7 +1555,8 @@ ${corpo}
       baseBtn: $('deck-base-btn'),
       baseModal: $('base-modal'),
       baseCanvas: $('base-canvas'),
-      baseForma: $('base-forma'),
+      baseTemas: $('base-temas'),
+      baseVerCapa: $('base-ver-capa'),
       baseFundo: $('base-fundo'),
       baseDestaque: $('base-destaque'),
       baseCorTitulo: $('base-cor-titulo'),
@@ -1469,10 +1625,19 @@ ${corpo}
     els.baseCancelar.addEventListener('click', fecharBase);
     els.baseFechar.addEventListener('click', fecharBase);
     els.baseAplicar.addEventListener('click', aplicarBase);
-    [els.baseForma, els.baseFundo, els.baseDestaque, els.baseCorTitulo,
+    [els.baseFundo, els.baseDestaque, els.baseCorTitulo,
       els.baseCorTexto, els.baseBarra].forEach(el => {
-      el.addEventListener('input', () => { lerControles(); renderBasePreview(); });
-      el.addEventListener('change', () => { lerControles(); renderBasePreview(); });
+      // As miniaturas usam as cores atuais: mudou a cor, a galeria acompanha.
+      const aplicar = () => { lerControles(); renderTemas(); renderBasePreview(); };
+      el.addEventListener('input', aplicar);
+      el.addEventListener('change', aplicar);
+    });
+    els.baseVerCapa.addEventListener('change', renderBasePreview);
+    els.baseTemas.addEventListener('click', e => {
+      const card = e.target.closest('.tema-card');
+      if (!card) return;
+      if (card.dataset.tema) escolherTema(card.dataset.tema);
+      else if (card.dataset.forma) escolherForma(card.dataset.forma);
     });
     els.baseImgBtn.addEventListener('click', () => els.baseImgInput.click());
     els.baseImgInput.addEventListener('change', async e => {
@@ -1487,18 +1652,21 @@ ${corpo}
       // A crua fica separada: `png` passa a ser a composicao com os elementos.
       baseRascunho.imgPng = rec.dataUrl;
       baseRascunho.png = rec.dataUrl;
+      els.baseVerCapa.checked = false;
+      renderTemas();
       renderBasePreview();
     });
     els.baseReset.addEventListener('click', () => {
       baseRascunho = { ...Storage.BASE_PADRAO, elementos: [] };
       elFerramenta = null;
       elSel = null;
-      els.baseForma.value = baseRascunho.forma;
       els.baseFundo.value = baseRascunho.fundo;
       els.baseDestaque.value = baseRascunho.destaque;
       els.baseCorTitulo.value = baseRascunho.corTitulo;
       els.baseCorTexto.value = baseRascunho.corTexto;
       els.baseBarra.checked = baseRascunho.barra;
+      els.baseVerCapa.checked = false;
+      renderTemas();
       renderBasePreview();
     });
 
@@ -1580,6 +1748,7 @@ ${corpo}
     const o = opts || {};
     titulo = o.titulo || 'Slides';
     onChange = o.onChange || null;
+    await garantirBasePng();
     base = Storage.getBase();
     els.titulo.textContent = titulo;
     els.src.value = texto || '';
@@ -1604,5 +1773,5 @@ ${corpo}
     onChange = null;
   }
 
-  return { open, close, parseSlides, exportPrint, exportPptx };
+  return { open, close, parseSlides, exportPrint, exportPptx, aplicarTema, usarImagemBase, baseInfo };
 })();

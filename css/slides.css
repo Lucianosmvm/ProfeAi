@@ -560,6 +560,73 @@
   background: #fff;
   color: #3d4a5c;
 }
+/* ---------- Galeria de estilos (painel da base) ---------- */
+.base-temas-box { display: flex; flex-direction: column; gap: 8px; }
+.base-secao { font-weight: 700; font-size: 13px; color: #3d4a5c; }
+.base-temas { display: flex; flex-direction: column; gap: 12px; max-height: 330px; overflow: auto; }
+.tema-grupo { display: flex; flex-direction: column; gap: 6px; }
+.tema-grupo-nome {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #7a8699;
+  font-weight: 700;
+}
+.tema-grade { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+.tema-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  border: 2px solid #dfe3ea;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  transition: border-color .12s, box-shadow .12s, transform .12s;
+}
+.tema-card:hover { border-color: #9fb0ff; transform: translateY(-1px); }
+.tema-card.sel { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, .16); }
+.tema-card img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 5px;
+  display: block;
+  background: #f2f4f7;
+}
+.tema-card span {
+  font-size: 11px;
+  font-weight: 600;
+  color: #3d4a5c;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tema-card-icone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  font-size: 22px;
+  border-radius: 5px;
+  background: #f2f4f7;
+}
+
+.base-ver-capa {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #3d4a5c;
+  cursor: pointer;
+}
+
 .base-cores { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .base-cores label {
   display: flex;

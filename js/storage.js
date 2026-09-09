@@ -104,13 +104,17 @@ const Storage = {
      venha de formas montadas aqui ou de uma imagem enviada pelo professor. */
   BASE_PADRAO: {
     origem: 'formas',      // 'formas' | 'imagem'
+    tema: 'aurora',        // id de js/temas.js; '' usa a forma pronta abaixo
     forma: 'grade',        // limpo | grade | faixa | topo | canto | diagonal
     fundo: '#ffffff',
-    destaque: '#4f46e5',
-    corTitulo: '#3d4a5c',
-    corTexto: '#3d4a5c',
-    barra: true,           // faixa colorida no rodapé
+    destaque: '#2563eb',
+    destaque2: '#06b6d4',  // segunda cor do gradiente dos estilos prontos
+    corTitulo: '#0f2a5c',
+    corTexto: '#33415c',
+    capaCor: '#ffffff',    // cor do texto no slide de capa (fundo em gradiente)
+    barra: false,          // faixa colorida no rodapé
     png: '',               // data URL do fundo JÁ COMPOSTO (fundo + formas + elementos)
+    pngCapa: '',           // idem, versão do slide de capa (só nos estilos prontos)
     imgPng: '',            // imagem enviada pelo professor, crua — só ela é reeditável
     /* Elementos desenhados à mão no montador, por cima do fundo. Cada um:
        { id, tipo: 'rect'|'ellipse'|'triangle'|'texto', x, y, w, h (em % do slide),
@@ -120,7 +124,12 @@ const Storage = {
 
   getBase() {
     try {
-      return { ...this.BASE_PADRAO, ...(JSON.parse(localStorage.getItem(this.KEYS.base)) || {}) };
+      const salvo = JSON.parse(localStorage.getItem(this.KEYS.base));
+      if (!salvo) return { ...this.BASE_PADRAO };
+      // Base salva antes dos estilos prontos: sem `tema`, ela continua sendo a
+      // base montada à mão que o professor já tinha.
+      const tema = 'tema' in salvo ? salvo.tema : '';
+      return { ...this.BASE_PADRAO, ...salvo, tema };
     } catch {
       return { ...this.BASE_PADRAO };
     }
@@ -136,7 +145,7 @@ const Storage = {
 
   /* Últimas opções de slides (mínimo e densidade): o professor escolhe uma vez
      e as gerações seguintes já vêm com a preferência dele. */
-  SLIDES_OPTS_PADRAO: { minSlides: 14, densidade: 'detalhado' },
+  SLIDES_OPTS_PADRAO: { minSlides: 14, densidade: 'detalhado', tema: 'aurora' },
 
   getSlidesOpts() {
     try {

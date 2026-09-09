@@ -389,8 +389,68 @@
     const o = Storage.getSlidesOpts();
     $('#slides-min').value = o.minSlides;
     $('#slides-densidade').value = o.densidade;
+    // Se a base aplicada não é mais a de um estilo pronto (o professor montou a
+    // dele ou pôs uma imagem), o cartão marcado é o "minha base".
+    const info = Deck.baseInfo();
+    temaEscolhido = info.origem === 'imagem' || !info.tema ? 'atual' : info.tema;
+    renderTemasEscolha();
     box.hidden = false;
   }
+
+  /* ===== Estilo visual dos slides =====
+     Os estilos prontos vêm de js/temas.js; os dois últimos cartões guardam o
+     que já existia: montar a base à mão e usar uma imagem como fundo. */
+  let temaEscolhido = 'atual';
+
+  function cartaoEstilo(sel, thumb, nome, hint, dataset) {
+    return `<button type="button" class="tema-card${sel ? ' sel' : ''}" ${dataset} title="${escapeHtml(hint)}">
+      ${thumb}<span>${escapeHtml(nome)}</span></button>`;
+  }
+
+  function renderTemasEscolha() {
+    const box = $('#slides-temas');
+    if (!box) return;
+    const prontos = (window.Temas ? Temas.LISTA : []).map(t => cartaoEstilo(
+      temaEscolhido === t.id,
+      `<img src="${Temas.previewUrl(t.id, false, null)}" alt="">`,
+      t.nome,
+      'Fundo profissional com capa em gradiente',
+      `data-tema="${t.id}"`,
+    )).join('');
+    const manter = cartaoEstilo(
+      temaEscolhido === 'atual',
+      '<span class="tema-card-icone">🎨</span>',
+      'Minha base',
+      'Mantém a base que você montou em 🎨 Base do slide',
+      'data-tema="atual"',
+    );
+    const imagem = cartaoEstilo(
+      false,
+      '<span class="tema-card-icone">🖼️</span>',
+      'Imagem de fundo',
+      'Usa uma imagem 16:9 sua como fundo de todos os slides',
+      'data-tema="imagem"',
+    );
+    box.innerHTML = prontos + manter + imagem;
+  }
+
+  $('#slides-temas').addEventListener('click', e => {
+    const card = e.target.closest('.tema-card');
+    if (!card) return;
+    if (card.dataset.tema === 'imagem') { $('#slides-tema-img').click(); return; }
+    temaEscolhido = card.dataset.tema;
+    renderTemasEscolha();
+  });
+
+  $('#slides-tema-img').addEventListener('change', async e => {
+    const file = (e.target.files || [])[0];
+    e.target.value = '';
+    if (!file) return;
+    const ok = await Deck.usarImagemBase(file);
+    if (!ok) { alert('Não foi possível usar esta imagem como fundo.'); return; }
+    temaEscolhido = 'atual';
+    renderTemasEscolha();
+  });
 
   /* Lê o painel, guarda a escolha e devolve os campos que vão para o prompt. */
   function lerSlidesOpts() {
@@ -398,12 +458,21 @@
     const opts = {
       minSlides: Math.min(60, Math.max(4, Number.isFinite(n) ? n : 14)),
       densidade: $('#slides-densidade').value,
+      tema: temaEscolhido,
     };
     Storage.setSlidesOpts(opts);
     return opts;
   }
 
-  $('#slides-gerar').addEventListener('click', () => {
+  $('#slides-gerar').addEventListener('click', async () => {
+    const btn = $('#slides-gerar');
+    // O estilo é aplicado antes de gerar: quando o editor abrir, a preview já
+    // sai com o fundo certo.
+    if (temaEscolhido && temaEscolhido !== 'atual') {
+      btn.disabled = true;
+      await Deck.aplicarTema(temaEscolhido);
+      btn.disabled = false;
+    }
     slidesOpts().hidden = true;
     generateChain('slides');
   });
