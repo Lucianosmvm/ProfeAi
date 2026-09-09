@@ -134,7 +134,7 @@ input, select, textarea {
   font: inherit;
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--bg);
   color: var(--text);
 }
@@ -448,6 +448,41 @@ input:focus, select:focus, textarea:focus {
 }
 .result-chain .chain-label { font-size: .85rem; color: var(--text-muted); }
 .result-chain button { font-size: .85rem; padding: 4px 10px; }
+
+/* Opções dos slides (quantidade e densidade), abertas pelo botão Slides. */
+.chain-opts {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.chain-opts label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: .85rem;
+  color: var(--text-muted);
+}
+.chain-opts input,
+.chain-opts select {
+  font-size: .9rem;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+}
+.chain-opts input { width: 90px; }
+.chain-opts button { font-size: .9rem; }
+.chain-opts-hint {
+  flex-basis: 100%;
+  font-size: .78rem;
+  color: var(--text-muted);
+}
 
 /* ===== Editar resultado ===== */
 .result-content.editing {

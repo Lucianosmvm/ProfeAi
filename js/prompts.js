@@ -72,6 +72,49 @@ Contexto adicional da turma/aluno: ${d.adaptobs.trim()}` : ''}
 - Aplique estratégias específicas para essas necessidades: linguagem e vocabulário, estrutura e layout, segmentação das tarefas em passos curtos, apoios visuais, clareza das instruções, tempo e forma de avaliação.${resumo}`;
   },
 
+  /* ===== Slides: quantidade e densidade escolhidas pelo professor =====
+     Professor iniciante precisa de slide que sustente a fala; professor
+     experiente prefere tela limpa. A escolha é feita na hora de gerar. */
+  SLIDES_DENSIDADES: {
+    enxuto: {
+      lista: 'No máximo 5 itens por slide, cada um com no máximo 12 palavras.',
+      conteudo: `- Cada slide cabe numa tela projetada: pouco texto, frase curta, um conceito por slide. O que não couber vira um segundo slide com o mesmo tema.
+- LIMITE DE TELA: no máximo 35 palavras por slide. Nada de parágrafo longo — o professor fala o resto.`,
+    },
+    equilibrado: {
+      lista: 'No máximo 5 itens por slide, cada um com no máximo 14 palavras.',
+      conteudo: `- Cada slide de conteúdo traz os tópicos e, abaixo, um parágrafo curto (1 a 2 linhas) que explica ou exemplifica o ponto principal.
+- Um conceito por slide. LIMITE DE TELA: no máximo 60 palavras por slide — o que não couber vira um segundo slide com o mesmo tema.`,
+    },
+    detalhado: {
+      lista: 'No máximo 6 itens por slide, cada um com no máximo 16 palavras.',
+      conteudo: `- Cada slide de conteúdo precisa dar ao professor O QUE FALAR: depois dos tópicos, escreva um parágrafo de 2 a 4 linhas explicando o conceito em linguagem simples e, em outro parágrafo curto, um exemplo concreto do cotidiano ou do mundo do trabalho.
+- Escreva as definições por extenso e explique ali mesmo, no slide, todo termo técnico e toda sigla — quem conduz a aula está dando esse conteúdo pela primeira vez.
+- Um conceito por slide, mesmo assim. LIMITE DE TELA: no máximo 90 palavras por slide. Passou disso, divida em dois slides com o mesmo tema, titulados \`Tema (1/2)\` e \`Tema (2/2)\` — nunca encolha a explicação para caber.`,
+    },
+  },
+
+  /* Densidade pedida; sem escolha, mantém o comportamento antigo (enxuto). */
+  slidesDensidade(d) {
+    return this.SLIDES_DENSIDADES[(d && d.densidade) || ''] || this.SLIDES_DENSIDADES.enxuto;
+  },
+
+  /* Mínimo de slides pedido. 0 = professor não informou. */
+  slidesMinimo(d) {
+    const n = parseInt(d && d.minSlides, 10);
+    return Number.isFinite(n) && n > 0 ? Math.min(n, 60) : 0;
+  },
+
+  /* Bloco CONTEÚDO dos slides: quantidade + densidade. */
+  regraSlides(d) {
+    const min = this.slidesMinimo(d);
+    const qtd = min
+      ? `- Gere NO MÍNIMO ${min} slides, contando a capa. Pode passar disso se o conteúdo pedir, nunca ficar abaixo: faltando slide, quebre os temas mais densos em partes em vez de inchar um slide.`
+      : '- Gere de 10 a 14 slides.';
+    return `${qtd}
+${this.slidesDensidade(d).conteudo}`;
+  },
+
   aula(d) {
     // Aulas vizinhas (vêm preenchidas da Agenda): sem elas o modelo INVENTA o
     // que foi visto antes, e cada aula sai desconectada da anterior.
@@ -168,14 +211,14 @@ const CHAIN_RULES = {
   /* O texto vai direto para o editor de slides (js/slides.js), que separa os
      slides pelo `---` e lê a PRIMEIRA LINHA do bloco como título. Qualquer
      desvio do formato vira slide errado — por isso as regras são literais. */
-  slides: `Crie os SLIDES de uma apresentação de aula, em texto puro.
+  slides: d => `Crie os SLIDES de uma apresentação de aula, em texto puro.
 
 FORMATO DE SAÍDA — siga ao pé da letra, o texto vai direto para um gerador de slides:
 - Separe CADA slide com uma linha contendo APENAS três hifens: \`---\`
 - A PRIMEIRA LINHA de cada slide é o título dele, em texto puro. Sem \`#\`, sem \`##\`, sem numeração, sem asteriscos, sem dois-pontos no fim.
 - O corpo do slide vem nas linhas seguintes.
 - O PRIMEIRO slide é a capa: só o título da aula, nada no corpo.
-- Listas: uma linha por item, começando com \`- \`. No máximo 5 itens por slide, cada um com no máximo 12 palavras.
+- Listas: uma linha por item, começando com \`- \`. ${Prompts.slidesDensidade(d).lista}
 - Destaque um termo com \`**negrito**\` — não use itálico, links, notas de rodapé nem emojis.
 - Deixe uma LINHA EM BRANCO entre a lista e o parágrafo (ou entre dois parágrafos). É a linha em branco que separa os blocos do slide.
 - Tabelas: markdown normal, uma linha por linha da tabela, ex.: \`| Camada | Função |\`, com a linha de traços \`| --- | --- |\` logo abaixo do cabeçalho. No máximo 5 linhas.
@@ -184,8 +227,7 @@ FORMATO DE SAÍDA — siga ao pé da letra, o texto vai direto para um gerador d
 
 CONTEÚDO:
 - Converta a aula do material base em slides, preservando a sequência das seções: capa, objetivos, slides de conteúdo, um slide de atividade/pergunta e um de encerramento/resumo.
-- Gere de 10 a 14 slides.
-- Cada slide cabe numa tela projetada: pouco texto, frase curta, um conceito por slide. O que não couber vira um segundo slide com o mesmo tema.
+${Prompts.regraSlides(d)}
 
 EXEMPLO do formato (siga a forma, não o conteúdo):
 
@@ -219,10 +261,13 @@ Prompts.chainTargets = {
 /* `params` traz a adaptação inclusiva pedida na aula de origem — o material
    derivado sai adaptado igual, sem o professor pedir de novo. */
 Prompts.chain = function (target, srcTipo, srcContent, params) {
+  // Slides recebem opções do professor (quantidade/densidade): a regra é função.
+  const regra = CHAIN_RULES[target];
+  const regras = typeof regra === 'function' ? regra(params || {}) : regra;
   return `Você vai criar um NOVO material didático derivado de um material já existente.
 Aproveite o tema, o nível, o público e o conteúdo do material base abaixo, mantendo total coerência com ele.
 
-${CHAIN_RULES[target]}${Prompts.blocoAdaptacao(params || {}, { semResumo: target === 'slides' })}
+${regras}${Prompts.blocoAdaptacao(params || {}, { semResumo: target === 'slides' })}
 
 === MATERIAL BASE (${Prompts.labels[srcTipo]}) ===
 ${srcContent}

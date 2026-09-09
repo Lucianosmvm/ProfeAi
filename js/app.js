@@ -349,13 +349,46 @@
       ? '➡️ Criar a partir desta aula:'
       : '➡️ Criar a partir disto:';
     bar.hidden = false;
+    slidesOpts().hidden = true;
     box.innerHTML = targets
       .map(t => `<button class="btn-secondary" data-target="${t}">${Prompts.labels[t]}</button>`)
       .join('');
     box.querySelectorAll('button').forEach(b => {
-      b.addEventListener('click', () => generateChain(b.dataset.target));
+      b.addEventListener('click', () => {
+        // Slides abrem antes o painel de opções (quantidade e densidade).
+        if (b.dataset.target === 'slides') { toggleSlidesOpts(); return; }
+        generateChain(b.dataset.target);
+      });
     });
   }
+
+  /* ===== Opções dos slides ===== */
+  function slidesOpts() { return $('#chain-opts-slides'); }
+
+  function toggleSlidesOpts() {
+    const box = slidesOpts();
+    if (!box.hidden) { box.hidden = true; return; }
+    const o = Storage.getSlidesOpts();
+    $('#slides-min').value = o.minSlides;
+    $('#slides-densidade').value = o.densidade;
+    box.hidden = false;
+  }
+
+  /* Lê o painel, guarda a escolha e devolve os campos que vão para o prompt. */
+  function lerSlidesOpts() {
+    const n = parseInt($('#slides-min').value, 10);
+    const opts = {
+      minSlides: Math.min(60, Math.max(4, Number.isFinite(n) ? n : 14)),
+      densidade: $('#slides-densidade').value,
+    };
+    Storage.setSlidesOpts(opts);
+    return opts;
+  }
+
+  $('#slides-gerar').addEventListener('click', () => {
+    slidesOpts().hidden = true;
+    generateChain('slides');
+  });
 
   function generateChain(target) {
     if (!state.current?.conteudo || state.generating) return;
@@ -373,6 +406,9 @@
       adaptobs: p.adaptobs || '',
       origem: src.tipo,
       origemId: src.id || '',
+      // Quantidade e densidade escolhidas pelo professor; ficam salvas no
+      // histórico para o "Gerar novamente" repetir a mesma configuração.
+      ...(target === 'slides' ? lerSlidesOpts() : {}),
     };
     runGeneration(
       target,

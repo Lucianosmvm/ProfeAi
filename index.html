@@ -183,6 +183,21 @@
           <span class="chain-label">➡️ Criar a partir desta aula:</span>
           <span id="chain-actions"></span>
         </div>
+        <!-- Opções dos slides: aparecem ao clicar em "Slides" na barra acima -->
+        <div class="chain-opts no-print" id="chain-opts-slides" hidden>
+          <label for="slides-min">Mínimo de slides
+            <input type="number" id="slides-min" min="4" max="60" step="1" value="14">
+          </label>
+          <label for="slides-densidade">Texto no slide
+            <select id="slides-densidade">
+              <option value="enxuto">Enxuto — pouco texto, o professor fala o resto</option>
+              <option value="equilibrado">Equilibrado — tópicos + uma frase de apoio</option>
+              <option value="detalhado">Detalhado — explicação e exemplo no próprio slide</option>
+            </select>
+          </label>
+          <button type="button" class="btn-primary" id="slides-gerar">📽️ Gerar slides</button>
+          <small class="chain-opts-hint">Mais texto no slide ajuda a conduzir a aula; para projetar, prefira Enxuto.</small>
+        </div>
         <div id="result-status" class="result-status no-print" hidden>
           <span class="spinner"></span> Gerando…
         </div>

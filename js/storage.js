@@ -9,6 +9,7 @@ const Storage = {
     stats: 'profe_stats',
     agenda: 'profe_agenda',
     base: 'profe_slide_base',
+    slidesOpts: 'profe_slides_opts',
   },
 
   DEFAULT_MODELS: {
@@ -125,6 +126,22 @@ const Storage = {
 
   resetBase() {
     localStorage.removeItem(this.KEYS.base);
+  },
+
+  /* Últimas opções de slides (mínimo e densidade): o professor escolhe uma vez
+     e as gerações seguintes já vêm com a preferência dele. */
+  SLIDES_OPTS_PADRAO: { minSlides: 14, densidade: 'detalhado' },
+
+  getSlidesOpts() {
+    try {
+      return { ...this.SLIDES_OPTS_PADRAO, ...(JSON.parse(localStorage.getItem(this.KEYS.slidesOpts)) || {}) };
+    } catch {
+      return { ...this.SLIDES_OPTS_PADRAO };
+    }
+  },
+
+  setSlidesOpts(o) {
+    localStorage.setItem(this.KEYS.slidesOpts, JSON.stringify({ ...this.SLIDES_OPTS_PADRAO, ...o }));
   },
 
   /* Contadores de uso: nº de gerações e total de tokens gastos neste navegador. */
