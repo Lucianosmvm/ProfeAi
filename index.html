@@ -273,6 +273,50 @@
               As áreas tracejadas mostram onde o <strong>título</strong> e o <strong>conteúdo</strong> caem.
               Elas são só guia — não aparecem no slide nem na exportação.
             </p>
+
+            <!-- Editor de elementos: desenhar formas e textos por cima do fundo -->
+            <div class="base-el-bar" id="base-el-tools">
+              <span class="base-el-titulo">Desenhar:</span>
+              <button type="button" class="deck-btn" data-tool="rect">▭ Retângulo</button>
+              <button type="button" class="deck-btn" data-tool="ellipse">⬭ Círculo</button>
+              <button type="button" class="deck-btn" data-tool="triangle">△ Triângulo</button>
+              <button type="button" class="deck-btn" data-tool="texto">T Texto</button>
+              <button type="button" class="deck-btn" id="base-el-limpar">🗑️ Limpar tudo</button>
+            </div>
+            <p class="base-el-dica" id="base-el-dica"></p>
+
+            <div class="base-el-props" id="base-el-props" hidden>
+              <label class="base-el-campo">Cor <input type="color" id="base-el-cor"></label>
+              <label class="base-el-campo">Opacidade
+                <input type="range" id="base-el-op" min="10" max="100" step="5">
+              </label>
+
+              <span class="base-el-texto-grupo" id="base-el-texto-grupo" hidden>
+                <label class="base-el-campo base-el-largo">Texto
+                  <input type="text" id="base-el-texto" placeholder="Escreva aqui">
+                </label>
+                <label class="base-el-campo">Tamanho
+                  <input type="range" id="base-el-tam" min="2" max="16" step="0.5">
+                </label>
+                <label class="base-el-campo">Alinhar
+                  <select id="base-el-align">
+                    <option value="left">Esquerda</option>
+                    <option value="center">Centro</option>
+                    <option value="right">Direita</option>
+                  </select>
+                </label>
+                <label class="base-el-campo base-el-check">
+                  <input type="checkbox" id="base-el-negrito"> Negrito
+                </label>
+              </span>
+
+              <span class="base-el-acoes">
+                <button type="button" class="deck-btn" id="base-el-tras" title="Enviar para trás">⤓</button>
+                <button type="button" class="deck-btn" id="base-el-frente" title="Trazer para frente">⤒</button>
+                <button type="button" class="deck-btn" id="base-el-dup" title="Duplicar">⧉</button>
+                <button type="button" class="deck-btn" id="base-el-del" title="Excluir (Delete)">🗑️</button>
+              </span>
+            </div>
           </div>
 
           <div class="base-controles">
@@ -301,7 +345,8 @@
             <div class="base-imagem">
               <button type="button" class="deck-btn" id="base-img-btn">🖼️ Usar imagem como fundo</button>
               <input type="file" id="base-img-input" accept="image/*" hidden>
-              <small>Substitui as formas. Use 16:9 (ex.: 1600×900) e deixe as áreas tracejadas livres.</small>
+              <small>Substitui a cor e a forma pronta — o que você desenhar continua por cima dela.
+                Use 16:9 (ex.: 1600×900) e deixe as áreas tracejadas livres. Para tirar a imagem, troque a forma acima.</small>
             </div>
 
             <button type="button" class="deck-btn" id="base-reset">↺ Restaurar padrão</button>

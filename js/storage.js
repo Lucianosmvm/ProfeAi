@@ -109,7 +109,12 @@ const Storage = {
     corTitulo: '#3d4a5c',
     corTexto: '#3d4a5c',
     barra: true,           // faixa colorida no rodapé
-    png: '',               // data URL do fundo (vazio = sem fundo próprio)
+    png: '',               // data URL do fundo JÁ COMPOSTO (fundo + formas + elementos)
+    imgPng: '',            // imagem enviada pelo professor, crua — só ela é reeditável
+    /* Elementos desenhados à mão no montador, por cima do fundo. Cada um:
+       { id, tipo: 'rect'|'ellipse'|'triangle'|'texto', x, y, w, h (em % do slide),
+         cor, opacidade, texto, tamanho (% da altura), negrito, align } */
+    elementos: [],
   },
 
   getBase() {

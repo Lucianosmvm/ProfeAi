@@ -445,10 +445,60 @@ window.Deck = (function () {
     }
   }
 
-  function baseSvg(b) {
+  /* Elementos desenhados pelo professor. Ficam guardados em % do slide: o mesmo
+     número serve para a preview (qualquer tamanho de tela) e para este SVG de
+     1600x900, então o que ele posiciona no painel é o que sai no PPTX. */
+  const EL_PADRAO = { cor: '#4f46e5', opacidade: 100, texto: 'Texto', tamanho: 5, negrito: false, align: 'left' };
+
+  /* Da caixa do texto até a linha de base da primeira linha, em múltiplos do
+     corpo da fonte. É o que alinha o <text> do SVG com a <div> da preview. */
+  const EL_QUEBRA = /\r?\n/;
+  const EL_BASELINE = 0.95;
+  const EL_ENTRELINHA = 1.2;
+
+  function elementoSvg(f) {
+    const x = f.x / 100 * BASE_SVG_W, y = f.y / 100 * BASE_SVG_H;
+    const w = f.w / 100 * BASE_SVG_W, h = f.h / 100 * BASE_SVG_H;
+    const op = (f.opacidade == null ? 100 : f.opacidade) / 100;
+    const cor = f.cor || EL_PADRAO.cor;
+
+    if (f.tipo === 'texto') {
+      const fs = (f.tamanho || EL_PADRAO.tamanho) / 100 * BASE_SVG_H;
+      const anchor = f.align === 'center' ? 'middle' : f.align === 'right' ? 'end' : 'start';
+      const tx = f.align === 'center' ? x + w / 2 : f.align === 'right' ? x + w : x;
+      // Linha vazia viraria tspan sem altura: o espaço segura o espaçamento.
+      const tspans = String(f.texto || '').split(EL_QUEBRA)
+        .map((l, i) => `<tspan x="${tx}" dy="${i === 0 ? 0 : fs * EL_ENTRELINHA}">${escapeHtml(l) || ' '}</tspan>`)
+        .join('');
+      return `<text x="${tx}" y="${y + fs * EL_BASELINE}" fill="${cor}" opacity="${op}"
+        font-family="Arial, Helvetica, sans-serif" font-size="${fs}"
+        font-weight="${f.negrito ? 700 : 400}" text-anchor="${anchor}">${tspans}</text>`;
+    }
+    if (f.tipo === 'ellipse') {
+      return `<ellipse cx="${x + w / 2}" cy="${y + h / 2}" rx="${w / 2}" ry="${h / 2}"
+        fill="${cor}" opacity="${op}"/>`;
+    }
+    if (f.tipo === 'triangle') {
+      return `<polygon points="${x + w / 2},${y} ${x + w},${y + h} ${x},${y + h}"
+        fill="${cor}" opacity="${op}"/>`;
+    }
+    return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${cor}" opacity="${op}"/>`;
+  }
+
+  function elementosSvg(b) {
+    return (b.elementos || []).map(elementoSvg).join('');
+  }
+
+  /* Fundo: a imagem enviada OU a cor + a forma pronta. Os elementos vêm sempre
+     por cima dos dois — é o que permite escrever sobre uma imagem de fundo. */
+  function baseSvg(b, semElementos) {
+    const img = b.origem === 'imagem' && (b.imgPng || b.png);
+    const fundo = img
+      ? `<image href="${img}" x="0" y="0" width="${BASE_SVG_W}" height="${BASE_SVG_H}"
+          preserveAspectRatio="xMidYMid slice"/>`
+      : `<rect width="100%" height="100%" fill="${b.fundo}"/>${formasSvg(b)}`;
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${BASE_SVG_W}" height="${BASE_SVG_H}"
-      viewBox="0 0 ${BASE_SVG_W} ${BASE_SVG_H}">
-      <rect width="100%" height="100%" fill="${b.fundo}"/>${formasSvg(b)}</svg>`;
+      viewBox="0 0 ${BASE_SVG_W} ${BASE_SVG_H}">${fundo}${semElementos ? '' : elementosSvg(b)}</svg>`;
   }
 
   function svgDataUrl(svg) {
@@ -457,15 +507,18 @@ window.Deck = (function () {
 
   /* O PPTX precisa de bitmap: SVG não é formato de imagem aceito pelo
      PowerPoint. Rasteriza uma vez, na hora de aplicar a base. */
-  function svgParaPng(svg) {
+  function svgParaPng(svg, jpeg) {
     return new Promise(resolve => {
       const img = new Image();
       img.onload = () => {
         const c = document.createElement('canvas');
         c.width = BASE_SVG_W;
         c.height = BASE_SVG_H;
-        c.getContext('2d').drawImage(img, 0, 0, BASE_SVG_W, BASE_SVG_H);
-        resolve(c.toDataURL('image/png'));
+        const ctx = c.getContext('2d');
+        // JPEG não tem transparência: sem este fundo a foto sai sobre preto.
+        if (jpeg) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, BASE_SVG_W, BASE_SVG_H); }
+        ctx.drawImage(img, 0, 0, BASE_SVG_W, BASE_SVG_H);
+        resolve(jpeg ? c.toDataURL('image/jpeg', 0.88) : c.toDataURL('image/png'));
       };
       img.onerror = () => resolve('');
       img.src = svgDataUrl(svg);
@@ -1016,7 +1069,16 @@ ${corpo}
   let baseRascunho = null;   // cópia editada enquanto o painel está aberto
 
   function abrirBase() {
-    baseRascunho = { ...baseAtual() };
+    // Copia profunda: o rascunho nao pode alterar a base ja aplicada nos
+    // slides enquanto o professor ainda pode cancelar.
+    const b = baseAtual();
+    baseRascunho = { ...b, elementos: (b.elementos || []).map(f => ({ ...f })) };
+    // Base salva antes do montador de elementos: a imagem crua so existia em `png`.
+    if (baseRascunho.origem === 'imagem' && !baseRascunho.imgPng) {
+      baseRascunho.imgPng = baseRascunho.png;
+    }
+    elFerramenta = null;
+    elSel = null;
     els.baseForma.value = baseRascunho.forma;
     els.baseFundo.value = baseRascunho.fundo;
     els.baseDestaque.value = baseRascunho.destaque;
@@ -1030,17 +1092,22 @@ ${corpo}
   function fecharBase() {
     els.baseModal.hidden = true;
     baseRascunho = null;
+    elFerramenta = null;
+    elSel = null;
+    elDrag = null;
   }
 
   function lerControles() {
+    // Trocar a forma pronta volta a base para o modo "montada" — e o unico
+    // jeito de tirar uma imagem de fundo sem resetar tudo.
+    const formaAntes = baseRascunho.forma;
     baseRascunho.forma = els.baseForma.value;
     baseRascunho.fundo = els.baseFundo.value;
     baseRascunho.destaque = els.baseDestaque.value;
     baseRascunho.corTitulo = els.baseCorTitulo.value;
     baseRascunho.corTexto = els.baseCorTexto.value;
     baseRascunho.barra = els.baseBarra.checked;
-    // Mexer nas formas volta a base para o modo "montada".
-    if (baseRascunho.origem === 'imagem' && els.baseForma.value !== baseRascunho.forma) {
+    if (baseRascunho.origem === 'imagem' && baseRascunho.forma !== formaAntes) {
       baseRascunho.origem = 'formas';
     }
   }
@@ -1049,8 +1116,8 @@ ${corpo}
      cima. As zonas são só guia — nunca entram no slide. */
   function renderBasePreview() {
     const b = baseRascunho;
-    const fundo = b.origem === 'imagem' && b.png ? b.png : svgDataUrl(baseSvg(b));
-    els.baseCanvas.style.backgroundImage = `url('${fundo}')`;
+    // Fundo sem os elementos: eles entram como HTML, para poderem ser arrastados.
+    els.baseCanvas.style.backgroundImage = `url('${svgDataUrl(baseSvg(b, true))}')`;
 
     const zona = (z, classe, rotulo) =>
       `<div class="base-zona ${classe}" style="left:${z.x}%;top:${z.y}%;width:${z.w}%;height:${z.h}%">`
@@ -1064,17 +1131,239 @@ ${corpo}
       + 'Texto do conteúdo, bullets e tabelas caem aqui.</div>'
       + zona(ZONAS.titulo, 'z-titulo', 'ÁREA DO TÍTULO')
       + zona(ZONAS.conteudo, 'z-conteudo', 'ÁREA DO CONTEÚDO')
-      + (b.barra ? zona(ZONAS.barra, 'z-barra', '') : '');
+      + (b.barra ? zona(ZONAS.barra, 'z-barra', '') : '')
+      + elementosHtml();
 
     els.baseBarraPreview.hidden = !b.barra;
+    renderElUI();
+  }
+
+
+  /* ----- Elementos da base: desenhar, mover, redimensionar ----- */
+
+  let elFerramenta = null;   // ferramenta armada ('rect', 'texto'...) ou null = selecionar
+  let elSel = null;          // id do elemento selecionado
+  let elDrag = null;         // arrasto em curso
+
+  const EL_MIN = 2;          // % — menor que isso o elemento some e nao da para pegar
+
+  function clampPct(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+  function elLista() {
+    if (!Array.isArray(baseRascunho.elementos)) baseRascunho.elementos = [];
+    return baseRascunho.elementos;
+  }
+
+  function elAtual() {
+    return baseRascunho ? elLista().find(f => f.id === elSel) || null : null;
+  }
+
+  function novoElId() {
+    return 'e' + Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36);
+  }
+
+  /* Um elemento por vez no DOM: e o mesmo retangulo em % que vai para o SVG. */
+  function elementoHtml(f, alturaPx) {
+    const op = (f.opacidade == null ? 100 : f.opacidade) / 100;
+    const cor = f.cor || EL_PADRAO.cor;
+    let interno;
+    if (f.tipo === 'texto') {
+      const fs = (f.tamanho || EL_PADRAO.tamanho) / 100 * alturaPx;
+      interno = `<div class="base-el-txt" style="color:${cor};font-size:${fs}px;`
+        + `font-weight:${f.negrito ? 700 : 400};text-align:${f.align || 'left'};`
+        + `line-height:${EL_ENTRELINHA}">${escapeHtml(f.texto || '')}</div>`;
+    } else {
+      const molde = f.tipo === 'ellipse' ? 'border-radius:50%'
+        : f.tipo === 'triangle' ? 'clip-path:polygon(50% 0,100% 100%,0 100%)' : '';
+      interno = `<div class="base-el-fill" style="background:${cor};${molde}"></div>`;
+    }
+    const sel = f.id === elSel;
+    const alcas = sel
+      ? ['nw', 'ne', 'sw', 'se'].map(h => `<i class="base-el-h h-${h}" data-h="${h}"></i>`).join('')
+      : '';
+    return `<div class="base-el${sel ? ' sel' : ''}" data-id="${f.id}"`
+      + ` style="left:${f.x}%;top:${f.y}%;width:${f.w}%;height:${f.h}%;opacity:${op}">`
+      + `${interno}${alcas}</div>`;
+  }
+
+  function elementosHtml() {
+    const alturaPx = els.baseCanvas.clientHeight || 300;
+    return elLista().map(f => elementoHtml(f, alturaPx)).join('');
+  }
+
+  /* Ponto do ponteiro em % da base — a mesma unidade em que o elemento vive. */
+  function elPonto(e) {
+    const r = els.baseCanvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - r.left) / r.width * 100,
+      y: (e.clientY - r.top) / r.height * 100,
+    };
+  }
+
+  /* Durante o arrasto mexe so no style do no: refazer o painel inteiro a cada
+     pixel picotaria o movimento. O modelo ja esta atualizado. */
+  function elAplicarEstilo(f) {
+    const no = els.baseCanvas.querySelector('.base-el[data-id="' + f.id + '"]');
+    if (!no) return;
+    no.style.left = f.x + '%';
+    no.style.top = f.y + '%';
+    no.style.width = f.w + '%';
+    no.style.height = f.h + '%';
+  }
+
+  function elPointerDown(e) {
+    if (!baseRascunho || e.button !== 0) return;
+    const p = elPonto(e);
+
+    if (elFerramenta) {
+      const f = Object.assign({}, EL_PADRAO, {
+        id: novoElId(), tipo: elFerramenta,
+        x: p.x, y: p.y, w: 0, h: 0,
+        cor: baseRascunho.destaque || EL_PADRAO.cor,
+      });
+      elLista().push(f);
+      elSel = f.id;
+      elDrag = { modo: 'novo', id: f.id, x0: p.x, y0: p.y };
+    } else {
+      const alca = e.target.closest('.base-el-h');
+      const alvo = e.target.closest('.base-el');
+      if (!alvo) {
+        if (elSel === null) return;
+        elSel = null;
+        renderBasePreview();
+        return;
+      }
+      const f = elLista().find(x => x.id === alvo.dataset.id);
+      if (!f) return;
+      elSel = f.id;
+      elDrag = alca
+        ? { modo: 'redim', id: f.id, canto: alca.dataset.h, orig: Object.assign({}, f) }
+        : { modo: 'mover', id: f.id, dx: p.x - f.x, dy: p.y - f.y };
+    }
+    e.preventDefault();
+    try { els.baseCanvas.setPointerCapture(e.pointerId); } catch { /* ponteiro ja solto */ }
+    renderBasePreview();
+  }
+
+  function elPointerMove(e) {
+    if (!elDrag || !baseRascunho) return;
+    const f = elLista().find(x => x.id === elDrag.id);
+    if (!f) { elDrag = null; return; }
+    const p = elPonto(e);
+
+    if (elDrag.modo === 'novo') {
+      f.x = clampPct(Math.min(elDrag.x0, p.x), 0, 100);
+      f.y = clampPct(Math.min(elDrag.y0, p.y), 0, 100);
+      f.w = clampPct(Math.abs(p.x - elDrag.x0), 0, 100 - f.x);
+      f.h = clampPct(Math.abs(p.y - elDrag.y0), 0, 100 - f.y);
+    } else if (elDrag.modo === 'mover') {
+      f.x = clampPct(p.x - elDrag.dx, 0, 100 - f.w);
+      f.y = clampPct(p.y - elDrag.dy, 0, 100 - f.h);
+    } else {
+      // Redimensionar: o canto oposto ao puxado fica parado.
+      const o = elDrag.orig;
+      const fixoX = (elDrag.canto === 'nw' || elDrag.canto === 'sw') ? o.x + o.w : o.x;
+      const fixoY = (elDrag.canto === 'nw' || elDrag.canto === 'ne') ? o.y + o.h : o.y;
+      const px = clampPct(p.x, 0, 100), py = clampPct(p.y, 0, 100);
+      f.x = Math.min(px, fixoX);
+      f.y = Math.min(py, fixoY);
+      f.w = Math.min(Math.max(EL_MIN, Math.abs(px - fixoX)), 100 - f.x);
+      f.h = Math.min(Math.max(EL_MIN, Math.abs(py - fixoY)), 100 - f.y);
+    }
+    elAplicarEstilo(f);
+  }
+
+  function elPointerUp() {
+    if (!elDrag || !baseRascunho) { elDrag = null; return; }
+    const f = elLista().find(x => x.id === elDrag.id);
+    if (elDrag.modo === 'novo' && f) {
+      // Clique sem arrastar: entrega um elemento ja em tamanho utilizavel.
+      if (f.w < EL_MIN || f.h < EL_MIN) {
+        const d = f.tipo === 'texto' ? { w: 40, h: 9 } : { w: 20, h: 14 };
+        f.w = Math.min(d.w, 100 - f.x);
+        f.h = Math.min(d.h, 100 - f.y);
+      }
+      elFerramenta = null;    // uma forma por clique no botao: evita desenhar sem querer
+    }
+    elDrag = null;
+    renderBasePreview();
+  }
+
+  function elRemover() {
+    const f = elAtual();
+    if (!f) return;
+    baseRascunho.elementos = elLista().filter(x => x.id !== f.id);
+    elSel = null;
+    renderBasePreview();
+  }
+
+  function elDuplicar() {
+    const f = elAtual();
+    if (!f) return;
+    const copia = Object.assign({}, f, {
+      id: novoElId(),
+      x: clampPct(f.x + 3, 0, 100 - f.w),
+      y: clampPct(f.y + 3, 0, 100 - f.h),
+    });
+    elLista().push(copia);
+    elSel = copia.id;
+    renderBasePreview();
+  }
+
+  /* Ordem no array = ordem de desenho: o ultimo fica por cima. */
+  function elOrdem(paraFrente) {
+    const f = elAtual();
+    if (!f) return;
+    const lista = elLista();
+    const i = lista.indexOf(f);
+    if (i < 0) return;
+    lista.splice(i, 1);
+    if (paraFrente) lista.push(f); else lista.unshift(f);
+    renderBasePreview();
+  }
+
+  /* Escreve uma propriedade no elemento selecionado e redesenha. */
+  function elSet(campo, valor) {
+    const f = elAtual();
+    if (!f) return;
+    f[campo] = valor;
+    renderBasePreview();
+  }
+
+  function renderElUI() {
+    const f = elAtual();
+    els.baseTools.querySelectorAll('button[data-tool]').forEach(b => {
+      b.classList.toggle('ativo', b.dataset.tool === elFerramenta);
+    });
+    els.baseCanvas.classList.toggle('desenhando', !!elFerramenta);
+    els.baseElDica.textContent = elFerramenta
+      ? 'Arraste na base para desenhar. Esc cancela.'
+      : (f ? 'Arraste para mover, puxe os cantos para redimensionar. Setas ajustam, Delete apaga.'
+        : 'Escolha uma forma acima e arraste sobre a base para criá-la.');
+
+    els.baseProps.hidden = !f;
+    if (!f) return;
+    els.baseElCor.value = f.cor || EL_PADRAO.cor;
+    els.baseElOp.value = f.opacidade == null ? 100 : f.opacidade;
+    const ehTexto = f.tipo === 'texto';
+    els.baseElTextoGrupo.hidden = !ehTexto;
+    if (ehTexto) {
+      if (document.activeElement !== els.baseElTexto) els.baseElTexto.value = f.texto || '';
+      els.baseElTam.value = f.tamanho || EL_PADRAO.tamanho;
+      els.baseElNegrito.checked = !!f.negrito;
+      els.baseElAlign.value = f.align || 'left';
+    }
   }
 
   async function aplicarBase() {
     const b = baseRascunho;
     els.baseAplicar.disabled = true;
     els.baseAplicar.textContent = 'Aplicando…';
-    // Formas montadas viram PNG: o PowerPoint não aceita SVG como imagem.
-    if (b.origem !== 'imagem') b.png = await svgParaPng(baseSvg(b));
+    // Tudo vira um bitmap so — fundo, forma pronta e elementos — porque o
+    // PowerPoint nao aceita SVG. Com foto de fundo sai JPEG: em PNG a base
+    // sozinha passaria de 1 MB e estouraria a cota do localStorage.
+    const composto = await svgParaPng(baseSvg(b), b.origem === 'imagem');
+    if (composto) b.png = composto;
     Storage.setBase(b);
     base = Storage.getBase();
     els.baseAplicar.disabled = false;
@@ -1124,6 +1413,22 @@ ${corpo}
       baseAplicar: $('base-aplicar'),
       baseCancelar: $('base-cancelar'),
       baseFechar: $('base-fechar'),
+      // editor de elementos da base
+      baseTools: $('base-el-tools'),
+      baseProps: $('base-el-props'),
+      baseElCor: $('base-el-cor'),
+      baseElOp: $('base-el-op'),
+      baseElTextoGrupo: $('base-el-texto-grupo'),
+      baseElTexto: $('base-el-texto'),
+      baseElTam: $('base-el-tam'),
+      baseElNegrito: $('base-el-negrito'),
+      baseElAlign: $('base-el-align'),
+      baseElFrente: $('base-el-frente'),
+      baseElTras: $('base-el-tras'),
+      baseElDup: $('base-el-dup'),
+      baseElDel: $('base-el-del'),
+      baseElLimpar: $('base-el-limpar'),
+      baseElDica: $('base-el-dica'),
     };
 
     els.src.addEventListener('input', () => {
@@ -1179,11 +1484,15 @@ ${corpo}
       // A imagem de fundo não entra na galeria: ela é a base, não um elemento do slide.
       Imagens.remover(rec.id);
       baseRascunho.origem = 'imagem';
+      // A crua fica separada: `png` passa a ser a composicao com os elementos.
+      baseRascunho.imgPng = rec.dataUrl;
       baseRascunho.png = rec.dataUrl;
       renderBasePreview();
     });
     els.baseReset.addEventListener('click', () => {
-      baseRascunho = { ...Storage.BASE_PADRAO };
+      baseRascunho = { ...Storage.BASE_PADRAO, elementos: [] };
+      elFerramenta = null;
+      elSel = null;
       els.baseForma.value = baseRascunho.forma;
       els.baseFundo.value = baseRascunho.fundo;
       els.baseDestaque.value = baseRascunho.destaque;
@@ -1193,12 +1502,70 @@ ${corpo}
       renderBasePreview();
     });
 
+
+    // --- elementos da base ---
+    els.baseTools.addEventListener('click', e => {
+      const b = e.target.closest('button[data-tool]');
+      if (!b) return;
+      elFerramenta = elFerramenta === b.dataset.tool ? null : b.dataset.tool;
+      renderElUI();
+    });
+    els.baseCanvas.addEventListener('pointerdown', elPointerDown);
+    els.baseCanvas.addEventListener('pointermove', elPointerMove);
+    els.baseCanvas.addEventListener('pointerup', elPointerUp);
+    els.baseCanvas.addEventListener('pointercancel', elPointerUp);
+
+    els.baseElCor.addEventListener('input', () => elSet('cor', els.baseElCor.value));
+    els.baseElOp.addEventListener('input', () => elSet('opacidade', +els.baseElOp.value));
+    els.baseElTexto.addEventListener('input', () => elSet('texto', els.baseElTexto.value));
+    els.baseElTam.addEventListener('input', () => elSet('tamanho', +els.baseElTam.value));
+    els.baseElNegrito.addEventListener('change', () => elSet('negrito', els.baseElNegrito.checked));
+    els.baseElAlign.addEventListener('change', () => elSet('align', els.baseElAlign.value));
+    els.baseElFrente.addEventListener('click', () => elOrdem(true));
+    els.baseElTras.addEventListener('click', () => elOrdem(false));
+    els.baseElDup.addEventListener('click', elDuplicar);
+    els.baseElDel.addEventListener('click', elRemover);
+    els.baseElLimpar.addEventListener('click', () => {
+      if (!elLista().length) return;
+      if (!confirm('Apagar todos os elementos desenhados na base?')) return;
+      baseRascunho.elementos = [];
+      elSel = null;
+      renderBasePreview();
+    });
+
+    // O tamanho do texto e calculado em px a partir da altura da base: mudou o
+    // tamanho da janela, os elementos precisam ser redesenhados.
+    if (window.ResizeObserver) {
+      new ResizeObserver(() => { if (baseRascunho) renderBasePreview(); }).observe(els.baseCanvas);
+    }
+
     window.addEventListener('resize', requestScaleStage);
     if (window.ResizeObserver) new ResizeObserver(requestScaleStage).observe(els.stageOuter);
     document.addEventListener('keydown', e => {
       if (els.overlay.hidden) return;
       if (!els.baseModal.hidden) {                   // painel da base abre na frente
-        if (e.key === 'Escape') fecharBase();
+        if (e.key === 'Escape') {
+          // Esc desfaz uma camada por vez: ferramenta, selecao, painel.
+          if (elFerramenta) { elFerramenta = null; renderElUI(); }
+          else if (elSel) { elSel = null; renderBasePreview(); }
+          else fecharBase();
+          return;
+        }
+        if (/^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || '')) return;
+        const sel = elAtual();
+        if (!sel) return;
+        if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); elRemover(); return; }
+        const passo = e.shiftKey ? 5 : 0.5;
+        const mov = {
+          ArrowLeft: [-passo, 0], ArrowRight: [passo, 0],
+          ArrowUp: [0, -passo], ArrowDown: [0, passo],
+        }[e.key];
+        if (mov) {
+          e.preventDefault();
+          sel.x = clampPct(sel.x + mov[0], 0, 100 - sel.w);
+          sel.y = clampPct(sel.y + mov[1], 0, 100 - sel.h);
+          renderBasePreview();
+        }
         return;
       }
       if (e.target === els.src) return;              // digitando: setas andam no texto
