@@ -73,7 +73,7 @@ const Api = {
         ],
       }),
     });
-    await this._checkResponse(res);
+    await this._checkResponse(res, 'openai');
 
     for await (const data of this._sseLines(res)) {
       if (data === '[DONE]') return;
@@ -107,7 +107,7 @@ const Api = {
         generationConfig: { maxOutputTokens: this.maxOut('gemini', model) },
       }),
     });
-    await this._checkResponse(res);
+    await this._checkResponse(res, 'gemini');
 
     for await (const data of this._sseLines(res)) {
       try {
@@ -125,16 +125,57 @@ const Api = {
     }
   },
 
-  async _checkResponse(res) {
+  async _checkResponse(res, provider) {
     if (res.ok) return;
+    let corpo = null;
     let detail = '';
     try {
-      const err = await res.json();
-      detail = err.error?.message || '';
+      corpo = await res.json();
+      detail = corpo.error?.message || '';
     } catch { /* corpo não é JSON */ }
     if (res.status === 401 || res.status === 403) throw new Error('CHAVE_INVALIDA');
-    if (res.status === 429) throw new Error('LIMITE: ' + detail);
+    if (res.status === 429) {
+      const e = new Error('LIMITE');
+      e.limite = this._classificarLimite(corpo, provider);
+      throw e;
+    }
     throw new Error(`Erro ${res.status}: ${detail}`);
+  },
+
+  /* Três situações diferentes chegam como 429, e o conselho certo é oposto em
+     cada uma: esperar um minuto resolve o limite de ritmo, não resolve a cota
+     do dia e nunca resolve crédito acabado. Uma mensagem só mandava o
+     professor esperar em casos em que esperar não adianta. */
+  _classificarLimite(corpo, provider) {
+    const erro = (corpo && corpo.error) || {};
+    const msg = erro.message || '';
+    // Os detalhes do Gemini trazem o quotaId ("...PerDay...", "...PerMinute...")
+    // e o retryDelay; é o que diz QUAL cota estourou.
+    const texto = (msg + ' ' + JSON.stringify(erro.details || '')).toLowerCase();
+    const codigo = String(erro.code || erro.type || '').toLowerCase();
+    const base = { detalhe: msg, provedor: provider };
+
+    // Cota por dia: o quotaId do Gemini é a fonte confiável. A frase "check your
+    // plan and billing details" NÃO serve para decidir — o Gemini free devolve
+    // ela também, e aí viraria "recarregue o crédito" para quem não tem crédito.
+    if (/per ?day|requests per day|daily/.test(texto)) {
+      return { ...base, tipo: 'diaria' };
+    }
+    if (provider === 'openai'
+      && (codigo === 'insufficient_quota' || /insufficient_quota/.test(texto))) {
+      return { ...base, tipo: 'saldo' };
+    }
+    return { ...base, tipo: 'ritmo', esperar: this._segundosDeEspera(texto) };
+  },
+
+  /* Quanto esperar, quando o provedor diz: retryDelay "27s" (Gemini) ou
+     "try again in 20s" (OpenAI). 0 = não informou. */
+  _segundosDeEspera(texto) {
+    const m = texto.match(/retrydelay"?\s*:\s*"?(\d+(?:\.\d+)?)s/)
+      || texto.match(/try again in (\d+(?:\.\d+)?)\s*(ms|s)/);
+    if (!m) return 0;
+    const n = parseFloat(m[1]);
+    return Math.max(1, Math.ceil(m[2] === 'ms' ? n / 1000 : n));
   },
 
   /* Lê um corpo SSE e emite o conteúdo de cada linha "data: ...".
@@ -177,13 +218,35 @@ const Api = {
     return Promise.race([reader.read(), timeout]).finally(() => clearTimeout(timer));
   },
 
+  /* O texto cru do provedor vem junto, curto: é o que permite pesquisar o
+     erro exato quando a classificação não bate. */
+  _msgLimite(info) {
+    const i = info || { tipo: 'ritmo' };
+    const cru = (i.detalhe || '').trim();
+    const rodape = cru ? ` · Mensagem do provedor: ${cru.slice(0, 200)}` : '';
+
+    if (i.tipo === 'saldo') {
+      return 'Seu crédito na OpenAI acabou. Esperar não resolve — adicione créditos em '
+        + 'platform.openai.com/settings/organization/billing e tente de novo.' + rodape;
+    }
+    if (i.tipo === 'diaria') {
+      const onde = i.provedor === 'gemini' ? 'do Gemini' : 'da API';
+      return `A cota DIÁRIA ${onde} acabou. Ela só volta amanhã — até lá, dá para trocar `
+        + 'de modelo ou de provedor em ⚙️ Configurações.' + rodape;
+    }
+    const espera = i.esperar
+      ? `${i.esperar} segundo${i.esperar > 1 ? 's' : ''}`
+      : 'cerca de um minuto';
+    return `Muitas requisições em pouco tempo. Espere ${espera} e clique em `
+      + '🔄 Gerar novamente.' + rodape;
+  },
+
   friendlyError(err) {
     if (err.message === 'SEM_CHAVE')
       return 'Configure sua chave de API em ⚙️ Configurações antes de gerar.';
     if (err.message === 'CHAVE_INVALIDA')
       return 'Chave da API inválida. Verifique em ⚙️ Configurações.';
-    if (err.message.startsWith('LIMITE'))
-      return 'Limite de uso da API atingido. Aguarde alguns minutos e tente de novo. ' + err.message;
+    if (err.message.startsWith('LIMITE')) return this._msgLimite(err.limite);
     if (err.message === 'TIMEOUT')
       return 'A geração travou (sem resposta da IA). Tente gerar novamente.';
     if (err instanceof TypeError)
