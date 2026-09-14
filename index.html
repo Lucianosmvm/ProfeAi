@@ -68,7 +68,7 @@
         <span class="brand-name">Professor<span class="brand-plus">+</span> AI</span>
       </a>
       <nav class="nav" aria-label="Principal">
-        <a href="#/" class="nav-link" data-route="aula"><svg class="ic"><use href="#i-sparkles"/></svg><span>Gerar Aula</span></a>
+        <a href="#/" class="nav-link" data-route="aula"><svg class="ic"><use href="#i-sparkles"/></svg><span>Gerar</span></a>
         <a href="#/agenda" class="nav-link" data-route="agenda"><svg class="ic"><use href="#i-calendar"/></svg><span>Agenda</span></a>
         <a href="#/historico" class="nav-link" data-route="historico"><svg class="ic"><use href="#i-folder"/></svg><span>Histórico</span></a>
         <a href="#/config" class="nav-link" data-route="config"><svg class="ic"><use href="#i-settings"/></svg><span>Configurações</span></a>
@@ -82,8 +82,8 @@
     <main class="main">
       <!-- Gerar Aula (tela inicial) -->
       <section class="view" id="view-aula">
-        <h1 id="greeting">Gerar Aula</h1>
-        <p class="subtitle">Descreva a aula e receba o conteúdo pronto para ministrar. Depois, com um clique, a atividade, a prova e os slides saem da mesma aula.</p>
+        <h1 id="greeting">Gerar material</h1>
+        <p class="subtitle">Descreva a aula e receba o conteúdo pronto para ministrar — ou cole o conteúdo de uma aula antiga e gere direto a atividade ou a prova.</p>
 
         <p class="aviso-chave" id="aviso-chave" hidden>
           <svg class="ic"><use href="#i-key"/></svg>
@@ -91,23 +91,41 @@
         </p>
 
         <form class="gen-form" id="form-aula">
+          <!-- O que gerar. Atividade e prova também saem direto de um conteúdo
+               colado (ex.: aula antiga), sem precisar gerar a aula antes. -->
+          <div class="tipo-material" role="radiogroup" aria-label="O que você quer gerar">
+            <label><input type="radio" name="tipo" value="aula" checked><svg class="ic"><use href="#i-book"/></svg>Aula</label>
+            <label><input type="radio" name="tipo" value="atividade"><svg class="ic"><use href="#i-pencil"/></svg>Atividade</label>
+            <label><input type="radio" name="tipo" value="prova"><svg class="ic"><use href="#i-file"/></svg>Prova</label>
+          </div>
+
           <div class="grid-2">
             <label class="uc-field">UC (opcional)
               <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
               <small>Código para agrupar no histórico</small>
             </label>
-            <label>Duração da aula
+            <label data-so="aula">Duração da aula
               <input type="text" name="carga" placeholder="Ex.: 2h30" required>
             </label>
           </div>
           <p class="form-hint" id="aula-agenda-hint" hidden></p>
 
-          <label>O que a aula deve ensinar
+          <label data-so="aula">O que a aula deve ensinar
             <textarea name="pedido" rows="8" required placeholder="Descreva a aula que você quer. Ex.:&#10;&#10;Aula de Banco de Dados sobre Modelo Entidade-Relacionamento para turma de técnico noturno. Cobrir entidades, atributos, chaves e cardinalidade, com um exemplo de uma locadora. Terminar com exercício de modelagem.&#10;&#10;Pode colar a ementa ou o bloco do PDT aqui também."></textarea>
             <small>Escreva à vontade: disciplina, tema, tópicos, público, o que quiser. É isso que vira a aula.</small>
           </label>
 
-          <details class="form-avancado" id="aula-referencia">
+          <label data-so="avulso">Conteúdo da aula
+            <textarea name="conteudo" rows="10" required disabled maxlength="30000" placeholder="Cole o conteúdo que a turma estudou. Ex.:&#10;&#10;- o texto de uma aula antiga&#10;- um resumo ou o capítulo do livro&#10;- ou só os tópicos: Modelo ER — entidades, atributos, chaves primária e estrangeira, cardinalidade"></textarea>
+            <small>As questões saem só daqui: pode ser o texto completo, um resumo ou a lista de tópicos.</small>
+          </label>
+
+          <label data-so="avulso">Instruções (opcional)
+            <input type="text" name="instrucoes" disabled placeholder="Ex.: 15 questões, só dissertativas, nível fácil">
+            <small>Quantidade, tipo de questão, nível… Sem instruções, segue o padrão do app.</small>
+          </label>
+
+          <details class="form-avancado" id="aula-referencia" data-so="aula">
             <summary><svg class="ic"><use href="#i-paperclip"/></svg>Referência da UC <small>ementa, PDT, capítulo (opcional)</small></summary>
             <p class="form-hint">Cole <strong>uma vez</strong>: vale para todas as aulas desta UC. A IA passa a usar isso como fonte — terminologia e escopo saem daí, em vez de serem inventados.</p>
             <textarea name="referencia" rows="6" maxlength="20000" placeholder="Cole aqui a ementa da UC, o bloco do PDT ou o trecho do livro que a UC segue."></textarea>
@@ -119,7 +137,7 @@
 
           <details class="form-avancado" id="aula-adaptacao">
             <summary><svg class="ic"><use href="#i-users"/></svg>Adaptação inclusiva <small>(opcional)</small></summary>
-            <p class="form-hint">Marque as necessidades da turma. A aula já sai adaptada — e a atividade, a prova e os slides gerados a partir dela também.</p>
+            <p class="form-hint">Marque as necessidades da turma. O material já sai adaptado — e o que for gerado a partir dele também.</p>
             <div class="check-grid" id="adaptacoes-lista"></div>
             <label>Observações sobre o aluno / turma (opcional)
               <input type="text" name="adaptobs" placeholder="Ex.: aluno usa leitor de tela">
@@ -134,7 +152,7 @@
           <input type="hidden" name="aulaproxima">
           <input type="hidden" name="aulaproximatopicos">
           <input type="hidden" name="abertura">
-          <button type="submit" class="btn-primary"><svg class="ic"><use href="#i-sparkles"/></svg>Gerar Aula</button>
+          <button type="submit" class="btn-primary"><svg class="ic"><use href="#i-sparkles"/></svg><span id="form-aula-enviar">Gerar Aula</span></button>
         </form>
 
         <div id="home-recent"></div>

@@ -188,6 +188,46 @@ h2, h3 { letter-spacing: -.015em; }
   gap: 20px;
 }
 
+/* Seletor Aula | Atividade | Prova (radios com cara de controle segmentado). */
+.tipo-material {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.tipo-material label {
+  position: relative;
+  flex: 1;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  font-size: .9rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.tipo-material label:hover { color: var(--text); }
+.tipo-material input { position: absolute; opacity: 0; pointer-events: none; }
+.tipo-material label:has(input:checked) {
+  background: var(--surface);
+  color: var(--primary);
+  box-shadow: 0 1px 3px rgba(16, 24, 40, .12);
+}
+.tipo-material label:has(input:focus-visible) { outline: 2px solid var(--primary); outline-offset: 1px; }
+.tipo-material .ic { width: 17px; height: 17px; }
+
+/* Campos de um modo só: somem no outro (o JS também os desabilita). */
+#form-aula[data-modo="aula"] [data-so="avulso"],
+#form-aula[data-modo="avulso"] [data-so="aula"],
+#form-aula[data-modo="avulso"] #aula-agenda-hint { display: none !important; }
+#form-aula[data-modo="avulso"] .grid-2 { grid-template-columns: 1fr; }
+
 label {
   display: flex;
   flex-direction: column;

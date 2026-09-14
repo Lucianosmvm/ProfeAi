@@ -81,7 +81,7 @@
     const nome = Storage.getNome();
     const hora = new Date().getHours();
     const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
-    $('#greeting').textContent = nome ? `${saudacao}, ${nome}` : 'Gerar Aula';
+    $('#greeting').textContent = nome ? `${saudacao}, ${nome}` : 'Gerar material';
 
     $('#aviso-chave').hidden = !!Storage.getApiKey();
     updateAulaHint();
@@ -223,9 +223,49 @@
     return data;
   }
 
+  /* ===== Formulário: Aula | Atividade | Prova =====
+     Atividade e prova avulsas saem de um conteúdo colado, sem aula antes.
+     Os campos do outro modo ficam escondidos (CSS) e desabilitados, para não
+     cobrarem `required` nem entrarem no FormData. */
+  const ROTULO_ENVIAR = { aula: 'Gerar Aula', atividade: 'Gerar Atividade', prova: 'Gerar Prova' };
+
+  function setModoForm(tipo) {
+    const form = $('#form-aula');
+    const avulso = tipo !== 'aula';
+    form.dataset.modo = avulso ? 'avulso' : 'aula';
+    form.querySelector(`input[name="tipo"][value="${tipo}"]`).checked = true;
+    form.querySelectorAll('[data-so]').forEach(bloco => {
+      const ativo = bloco.dataset.so === form.dataset.modo;
+      bloco.querySelectorAll('input, textarea').forEach(c => { c.disabled = !ativo; });
+    });
+    $('#form-aula-enviar').textContent = ROTULO_ENVIAR[tipo];
+  }
+
+  $('#form-aula').querySelectorAll('input[name="tipo"]').forEach(r => {
+    r.addEventListener('change', () => setModoForm(r.value));
+  });
+
   $('#form-aula').addEventListener('submit', e => {
     e.preventDefault();
     const params = formToObj(e.target);
+    const tipo = params.tipo || 'aula';
+    delete params.tipo;
+
+    if (tipo !== 'aula') {
+      // O conteúdo colado fica salvo no item: é dele que o "Gerar de novo" refaz.
+      const avulso = {
+        uc: params.uc || '',
+        tema: Prompts.resumoPedido(params.conteudo),
+        conteudoBase: params.conteudo || '',
+        instrucoes: params.instrucoes || '',
+        adaptacoes: params.adaptacoes || [],
+        adaptobs: params.adaptobs || '',
+        origem: 'avulso',
+      };
+      runGeneration(tipo, avulso, Prompts.avulso(tipo, avulso), Prompts.titulo[tipo](avulso));
+      return;
+    }
+
     // Rótulo curto derivado do pedido: é o que aparece no histórico, na Agenda
     // e nos materiais gerados a partir desta aula.
     params.tema = Prompts.resumoPedido(params.pedido);
@@ -292,6 +332,11 @@
         Prompts.aula({ ...c.params, referencia }),
         Prompts.titulo.aula(c.params),
       );
+      return;
+    }
+    // Atividade/prova avulsa: o conteúdo de base está no próprio item.
+    if (c.params?.origem === 'avulso') {
+      runGeneration(c.tipo, c.params, Prompts.avulso(c.tipo, c.params), c.titulo);
       return;
     }
     // Materiais derivados: refaz a partir do material base salvo no histórico.
@@ -520,8 +565,11 @@
   }
 
   /* ===== Histórico ===== */
-  // Só a Aula volta para o formulário: os demais materiais nascem de uma aula.
-  function podeDuplicar(item) { return item.tipo === 'aula' || item.tipo === 'plano'; }
+  // Voltam para o formulário: a Aula e a atividade/prova avulsa. Os demais
+  // materiais nascem de outro material, não do formulário.
+  function podeDuplicar(item) {
+    return item.tipo === 'aula' || item.tipo === 'plano' || item.params?.origem === 'avulso';
+  }
 
   function historyItemHtml(item) {
     const data = new Date(item.data).toLocaleString('pt-BR', {
@@ -639,6 +687,7 @@
     aulaanteriortopicos = '', aulaproximatopicos = '',
   } = {}) {
     const form = $('#form-aula');
+    setModoForm('aula');
     form.elements.uc.value = params.uc || '';
     form.elements.carga.value = params.carga || '';
     form.elements.pedido.value = pedidoDoItem(params);
@@ -662,6 +711,22 @@
     updateAulaHint();
   }
 
+  /* Leva uma atividade/prova avulsa de volta ao formulário (Duplicar). */
+  function preencherFormAvulso(tipo, params) {
+    const form = $('#form-aula');
+    setModoForm(tipo);
+    form.elements.uc.value = params.uc || '';
+    form.elements.conteudo.value = params.conteudoBase || '';
+    form.elements.instrucoes.value = params.instrucoes || '';
+    form.elements.adaptobs.value = params.adaptobs || '';
+    const marcadas = Prompts.adaptacoes(params);
+    form.querySelectorAll('input[name="adaptacoes"]').forEach(c => {
+      c.checked = marcadas.includes(c.value);
+    });
+    $('#aula-adaptacao').open = marcadas.length > 0 || !!params.adaptobs;
+    location.hash = '#/aula';
+  }
+
   function bindHistoryActions(container) {
     container.querySelectorAll('.history-item').forEach(el => {
       const item = Storage.getHistory().find(i => i.id === el.dataset.id);
@@ -672,7 +737,11 @@
       const dup = el.querySelector('[data-action="dup"]');
       // Duplicar reabre o formulário com os campos preenchidos, mas SEM a data:
       // a cópia é para outra turma/dia, não para sobrescrever a aula daquele dia.
-      if (dup) dup.addEventListener('click', () => preencherFormAula(item.params || {}));
+      if (dup) {
+        dup.addEventListener('click', () => (item.params?.origem === 'avulso'
+          ? preencherFormAvulso(item.tipo, item.params)
+          : preencherFormAula(item.params || {})));
+      }
 
       el.querySelector('[data-action="del"]').addEventListener('click', () => {
         Storage.removeHistoryItem(item.id);
@@ -1219,6 +1288,7 @@
   $('#btn-present').addEventListener('click', abrirSlides);
 
   /* ===== Init ===== */
+  setModoForm('aula');
   updateKeyStatus();
   route();
 })();

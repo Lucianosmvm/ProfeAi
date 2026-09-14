@@ -317,6 +317,28 @@ Tipos de cardinalidade
 | Um para muitos | Cliente e locações |`,
 };
 
+/* Atividade ou prova direto de um conteúdo colado pelo professor, sem aula
+   gerada antes — ex.: a prova de uma aula antiga. O conteúdo pode vir completo
+   ou só como tópicos, e as instruções do professor vencem o formato padrão. */
+Prompts.avulso = function (target, d) {
+  const instrucoes = (d.instrucoes || '').trim();
+  return `Você vai criar um material de avaliação a partir do conteúdo que o professor já trabalhou com a turma. Esse conteúdo, no fim deste pedido, é o material base.
+
+${CHAIN_RULES[target]}${instrucoes ? `
+
+INSTRUÇÕES DO PROFESSOR — prevalecem sobre as regras acima quando entrarem em conflito (quantidade, tipo de questão, nível, pontuação):
+${instrucoes}` : ''}
+
+Sobre o conteúdo:
+- Ele pode ser o texto completo de uma aula, um resumo ou só uma lista de tópicos. Se vier só tópicos, cubra esses tópicos no nível de quem acabou de ter a aula.
+- Cobre SOMENTE o que está no conteúdo: não pergunte sobre assunto que ele não menciona.
+- Distribua as questões pelos tópicos do conteúdo, sem concentrar tudo num só.${Prompts.blocoAdaptacao(d)}
+
+=== CONTEÚDO TRABALHADO COM A TURMA ===
+${(d.conteudoBase || '').trim()}
+=== FIM DO CONTEÚDO ===`;
+};
+
 /* Quais alvos cada material pode gerar. */
 Prompts.chainTargets = {
   aula: ['atividade', 'prova', 'slides'],
