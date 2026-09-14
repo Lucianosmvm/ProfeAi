@@ -2,85 +2,146 @@
 :root {
   --bg: #f6f7fb;
   --surface: #ffffff;
-  --text: #1c2333;
+  --surface-2: #f9fafc;
+  --text: #161b2b;
   --text-muted: #5c6478;
+  --text-soft: #8a91a3;
   --primary: #4f46e5;
   --primary-dark: #4338ca;
   --primary-soft: #eef2ff;
-  --border: #e3e6ef;
+  --border: #e4e7ef;
+  --border-strong: #d3d8e4;
   --danger: #dc2626;
+  --success: #16a34a;
   --radius: 12px;
-  --sidebar-w: 240px;
+  --radius-sm: 8px;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, .05);
+  --shadow-md: 0 1px 3px rgba(16, 24, 40, .06), 0 4px 12px rgba(16, 24, 40, .05);
+  --sidebar-w: 248px;
+  --tabbar-h: 64px;
+  --font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: var(--font);
+  font-size: 15px;
   background: var(--bg);
   color: var(--text);
   line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Ícones SVG do sprite: herdam a cor do texto. */
+.ic {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .layout { display: flex; min-height: 100vh; }
 
-/* ===== Sidebar ===== */
+/* ===== Marca ===== */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: var(--text);
+  text-decoration: none;
+}
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #6366f1, #4338ca);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, .3);
+}
+.brand-mark .ic { width: 18px; height: 18px; }
+.brand-plus { color: var(--primary); }
+
+/* ===== Sidebar (desktop) ===== */
 .sidebar {
   width: var(--sidebar-w);
+  flex: none;
   background: var(--surface);
   border-right: 1px solid var(--border);
   padding: 20px 14px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 28px;
   position: sticky;
   top: 0;
   height: 100vh;
 }
+.sidebar .brand { padding: 0 8px; }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 1.1rem;
-  font-weight: 700;
-  padding: 0 8px;
-}
-.brand-plus { color: var(--primary); }
-
-.nav { display: flex; flex-direction: column; gap: 4px; }
+.nav { display: flex; flex-direction: column; gap: 2px; }
 
 .nav-link {
-  padding: 10px 12px;
-  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
   text-decoration: none;
   color: var(--text-muted);
   font-weight: 500;
   transition: background .15s, color .15s;
 }
-.nav-link:hover { background: var(--primary-soft); color: var(--primary-dark); }
+.nav-link:hover { background: var(--surface-2); color: var(--text); }
 .nav-link.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 600; }
 
 .sidebar-footer { margin-top: auto; padding: 0 8px; }
-.key-status { font-size: .8rem; color: var(--text-muted); }
-.key-status.ok { color: #16a34a; }
+.key-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .8rem;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.key-status .ic { width: 15px; height: 15px; }
+.key-status.ok { color: var(--success); }
+
+/* Barra superior: só aparece no celular. */
+.topbar { display: none; }
 
 /* ===== Main ===== */
 .main {
   flex: 1;
-  padding: 36px 48px;
+  min-width: 0;
   max-width: 960px;
+  margin: 0 auto;
+  padding: 40px 48px 64px;
 }
-
-.menu-toggle { display: none; }
 
 .view { display: none; }
 .view.active { display: block; animation: fadein .2s ease; }
 @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
 
-h1 { margin: 0 0 4px; font-size: 1.6rem; }
-.subtitle { margin: 0 0 28px; color: var(--text-muted); }
+h1 {
+  margin: 0 0 6px;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -.025em;
+  line-height: 1.2;
+}
+h2, h3 { letter-spacing: -.015em; }
+.subtitle { margin: 0 0 28px; color: var(--text-muted); max-width: 640px; }
 
 /* ===== Adaptação inclusiva: grade de checkboxes ===== */
 .check-grid {
@@ -89,35 +150,42 @@ h1 { margin: 0 0 4px; font-size: 1.6rem; }
   gap: 6px 16px;
   margin-bottom: 16px;
 }
-.check-grid .check { margin: 0; font-size: .9rem; }
+.check-grid .check { margin: 0; font-size: .9rem; font-weight: 500; }
 
 /* Aviso de chave de API ausente na tela inicial. */
 .aviso-chave {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   background: #fffbeb;
-  border: 1px solid #fcd34d;
+  border: 1px solid #fde68a;
+  color: #78350f;
   border-radius: 10px;
   padding: 12px 14px;
   margin: 0 0 20px;
   font-size: .9rem;
+  max-width: 720px;
 }
-.aviso-chave[hidden] { display: none; }
+.aviso-chave .ic { color: #d97706; margin-top: 2px; }
+.aviso-chave a { color: #92400e; font-weight: 600; }
 
 /* ===== Forms ===== */
 .gen-form {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
   padding: 28px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 20px;
   max-width: 720px;
 }
 
 .grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 18px;
+  gap: 20px;
 }
 
 label {
@@ -125,27 +193,32 @@ label {
   flex-direction: column;
   gap: 6px;
   font-weight: 600;
-  font-size: .88rem;
+  font-size: .875rem;
 }
 
-label small { font-weight: 400; color: var(--text-muted); }
+label small { font-weight: 400; color: var(--text-muted); font-size: .8rem; }
 
 input, select, textarea {
   font: inherit;
+  font-size: .95rem;
+  font-weight: 400;
   padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
   color: var(--text);
+  transition: border-color .15s, box-shadow .15s;
 }
+input::placeholder, textarea::placeholder { color: var(--text-soft); }
 input:focus, select:focus, textarea:focus {
-  outline: 2px solid var(--primary);
-  outline-offset: -1px;
+  outline: none;
   border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, .15);
 }
+textarea { resize: vertical; line-height: 1.5; }
 
 .check { flex-direction: row; align-items: center; gap: 8px; }
-.check input { width: auto; }
+.check input { width: auto; accent-color: var(--primary); }
 
 /* Divisórias dentro de um formulário longo (ex.: Configurações). */
 .form-section {
@@ -165,23 +238,40 @@ input:focus, select:focus, textarea:focus {
   color: var(--text-muted);
 }
 
-/* Campos por seção do PDT: só aparecem para quem quiser separar na mão. */
+/* Blocos opcionais que abrem e fecham (referência, adaptação). */
 .form-avancado {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 0 16px;
-  background: var(--bg);
+  background: var(--surface-2);
 }
 .form-avancado > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   cursor: pointer;
-  padding: 12px 0;
+  padding: 13px 0;
   font-size: .9rem;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text);
+  list-style: none;
 }
+.form-avancado > summary::-webkit-details-marker { display: none; }
+.form-avancado > summary::after {
+  content: "";
+  margin-left: auto;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--text-soft);
+  border-bottom: 2px solid var(--text-soft);
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform .15s;
+}
+.form-avancado[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+.form-avancado > summary .ic { color: var(--text-muted); }
+.form-avancado > summary small { font-weight: 400; color: var(--text-muted); }
 .form-avancado[open] > summary { margin-bottom: 4px; }
 .form-avancado > *:not(summary) { margin-bottom: 16px; }
-.form-avancado textarea { background: var(--surface); }
 
 .aviso-truncado {
   margin-top: 20px;
@@ -198,6 +288,8 @@ input:focus, select:focus, textarea:focus {
   border: 1px solid #dc2626;
   border-radius: var(--radius);
 }
+
+/* ===== Botões ===== */
 .btn-link {
   font: inherit;
   font-weight: 600;
@@ -209,46 +301,66 @@ input:focus, select:focus, textarea:focus {
   text-decoration: underline;
 }
 
-.btn-primary {
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   font: inherit;
   font-weight: 600;
-  padding: 12px 24px;
+  line-height: 1.2;
+  border-radius: 10px;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background .15s, border-color .15s, box-shadow .15s, color .15s;
+}
+
+.btn-primary {
+  padding: 11px 20px;
   background: var(--primary);
   color: #fff;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
+  border: 1px solid var(--primary);
+  box-shadow: 0 1px 2px rgba(79, 70, 229, .3);
   align-self: flex-start;
-  transition: background .15s;
 }
-.btn-primary:hover { background: var(--primary-dark); }
+.btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
 .btn-primary:disabled { opacity: .6; cursor: wait; }
 
 .btn-secondary {
-  font: inherit;
-  font-size: .85rem;
+  font-size: .875rem;
   padding: 8px 14px;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  cursor: pointer;
+  border: 1px solid var(--border-strong);
   color: var(--text);
+  box-shadow: var(--shadow-sm);
 }
-.btn-secondary:hover { background: var(--primary-soft); border-color: var(--primary); }
+.btn-secondary .ic { width: 16px; height: 16px; color: var(--text-muted); }
+.btn-secondary:hover { background: var(--surface-2); border-color: var(--text-soft); }
 
 .btn-danger {
-  font: inherit;
-  font-size: .85rem;
+  font-size: .875rem;
   padding: 8px 14px;
-  background: #fff;
-  border: 1px solid var(--danger);
+  background: var(--surface);
+  border: 1px solid #fecaca;
   color: var(--danger);
-  border-radius: 8px;
-  cursor: pointer;
 }
-.btn-danger:hover { background: #fef2f2; }
+.btn-danger .ic { width: 16px; height: 16px; }
+.btn-danger:hover { background: #fef2f2; border-color: var(--danger); }
 
-.saved-msg { color: #16a34a; font-weight: 600; }
+/* Botão só com ícone (quadrado). */
+.btn-icon { padding: 8px; aspect-ratio: 1; }
+
+.saved-msg {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--success);
+  font-weight: 600;
+  margin: 0;
+}
 
 .danger-zone { margin-top: 32px; }
 .danger-zone h3 { font-size: 1rem; }
@@ -262,6 +374,7 @@ input:focus, select:focus, textarea:focus {
   gap: 12px;
   margin-bottom: 16px;
 }
+.result-header h1 { font-size: 1.5rem; }
 .result-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 [hidden] { display: none !important; }
@@ -287,10 +400,12 @@ input:focus, select:focus, textarea:focus {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 32px 40px;
+  box-shadow: var(--shadow-sm);
+  padding: 36px 44px;
   min-height: 120px;
+  overflow-wrap: break-word;
 }
-.result-content h1 { font-size: 1.35rem; }
+.result-content h1 { font-size: 1.4rem; }
 .result-content h2 { font-size: 1.15rem; margin-top: 1.6em; }
 .result-content h3 { font-size: 1rem; }
 .result-content table { border-collapse: collapse; width: 100%; margin: 1em 0; }
@@ -320,24 +435,81 @@ input:focus, select:focus, textarea:focus {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px 20px;
-  margin-bottom: 12px;
+  box-shadow: var(--shadow-sm);
+  padding: 14px 16px;
+  margin-bottom: 10px;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.history-item:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); }
+.history-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 10px;
+  background: var(--primary-soft);
+  color: var(--primary);
 }
 .history-item .info { flex: 1; min-width: 0; }
-.history-item .titulo { font-weight: 600; }
-.history-item .meta { font-size: .8rem; color: var(--text-muted); }
+.history-item .titulo {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.history-item .meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: .8rem;
+  color: var(--text-muted);
+}
+.meta-uc {
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--primary-dark);
+  background: var(--primary-soft);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
 .history-item .actions { display: flex; gap: 6px; flex-shrink: 0; }
 .empty-msg { color: var(--text-muted); }
 
-/* ===== UC — campo, filtro e agrupamento ===== */
-.uc-field input { border-color: var(--primary); }
+/* Estado vazio (ex.: histórico sem nada). */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 48px 24px;
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+}
+.empty-state h3 { margin: 12px 0 4px; font-size: 1.05rem; }
+.empty-state p { margin: 0 0 20px; color: var(--text-muted); max-width: 340px; }
+.empty-state .btn-primary { align-self: center; }
+.empty-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.empty-icon .ic { width: 26px; height: 26px; }
 
+/* ===== UC — campo, filtro e agrupamento ===== */
 .history-controls { margin-bottom: 16px; }
 .uc-filter {
   display: inline-flex;
+  flex-direction: row;
   align-items: center;
   gap: 8px;
   font-size: .9rem;
@@ -346,96 +518,40 @@ input:focus, select:focus, textarea:focus {
 }
 .uc-filter select {
   padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
+  border-radius: var(--radius-sm);
 }
 
-.uc-group { margin-bottom: 24px; }
+.uc-group { margin-bottom: 28px; }
 .uc-group-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 1.05rem;
-  margin: 0 0 12px;
-  padding-bottom: 8px;
-  border-bottom: 2px solid var(--primary-soft);
+  font-size: .8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-muted);
+  margin: 0 0 10px;
 }
 .uc-count {
-  font-size: .75rem;
+  font-size: .72rem;
   font-weight: 600;
   color: var(--primary);
   background: var(--primary-soft);
   border-radius: 999px;
-  padding: 2px 9px;
+  padding: 1px 8px;
+  letter-spacing: 0;
 }
 
 /* ===== Recentes na home ===== */
-#home-recent h2 { font-size: 1.1rem; }
-
-/* ===== Responsivo ===== */
-@media (max-width: 760px) {
-  .sidebar {
-    position: fixed;
-    z-index: 20;
-    transform: translateX(-100%);
-    transition: transform .2s ease;
-  }
-  .sidebar.open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,.15); }
-  .menu-toggle {
-    display: block;
-    font-size: 1.3rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 6px 12px;
-    margin-bottom: 20px;
-    cursor: pointer;
-  }
-  .main { padding: 20px; }
-  .grid-2 { grid-template-columns: 1fr; }
-
-  /* Agenda: células pequenas demais cortam a tag da UC.
-     Solta o aspect-ratio e usa altura mínima maior. */
-  .agenda-grid, .agenda-weekdays { gap: 4px; }
-  .agenda-day, .agenda-empty { aspect-ratio: auto; }
-  .agenda-day {
-    min-height: 56px;
-    padding: 3px;
-    border-radius: 8px;
-  }
-  .agenda-daynum { font-size: .78rem; }
-  .agenda-uctag {
-    font-size: .6rem;
-    padding: 1px 2px;
-    border-radius: 4px;
-    text-align: center;
-  }
-  /* Sem espaço para o título da aula: fica só o número (A3). */
-  .agenda-aula { font-size: 0; text-align: center; }
-  .agenda-aula b { font-size: .6rem; }
-}
-
-/* Telas bem estreitas: célula mínima, tag vira barra colorida
-   colada na base (legenda identifica a UC). */
-@media (max-width: 420px) {
-  .main { padding: 16px 10px; }
-  .agenda-grid, .agenda-weekdays { gap: 3px; }
-  .agenda-day {
-    min-height: 48px;
-    padding: 2px;
-    border-radius: 6px;
-  }
-  .agenda-daynum { font-size: .72rem; padding-left: 2px; }
-  .agenda-uctag {
-    font-size: 0;           /* esconde o texto; cor + legenda bastam */
-    height: 8px;
-    padding: 0;
-    border-radius: 3px;
-  }
-  .agenda-aula { display: none; }
+#home-recent { max-width: 720px; }
+#home-recent h2 {
+  margin: 36px 0 12px;
+  font-size: .8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-muted);
 }
 
 /* Rodapé da referência da UC: status à esquerda, limpar à direita. */
@@ -456,8 +572,9 @@ input:focus, select:focus, textarea:focus {
   flex-wrap: wrap;
   margin: 4px 0 16px;
 }
-.result-chain .chain-label { font-size: .85rem; color: var(--text-muted); }
-.result-chain button { font-size: .85rem; padding: 4px 10px; }
+.result-chain .chain-label { font-size: .85rem; color: var(--text-muted); font-weight: 500; }
+#chain-actions { display: contents; }
+.result-chain button { font-size: .85rem; padding: 6px 12px; }
 
 /* Opções dos slides (quantidade e densidade), abertas pelo botão Slides. */
 .chain-opts {
@@ -466,10 +583,10 @@ input:focus, select:focus, textarea:focus {
   gap: 12px;
   flex-wrap: wrap;
   margin: 0 0 16px;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
+  border-radius: var(--radius);
+  background: var(--surface);
 }
 .chain-opts label {
   display: flex;
@@ -481,10 +598,8 @@ input:focus, select:focus, textarea:focus {
 .chain-opts input,
 .chain-opts select {
   font-size: .9rem;
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: #fff;
+  padding: 7px 9px;
+  border-radius: var(--radius-sm);
 }
 .chain-opts input { width: 90px; }
 .chain-opts button { font-size: .9rem; }
@@ -556,18 +671,20 @@ input:focus, select:focus, textarea:focus {
 
 /* ===== Uso / tokens ===== */
 .result-usage {
-  font-size: .85rem;
-  color: var(--text-muted);
+  font-size: .8rem;
+  color: var(--text-soft);
   margin: 4px 0 12px;
 }
 .usage-box {
-  margin-top: 24px;
-  padding: 16px;
+  margin-top: 20px;
+  padding: 20px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  max-width: 720px;
 }
-.usage-box h3 { margin: 0 0 8px; }
+.usage-box h3 { margin: 0 0 8px; font-size: 1rem; }
 .usage-summary { margin: 0 0 6px; font-weight: 600; }
 .usage-box small { color: var(--text-muted); }
 .usage-box p { margin: 0 0 12px; }
@@ -578,6 +695,7 @@ input:focus, select:focus, textarea:focus {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
   padding: 16px;
   margin-bottom: 16px;
 }
@@ -587,12 +705,12 @@ input:focus, select:focus, textarea:focus {
   gap: 8px;
   margin-bottom: 12px;
 }
-.agenda-nav .btn-secondary { padding: 6px 12px; }
 .agenda-month {
   font-weight: 600;
   font-size: 1.1rem;
   min-width: 170px;
   text-align: center;
+  letter-spacing: -.01em;
 }
 .agenda-modos {
   display: inline-flex;
@@ -604,6 +722,9 @@ input:focus, select:focus, textarea:focus {
   border-radius: 10px;
 }
 .agenda-modo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font: inherit;
   font-size: .85rem;
   font-weight: 600;
@@ -614,6 +735,7 @@ input:focus, select:focus, textarea:focus {
   padding: 6px 12px;
   cursor: pointer;
 }
+.agenda-modo .ic { width: 15px; height: 15px; }
 .agenda-modo:hover { color: var(--text); }
 .agenda-modo.active {
   background: var(--surface);
@@ -629,14 +751,7 @@ input:focus, select:focus, textarea:focus {
 .agenda-apply input {
   flex: 1 1 160px;
   min-width: 140px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  color: var(--text);
-  font-size: 1rem;
 }
-.agenda-apply input:focus { outline: 2px solid var(--primary); border-color: var(--primary); }
 .agenda-hint { margin: 10px 0 0; font-size: .85rem; color: var(--text-muted); }
 
 .agenda-weekdays {
@@ -647,10 +762,11 @@ input:focus, select:focus, textarea:focus {
 }
 .agenda-weekdays span {
   text-align: center;
-  font-size: .75rem;
+  font-size: .72rem;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
+  letter-spacing: .03em;
 }
 .agenda-grid {
   display: grid;
@@ -722,6 +838,7 @@ input:focus, select:focus, textarea:focus {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
 }
 .detail-head {
   display: flex;
@@ -751,6 +868,7 @@ input:focus, select:focus, textarea:focus {
   font-size: .8rem;
   color: var(--text-muted);
 }
+.detail-vizinhas b { color: var(--text); font-weight: 600; }
 .detail-acoes { display: flex; flex-wrap: wrap; gap: 8px; }
 .detail-vazio { margin: 0 0 12px; color: var(--text-muted); }
 .agenda-legend {
@@ -773,10 +891,191 @@ input:focus, select:focus, textarea:focus {
   display: inline-block;
 }
 
+/* ===== Celular / tablet estreito ===== */
+@media (max-width: 760px) {
+  /* Barra superior com a marca; a sidebar vira barra de abas fixa embaixo. */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    height: 56px;
+    padding: 0 16px;
+    padding-top: env(safe-area-inset-top);
+    background: rgba(255, 255, 255, .92);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar .brand-mark { width: 30px; height: 30px; border-radius: 8px; }
+  .topbar .key-status {
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: #fffbeb;
+    color: #92400e;
+    font-weight: 500;
+  }
+  .topbar .key-status.ok { background: #f0fdf4; color: var(--success); }
+
+  .layout { display: block; min-height: 0; }
+
+  .sidebar {
+    position: fixed;
+    z-index: 50;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: auto;
+    height: auto;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    border-right: none;
+    border-top: 1px solid var(--border);
+    background: rgba(255, 255, 255, .96);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    flex-direction: row;
+    gap: 0;
+  }
+  .sidebar .brand, .sidebar-footer { display: none; }
+  .nav { flex-direction: row; flex: 1; gap: 4px; }
+  .nav-link {
+    flex: 1;
+    flex-direction: column;
+    gap: 3px;
+    padding: 6px 2px;
+    font-size: .7rem;
+    font-weight: 500;
+    text-align: center;
+    min-height: 52px;
+    justify-content: center;
+  }
+  .nav-link .ic { width: 22px; height: 22px; }
+  .nav-link:hover { background: none; color: var(--text-muted); }
+  .nav-link.active { background: none; color: var(--primary); font-weight: 600; }
+  .nav-link.active .ic {
+    background: var(--primary-soft);
+    border-radius: 999px;
+    padding: 3px 16px;
+    box-sizing: content-box;
+    margin: -3px 0;
+  }
+  /* "Configurações" não cabe na aba. */
+  .nav-link[data-route="config"] span { font-size: 0; }
+  .nav-link[data-route="config"] span::after { content: "Ajustes"; font-size: .7rem; }
+
+  .main {
+    max-width: none;
+    padding: 20px 16px calc(var(--tabbar-h) + 28px + env(safe-area-inset-bottom));
+  }
+
+  h1 { font-size: 1.45rem; }
+  .subtitle { margin-bottom: 20px; font-size: .9rem; }
+
+  /* Campos com 16px: abaixo disso o iOS dá zoom ao tocar. */
+  input, select, textarea { font-size: 16px; }
+
+  .gen-form { padding: 18px 16px; gap: 18px; }
+  .grid-2 { grid-template-columns: 1fr; gap: 18px; }
+  .gen-form > .btn-primary { align-self: stretch; padding: 14px 20px; }
+
+  .btn-secondary, .btn-danger { min-height: 40px; }
+  .btn-icon { min-width: 40px; }
+
+  /* Resultado: ações viram uma barra de ícones com rótulo curto. */
+  .result-header { gap: 14px; }
+  .result-header h1 { font-size: 1.25rem; }
+  .result-actions {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    width: 100%;
+  }
+  .result-actions .btn-primary { grid-column: 1 / -1; align-self: stretch; }
+  .result-actions .btn-secondary {
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 2px;
+    font-size: .7rem;
+    white-space: normal;
+    text-align: center;
+    min-height: 58px;
+  }
+  .result-actions .btn-secondary .ic { width: 20px; height: 20px; color: var(--text); }
+
+  .result-content { padding: 20px 16px; }
+  .result-content table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .result-content th, .result-content td { min-width: 110px; }
+
+  .result-chain .chain-label { flex-basis: 100%; }
+  .result-chain button { flex: 1; min-height: 40px; }
+  .chain-opts > .btn-primary { flex: 1 1 100%; }
+
+  /* Histórico: ações embaixo, alinhadas à direita. */
+  .history-item { flex-wrap: wrap; padding: 14px; gap: 12px; }
+  .history-item .info { flex: 1 1 calc(100% - 52px); }
+  .history-item .titulo { white-space: normal; }
+  .history-item .actions { width: 100%; justify-content: flex-end; }
+  .history-item .actions [data-action="open"] { flex: 1; }
+
+  /* Agenda: células pequenas demais cortam a tag da UC.
+     Solta o aspect-ratio e usa altura mínima maior. */
+  .agenda-toolbar { padding: 12px; }
+  .agenda-nav .agenda-month { flex: 1; min-width: 0; font-size: 1rem; }
+  .agenda-modos { display: flex; }
+  .agenda-modo { flex: 1; justify-content: center; min-height: 36px; }
+  .agenda-apply > * { flex: 1 1 100%; }
+  .agenda-grid, .agenda-weekdays { gap: 4px; }
+  .agenda-day, .agenda-empty { aspect-ratio: auto; }
+  .agenda-day {
+    min-height: 56px;
+    padding: 3px;
+    border-radius: 8px;
+  }
+  .agenda-daynum { font-size: .78rem; }
+  .agenda-uctag {
+    font-size: .6rem;
+    padding: 1px 2px;
+    border-radius: 4px;
+    text-align: center;
+  }
+  /* Sem espaço para o título da aula: fica só o número (A3). */
+  .agenda-aula { font-size: 0; text-align: center; }
+  .agenda-aula b { font-size: .6rem; }
+  .detail-acoes > * { flex: 1 1 100%; }
+}
+
+/* Telas bem estreitas: célula mínima, tag vira barra colorida
+   colada na base (legenda identifica a UC). */
+@media (max-width: 420px) {
+  .agenda-grid, .agenda-weekdays { gap: 3px; }
+  .agenda-day {
+    min-height: 48px;
+    padding: 2px;
+    border-radius: 6px;
+  }
+  .agenda-daynum { font-size: .72rem; padding-left: 2px; }
+  .agenda-uctag {
+    font-size: 0;           /* esconde o texto; cor + legenda bastam */
+    height: 8px;
+    padding: 0;
+    border-radius: 3px;
+  }
+  .agenda-aula { display: none; }
+}
+
 /* ===== Impressão (PDF) ===== */
 @media print {
-  .sidebar, .menu-toggle, .no-print, .deck-overlay { display: none !important; }
+  .sidebar, .topbar, .no-print, .deck-overlay { display: none !important; }
   body, .main { background: #fff; padding: 0; max-width: none; }
-  .result-content { border: none; padding: 0; }
+  .layout { display: block; }
+  .result-content { border: none; box-shadow: none; padding: 0; }
   .result-content.editing { outline: none; background: none; }
 }

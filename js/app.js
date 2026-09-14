@@ -65,7 +65,7 @@
       a.classList.toggle('active', a.dataset.route === name);
     });
 
-    $('#sidebar').classList.remove('open');
+    window.scrollTo(0, 0);
 
     refreshUcList();
     if (name === 'aula') renderTelaAula();
@@ -81,7 +81,7 @@
     const nome = Storage.getNome();
     const hora = new Date().getHours();
     const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
-    $('#greeting').textContent = nome ? `👋 ${saudacao}, ${nome}!` : '📚 Gerar Aula';
+    $('#greeting').textContent = nome ? `${saudacao}, ${nome}` : 'Gerar Aula';
 
     $('#aviso-chave').hidden = !!Storage.getApiKey();
     updateAulaHint();
@@ -164,7 +164,7 @@
     const aviso = document.createElement('div');
     aviso.className = 'aviso-truncado no-print';
     aviso.innerHTML = '<p>⚠️ A IA parou no limite de tamanho da resposta — o material está incompleto.</p>'
-      + '<button type="button" class="btn-primary" id="btn-continuar">▶️ Continuar de onde parou</button>';
+      + `<button type="button" class="btn-primary" id="btn-continuar">${ic('arrow-right')}Continuar de onde parou</button>`;
     $('#result-content').appendChild(aviso);
     $('#btn-continuar').addEventListener('click', continuarGeracao);
   }
@@ -260,7 +260,7 @@
     // innerText reflete edições feitas no modo Editar; sem edição, é o markdown renderizado.
     const texto = $('#result-content').innerText.trim() || state.current.conteudo;
     await navigator.clipboard.writeText(texto);
-    flash($('#btn-copy'), '✅ Copiado!');
+    flash($('#btn-copy'), 'Copiado!', 'check');
   });
 
   $('#btn-print').addEventListener('click', () => window.print());
@@ -322,7 +322,9 @@
     const c = $('#result-content');
     c.contentEditable = on ? 'true' : 'false';
     c.classList.toggle('editing', on);
-    $('#btn-edit').textContent = on ? '✅ Concluir edição' : '✏️ Editar';
+    $('#btn-edit').innerHTML = on
+      ? `${ic('check')}<span class="lbl">Concluir</span>`
+      : `${ic('pencil')}<span class="lbl">Editar</span>`;
   }
 
   function persistEdit() {
@@ -340,11 +342,23 @@
     else persistEdit();
   });
 
-  function flash(btn, msg) {
-    const original = btn.textContent;
-    btn.textContent = msg;
-    setTimeout(() => { btn.textContent = original; }, 1500);
+  // Troca o rótulo do botão por um aviso curto e depois restaura (ícone incluso).
+  function flash(btn, msg, icone) {
+    const original = btn.innerHTML;
+    btn.innerHTML = (icone ? ic(icone) : '') + `<span class="lbl">${escapeHtml(msg)}</span>`;
+    setTimeout(() => { btn.innerHTML = original; }, 1500);
   }
+
+  /* Ícone SVG do sprite em index.html. */
+  function ic(nome) {
+    return `<svg class="ic" aria-hidden="true"><use href="#i-${nome}"/></svg>`;
+  }
+
+  /* Rótulo do tipo sem o emoji do início ("📝 Atividade" -> "Atividade"). */
+  function rotulo(tipo) {
+    return (Prompts.labels[tipo] || tipo).replace(/^[^\p{L}\p{N}]+/u, '');
+  }
+  const ICONE_TIPO = { aula: 'book', plano: 'book', atividade: 'pencil', prova: 'file', slides: 'present' };
 
   function sanitizeFilename(name) {
     return name.replace(/[\\/:*?"<>|]/g, '-').slice(0, 80);
@@ -364,12 +378,12 @@
     if (!targets.length) { bar.hidden = true; box.innerHTML = ''; return; }
 
     $('.chain-label').textContent = tipo === 'aula'
-      ? '➡️ Criar a partir desta aula:'
-      : '➡️ Criar a partir disto:';
+      ? 'Criar a partir desta aula:'
+      : 'Criar a partir disto:';
     bar.hidden = false;
     slidesOpts().hidden = true;
     box.innerHTML = targets
-      .map(t => `<button class="btn-secondary" data-target="${t}">${Prompts.labels[t]}</button>`)
+      .map(t => `<button class="btn-secondary" data-target="${t}">${ic(ICONE_TIPO[t] || 'file')}${rotulo(t)}</button>`)
       .join('');
     box.querySelectorAll('button').forEach(b => {
       b.addEventListener('click', () => {
@@ -515,17 +529,17 @@
       hour: '2-digit', minute: '2-digit',
     });
     const uc = ucOf(item);
-    const ucTag = uc ? `📦 ${escapeHtml(uc)} · ` : '';
-    const label = Prompts.labels[item.tipo] || item.tipo;
+    const ucTag = uc ? `<span class="meta-uc">${escapeHtml(uc)}</span>` : '';
     return `<div class="history-item" data-id="${item.id}">
+      <span class="history-icon">${ic(ICONE_TIPO[item.tipo] || 'file')}</span>
       <div class="info">
         <div class="titulo">${escapeHtml(item.titulo)}</div>
-        <div class="meta">${ucTag}${label} · ${data}</div>
+        <div class="meta">${ucTag}<span>${rotulo(item.tipo)} · ${data}</span></div>
       </div>
       <div class="actions">
         <button class="btn-secondary" data-action="open">Abrir</button>
-        ${podeDuplicar(item) ? '<button class="btn-secondary" data-action="dup">Duplicar</button>' : ''}
-        <button class="btn-danger" data-action="del">Excluir</button>
+        ${podeDuplicar(item) ? `<button class="btn-secondary btn-icon" data-action="dup" title="Duplicar" aria-label="Duplicar">${ic('copy')}</button>` : ''}
+        <button class="btn-danger btn-icon" data-action="del" title="Excluir" aria-label="Excluir">${ic('trash')}</button>
       </div>
     </div>`;
   }
@@ -537,7 +551,12 @@
 
     if (!list.length) {
       controls.innerHTML = '';
-      box.innerHTML = '<p class="empty-msg">Nada gerado ainda. Comece por 📚 Gerar Aula.</p>';
+      box.innerHTML = `<div class="empty-state">
+        <span class="empty-icon">${ic('inbox')}</span>
+        <h3>Nada gerado ainda</h3>
+        <p>As aulas, atividades, provas e slides que você gerar aparecem aqui.</p>
+        <a href="#/" class="btn-primary">${ic('sparkles')}Gerar a primeira aula</a>
+      </div>`;
       return;
     }
 
@@ -578,7 +597,7 @@
     const visible = historyFilter === 'all' ? keys : [historyFilter];
     box.innerHTML = visible.map(k => {
       const g = groups.get(k);
-      const badge = k === '__none__' ? '📁 Sem UC' : `📦 ${escapeHtml(g.label)}`;
+      const badge = k === '__none__' ? 'Sem UC' : escapeHtml(g.label);
       return `<div class="uc-group">
         <h2 class="uc-group-title">${badge} <span class="uc-count">${g.items.length}</span></h2>
         ${g.items.map(historyItemHtml).join('')}
@@ -784,27 +803,27 @@
 
     let corpo;
     if (!info) {
-      corpo = '<p class="detail-vazio">Nenhuma UC marcada neste dia. Use <strong>✏️ Marcar UCs</strong> para marcar.</p>';
+      corpo = '<p class="detail-vazio">Nenhuma UC marcada neste dia. Use <strong>Marcar UCs</strong> para marcar.</p>';
     } else {
       const pos = `<p class="detail-pos">Aula ${info.indice + 1} de ${info.total} dias marcados de ${escapeHtml(uc)}</p>`;
       const vizinhas = `
         <div class="detail-vizinhas">
-          ${info.anterior ? `<span>⬅️ Antes: ${escapeHtml(Cronograma.tema(info.anterior))}</span>` : ''}
-          ${info.proxima ? `<span>➡️ Depois: ${escapeHtml(Cronograma.tema(info.proxima))}</span>` : ''}
+          ${info.anterior ? `<span><b>Antes:</b> ${escapeHtml(Cronograma.tema(info.anterior))}</span>` : ''}
+          ${info.proxima ? `<span><b>Depois:</b> ${escapeHtml(Cronograma.tema(info.proxima))}</span>` : ''}
         </div>`;
       corpo = info.aula
         ? `${pos}
            <h3 class="detail-titulo">${escapeHtml(info.aula.titulo)}</h3>
            ${vizinhas}
            <div class="detail-acoes">
-             <button type="button" class="btn-primary" data-act="abrir">📂 Abrir aula</button>
-             <button type="button" class="btn-secondary" data-act="gerar">🔄 Gerar outra para este dia</button>
+             <button type="button" class="btn-primary" data-act="abrir">${ic('book')}Abrir aula</button>
+             <button type="button" class="btn-secondary" data-act="gerar">${ic('refresh')}Gerar outra para este dia</button>
            </div>`
         : `${pos}
            <p class="detail-vazio">Nenhuma aula gerada para este dia ainda.</p>
            ${vizinhas}
            <div class="detail-acoes">
-             <button type="button" class="btn-primary" data-act="gerar">📚 Gerar a aula deste dia</button>
+             <button type="button" class="btn-primary" data-act="gerar">${ic('sparkles')}Gerar a aula deste dia</button>
            </div>`;
     }
 
@@ -935,7 +954,7 @@
     $('#agenda-set').addEventListener('click', () => {
       const uc = $('#agenda-uc').value.trim();
       if (!uc) { $('#agenda-uc').focus(); return; }
-      if (!agenda.selected.size) { flash($('#agenda-set'), '⚠️ Selecione dias'); return; }
+      if (!agenda.selected.size) { flash($('#agenda-set'), 'Selecione dias antes'); return; }
       Storage.setAgendaDays([...agenda.selected], uc);
       agenda.selected.clear();
       renderAgenda();
@@ -1120,14 +1139,12 @@
   });
 
   function updateKeyStatus() {
-    const el = $('#key-status');
-    if (Storage.getApiKey()) {
-      el.textContent = '🔑 chave configurada';
-      el.classList.add('ok');
-    } else {
-      el.textContent = '🔑 sem chave';
-      el.classList.remove('ok');
-    }
+    // Há dois indicadores: um na sidebar (desktop) e um na barra superior (celular).
+    const ok = !!Storage.getApiKey();
+    $$('[data-key-status]').forEach(el => {
+      el.querySelector('span').textContent = ok ? 'chave configurada' : 'sem chave';
+      el.classList.toggle('ok', ok);
+    });
     const aviso = $('#aviso-chave');
     if (aviso) aviso.hidden = !!Storage.getApiKey();
   }
@@ -1156,11 +1173,6 @@
   }
 
   $('#btn-present').addEventListener('click', abrirSlides);
-
-  /* ===== Menu mobile ===== */
-  $('#menu-toggle').addEventListener('click', () => {
-    $('#sidebar').classList.toggle('open');
-  });
 
   /* ===== Init ===== */
   updateKeyStatus();

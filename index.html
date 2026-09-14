@@ -2,49 +2,94 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
   <title>Professor+ AI — Gere a aula em minutos</title>
   <meta name="description" content="Gere a aula completa com IA e, a partir dela, a atividade, a prova e os slides. Preencha um formulário, receba material pronto.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/slides.css">
   <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
 </head>
 <body>
+  <!-- Ícones (traço no estilo Lucide). Uso: <svg class="ic"><use href="#i-nome"/></svg> -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-logo" viewBox="0 0 24 24"><path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></symbol>
+      <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></symbol>
+      <symbol id="i-calendar" viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+      <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M10 3.5 11.8 8.2 16.5 10l-4.7 1.8L10 16.5l-1.8-4.7L3.5 10l4.7-1.8z"/><path d="M18.5 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/></symbol>
+      <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></symbol>
+      <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></symbol>
+      <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+      <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+      <symbol id="i-printer" viewBox="0 0 24 24"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3h12v6"/><rect x="6" y="14" width="12" height="8" rx="1"/></symbol>
+      <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+      <symbol id="i-present" viewBox="0 0 24 24"><path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+      <symbol id="i-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+      <symbol id="i-chev-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+      <symbol id="i-chev-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+      <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+      <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+      <symbol id="i-eraser" viewBox="0 0 24 24"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></symbol>
+    </defs>
+  </svg>
+
+  <!-- Barra superior: só no celular (a sidebar vira a barra de abas embaixo) -->
+  <header class="topbar">
+    <a href="#/" class="brand">
+      <span class="brand-mark"><svg class="ic"><use href="#i-logo"/></svg></span>
+      <span class="brand-name">Professor<span class="brand-plus">+</span> AI</span>
+    </a>
+    <a href="#/config" class="key-status" data-key-status><svg class="ic"><use href="#i-key"/></svg><span>sem chave</span></a>
+  </header>
+
   <div class="layout">
-    <!-- ===== Sidebar ===== -->
+    <!-- ===== Sidebar (desktop) / barra de abas (celular) ===== -->
     <aside class="sidebar" id="sidebar">
-      <div class="brand">
-        <span class="brand-icon">🎓</span>
+      <a href="#/" class="brand">
+        <span class="brand-mark"><svg class="ic"><use href="#i-logo"/></svg></span>
         <span class="brand-name">Professor<span class="brand-plus">+</span> AI</span>
-      </div>
-      <nav class="nav">
-        <a href="#/" class="nav-link" data-route="aula">📚 Gerar Aula</a>
-        <a href="#/agenda" class="nav-link" data-route="agenda">📅 Agenda</a>
-        <a href="#/historico" class="nav-link" data-route="historico">📂 Histórico</a>
-        <a href="#/config" class="nav-link" data-route="config">⚙️ Configurações</a>
+      </a>
+      <nav class="nav" aria-label="Principal">
+        <a href="#/" class="nav-link" data-route="aula"><svg class="ic"><use href="#i-sparkles"/></svg><span>Gerar Aula</span></a>
+        <a href="#/agenda" class="nav-link" data-route="agenda"><svg class="ic"><use href="#i-calendar"/></svg><span>Agenda</span></a>
+        <a href="#/historico" class="nav-link" data-route="historico"><svg class="ic"><use href="#i-folder"/></svg><span>Histórico</span></a>
+        <a href="#/config" class="nav-link" data-route="config"><svg class="ic"><use href="#i-settings"/></svg><span>Configurações</span></a>
       </nav>
       <div class="sidebar-footer">
-        <span id="key-status" class="key-status">🔑 sem chave</span>
+        <a href="#/config" class="key-status" data-key-status><svg class="ic"><use href="#i-key"/></svg><span>sem chave</span></a>
       </div>
     </aside>
 
     <!-- ===== Main ===== -->
     <main class="main">
-      <button class="menu-toggle" id="menu-toggle" aria-label="Menu">☰</button>
-
       <!-- Gerar Aula (tela inicial) -->
       <section class="view" id="view-aula">
-        <h1 id="greeting">📚 Gerar Aula</h1>
-        <p class="subtitle">Preencha os campos e receba o conteúdo da aula pronto para ministrar. Depois, com um clique, a atividade, a prova e os slides saem da mesma aula.</p>
+        <h1 id="greeting">Gerar Aula</h1>
+        <p class="subtitle">Descreva a aula e receba o conteúdo pronto para ministrar. Depois, com um clique, a atividade, a prova e os slides saem da mesma aula.</p>
 
         <p class="aviso-chave" id="aviso-chave" hidden>
-          🔑 Falta a chave de API. <a href="#/config">Configure em ⚙️ Configurações</a> para começar a gerar.
+          <svg class="ic"><use href="#i-key"/></svg>
+          <span>Falta a chave de API. <a href="#/config">Configure agora</a> para começar a gerar.</span>
         </p>
 
         <form class="gen-form" id="form-aula">
           <div class="grid-2">
-            <label class="uc-field">📦 UC — código para agrupar no histórico (opcional)
+            <label class="uc-field">UC (opcional)
               <input type="text" name="uc" list="uc-list" placeholder="Ex.: UC10">
+              <small>Código para agrupar no histórico</small>
             </label>
             <label>Duração da aula
               <input type="text" name="carga" placeholder="Ex.: 2h30" required>
@@ -58,7 +103,7 @@
           </label>
 
           <details class="form-avancado" id="aula-referencia">
-            <summary>📎 Referência da UC — ementa, PDT, capítulo (opcional)</summary>
+            <summary><svg class="ic"><use href="#i-paperclip"/></svg>Referência da UC <small>ementa, PDT, capítulo (opcional)</small></summary>
             <p class="form-hint">Cole <strong>uma vez</strong>: vale para todas as aulas desta UC. A IA passa a usar isso como fonte — terminologia e escopo saem daí, em vez de serem inventados.</p>
             <textarea name="referencia" rows="6" maxlength="20000" placeholder="Cole aqui a ementa da UC, o bloco do PDT ou o trecho do livro que a UC segue."></textarea>
             <div class="ref-acoes">
@@ -68,7 +113,7 @@
           </details>
 
           <details class="form-avancado" id="aula-adaptacao">
-            <summary>♿ Adaptação inclusiva (opcional)</summary>
+            <summary><svg class="ic"><use href="#i-users"/></svg>Adaptação inclusiva <small>(opcional)</small></summary>
             <p class="form-hint">Marque as necessidades da turma. A aula já sai adaptada — e a atividade, a prova e os slides gerados a partir dela também.</p>
             <div class="check-grid" id="adaptacoes-lista"></div>
             <label>Observações sobre o aluno / turma (opcional)
@@ -84,7 +129,7 @@
           <input type="hidden" name="aulaproxima">
           <input type="hidden" name="aulaproximatopicos">
           <input type="hidden" name="abertura">
-          <button type="submit" class="btn-primary">✨ Gerar Aula</button>
+          <button type="submit" class="btn-primary"><svg class="ic"><use href="#i-sparkles"/></svg>Gerar Aula</button>
         </form>
 
         <div id="home-recent"></div>
@@ -92,24 +137,24 @@
 
       <!-- Agenda -->
       <section class="view" id="view-agenda">
-        <h1>📅 Agenda</h1>
+        <h1>Agenda</h1>
         <p class="subtitle">Seu cronograma: marque os dias de cada UC e gere a aula de cada dia. Em <strong>Ver aulas</strong>, clique num dia para abrir a aula daquela data. Em <strong>Marcar UCs</strong>, selecione dias e aplique a UC.</p>
 
         <div class="agenda-toolbar no-print">
           <div class="agenda-nav">
-            <button type="button" class="btn-secondary" id="agenda-prev" aria-label="Mês anterior">‹</button>
+            <button type="button" class="btn-secondary btn-icon" id="agenda-prev" aria-label="Mês anterior"><svg class="ic"><use href="#i-chev-left"/></svg></button>
             <span id="agenda-month" class="agenda-month"></span>
-            <button type="button" class="btn-secondary" id="agenda-next" aria-label="Próximo mês">›</button>
+            <button type="button" class="btn-secondary btn-icon" id="agenda-next" aria-label="Próximo mês"><svg class="ic"><use href="#i-chev-right"/></svg></button>
             <button type="button" class="btn-secondary" id="agenda-today">Hoje</button>
           </div>
           <div class="agenda-modos" role="group" aria-label="Modo da agenda">
-            <button type="button" class="agenda-modo active" data-modo="ver">🔍 Ver aulas</button>
-            <button type="button" class="agenda-modo" data-modo="marcar">✏️ Marcar UCs</button>
+            <button type="button" class="agenda-modo active" data-modo="ver"><svg class="ic"><use href="#i-search"/></svg>Ver aulas</button>
+            <button type="button" class="agenda-modo" data-modo="marcar"><svg class="ic"><use href="#i-pencil"/></svg>Marcar UCs</button>
           </div>
           <div class="agenda-apply" id="agenda-apply" hidden>
             <input type="text" id="agenda-uc" list="uc-list" placeholder="UC (ex.: UC10)" autocomplete="off">
-            <button type="button" class="btn-primary" id="agenda-set">✅ Aplicar aos selecionados</button>
-            <button type="button" class="btn-secondary" id="agenda-clear">🧹 Limpar selecionados</button>
+            <button type="button" class="btn-primary" id="agenda-set"><svg class="ic"><use href="#i-check"/></svg>Aplicar aos selecionados</button>
+            <button type="button" class="btn-secondary" id="agenda-clear"><svg class="ic"><use href="#i-eraser"/></svg>Limpar selecionados</button>
           </div>
           <p class="agenda-hint" id="agenda-selinfo"></p>
         </div>
@@ -126,7 +171,7 @@
 
       <!-- Histórico -->
       <section class="view" id="view-historico">
-        <h1>📂 Histórico</h1>
+        <h1>Histórico</h1>
         <p class="subtitle">Tudo o que você gerou fica salvo neste navegador, agrupado por UC.</p>
         <div id="history-controls" class="history-controls no-print"></div>
         <div id="history-list"></div>
@@ -134,13 +179,13 @@
 
       <!-- Configurações -->
       <section class="view" id="view-config">
-        <h1>⚙️ Configurações</h1>
+        <h1>Configurações</h1>
         <form class="gen-form" id="form-config">
           <label>Seu nome (para a saudação)
             <input type="text" name="nome" placeholder="Ex.: Luciano">
           </label>
 
-          <h3 class="form-section">🤖 Inteligência Artificial</h3>
+          <h3 class="form-section">Inteligência Artificial</h3>
           <label>Provedor de IA
             <select name="provider">
               <option value="gemini" selected>Google Gemini (grátis, sem cartão)</option>
@@ -154,8 +199,8 @@
           <label>Modelo
             <select name="model"></select>
           </label>
-          <button type="submit" class="btn-primary">💾 Salvar</button>
-          <p id="config-saved" class="saved-msg" hidden>✅ Salvo!</p>
+          <button type="submit" class="btn-primary"><svg class="ic"><use href="#i-save"/></svg>Salvar</button>
+          <p id="config-saved" class="saved-msg" hidden><svg class="ic"><use href="#i-check"/></svg>Salvo!</p>
         </form>
         <div class="usage-box">
           <h3>Uso</h3>
@@ -166,15 +211,15 @@
           <h3>Backup</h3>
           <p>Salve seus materiais num arquivo e restaure quando quiser — troca de PC, navegador ou guarde no Drive/pen drive.</p>
           <div class="backup-actions">
-            <button class="btn-secondary" id="btn-export">⬇️ Exportar backup (.json)</button>
-            <button class="btn-secondary" id="btn-import">⬆️ Importar backup</button>
+            <button class="btn-secondary" id="btn-export"><svg class="ic"><use href="#i-download"/></svg>Exportar backup (.json)</button>
+            <button class="btn-secondary" id="btn-import"><svg class="ic"><use href="#i-upload"/></svg>Importar backup</button>
             <input type="file" id="import-file" accept="application/json,.json" hidden>
           </div>
           <small>A chave da API <strong>não</strong> vai no arquivo, por segurança.</small>
         </div>
         <div class="danger-zone">
           <h3>Dados</h3>
-          <button class="btn-danger" id="btn-clear-history">🗑️ Apagar todo o histórico</button>
+          <button class="btn-danger" id="btn-clear-history"><svg class="ic"><use href="#i-trash"/></svg>Apagar todo o histórico</button>
         </div>
       </section>
 
@@ -183,16 +228,16 @@
         <div class="result-header no-print">
           <h1 id="result-title">Resultado</h1>
           <div class="result-actions">
-            <button class="btn-primary" id="btn-present" hidden>📽️ Abrir slides</button>
-            <button class="btn-secondary" id="btn-edit">✏️ Editar</button>
-            <button class="btn-secondary" id="btn-copy">📋 Copiar</button>
-            <button class="btn-secondary" id="btn-print">🖨️ PDF / Imprimir</button>
-            <button class="btn-secondary" id="btn-word">📄 Baixar Word</button>
-            <button class="btn-secondary" id="btn-regenerate">🔄 Gerar novamente</button>
+            <button class="btn-primary" id="btn-present" hidden><svg class="ic"><use href="#i-present"/></svg><span class="lbl">Abrir slides</span></button>
+            <button class="btn-secondary" id="btn-edit"><svg class="ic"><use href="#i-pencil"/></svg><span class="lbl">Editar</span></button>
+            <button class="btn-secondary" id="btn-copy"><svg class="ic"><use href="#i-copy"/></svg><span class="lbl">Copiar</span></button>
+            <button class="btn-secondary" id="btn-print"><svg class="ic"><use href="#i-printer"/></svg><span class="lbl">PDF</span></button>
+            <button class="btn-secondary" id="btn-word"><svg class="ic"><use href="#i-file"/></svg><span class="lbl">Word</span></button>
+            <button class="btn-secondary" id="btn-regenerate"><svg class="ic"><use href="#i-refresh"/></svg><span class="lbl">Gerar de novo</span></button>
           </div>
         </div>
         <div class="result-chain no-print" id="chain-bar" hidden>
-          <span class="chain-label">➡️ Criar a partir desta aula:</span>
+          <span class="chain-label">Criar a partir desta aula:</span>
           <span id="chain-actions"></span>
         </div>
         <!-- Opções dos slides: aparecem ao clicar em "Slides" na barra acima -->
@@ -212,7 +257,7 @@
               <option value="detalhado">Detalhado — explicação e exemplo no próprio slide</option>
             </select>
           </label>
-          <button type="button" class="btn-primary" id="slides-gerar">📽️ Gerar slides</button>
+          <button type="button" class="btn-primary" id="slides-gerar"><svg class="ic"><use href="#i-present"/></svg>Gerar slides</button>
           <small class="chain-opts-hint">Mais texto no slide ajuda a conduzir a aula; para projetar, prefira Enxuto.</small>
         </div>
         <div id="result-status" class="result-status no-print" hidden>
