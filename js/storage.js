@@ -1,4 +1,4 @@
-/* Persistência em localStorage: configurações e histórico. */
+/* Persistência: configurações no localStorage, histórico no IndexedDB. */
 const Storage = {
   KEYS: {
     provider: 'profe_provider',
@@ -38,39 +38,158 @@ const Storage = {
   getNome() { return localStorage.getItem(this.KEYS.nome) || ''; },
   setNome(v) { localStorage.setItem(this.KEYS.nome, v); },
 
-  getHistory() {
-    try {
-      return JSON.parse(localStorage.getItem(this.KEYS.history)) || [];
-    } catch {
-      return [];
+  /* ===== Histórico =====
+     Fica no IndexedDB (sem o limite de ~5 MB do localStorage) e numa cópia em
+     memória, para o resto do app continuar lendo de forma síncrona. Só o
+     `iniciar()` é assíncrono: o app espera por ele antes de desenhar a tela.
+
+     Cada item leva `atualizadoEm` e cada exclusão deixa uma marca em
+     `excluidos` — é o que a sincronização com o Drive usa para saber qual
+     versão vence e o que foi apagado em outro aparelho. */
+  _hist: [],
+  _excluidos: {},          // { id: { em, driveId } }
+  _idb: null,              // null = sem IndexedDB: cai no localStorage (limite de 100)
+  _ouvintes: [],
+  _silencio: 0,
+
+  async iniciar() {
+    this._idb = await this._abrirIdb();
+    if (this._idb) {
+      const [hist, excl] = await Promise.all([this._idbGet('history'), this._idbGet('excluidos')]);
+      this._hist = Array.isArray(hist) ? hist : [];
+      this._excluidos = excl && typeof excl === 'object' ? excl : {};
+      // Migração: o histórico das versões antigas estava no localStorage.
+      const antigo = this._lerLocal(this.KEYS.history, null);
+      if (Array.isArray(antigo)) {
+        const ids = new Set(this._hist.map(i => i.id));
+        this._hist = [...this._hist, ...antigo.filter(i => !ids.has(i.id))]
+          .sort((a, b) => new Date(b.data) - new Date(a.data));
+        // Só apaga a cópia antiga depois de confirmar que a nova foi gravada.
+        if (await this._idbPut('history', this._hist)) localStorage.removeItem(this.KEYS.history);
+      }
+    } else {
+      this._hist = this._lerLocal(this.KEYS.history, []);
+      this._excluidos = this._lerLocal('profe_excluidos', {});
     }
   },
 
+  /* Avisa quem precisa reagir a mudanças nos dados (a sincronização). */
+  aoMudar(fn) { this._ouvintes.push(fn); },
+  _avisar() { if (!this._silencio) this._ouvintes.forEach(fn => { try { fn(); } catch { /* segue */ } }); },
+  /* Roda `fn` sem disparar os avisos — usado pela própria sincronização. */
+  semAvisar(fn) {
+    this._silencio++;
+    try { return fn(); } finally { this._silencio--; }
+  },
+
+  getHistory() { return [...this._hist]; },
+
   saveHistory(list) {
-    localStorage.setItem(this.KEYS.history, JSON.stringify(list));
+    this._hist = list;
+    this._persistirHistorico();
+    this._avisar();
   },
 
   addHistoryItem(item) {
-    const list = this.getHistory();
-    list.unshift(item);
-    // limite de 100 itens para não estourar a cota do localStorage
-    this.saveHistory(list.slice(0, 100));
+    this.saveHistory([{ ...item, atualizadoEm: Date.now() }, ...this._hist]);
   },
 
   removeHistoryItem(id) {
-    this.saveHistory(this.getHistory().filter(i => i.id !== id));
+    const item = this._hist.find(i => i.id === id);
+    if (!item) return;
+    this._excluidos[id] = { em: Date.now(), driveId: item.drive && item.drive.id || '' };
+    this.saveHistory(this._hist.filter(i => i.id !== id));
   },
 
   updateHistoryItem(id, patch) {
-    const list = this.getHistory();
+    const list = [...this._hist];
     const i = list.findIndex(x => x.id === id);
     if (i < 0) return;
-    list[i] = { ...list[i], ...patch };
+    list[i] = { ...list[i], ...patch, atualizadoEm: Date.now() };
     this.saveHistory(list);
   },
 
   clearHistory() {
-    localStorage.removeItem(this.KEYS.history);
+    const agora = Date.now();
+    this._hist.forEach(i => {
+      this._excluidos[i.id] = { em: agora, driveId: i.drive && i.drive.id || '' };
+    });
+    this.saveHistory([]);
+  },
+
+  getExcluidos() {
+    const copia = {};
+    Object.entries(this._excluidos).forEach(([id, ex]) => { copia[id] = { ...ex }; });
+    return copia;
+  },
+
+  /* Grava o vínculo com o arquivo do Drive sem contar como edição do item. */
+  marcarDrive(id, drive) {
+    const list = [...this._hist];
+    const i = list.findIndex(x => x.id === id);
+    if (i < 0) return;
+    list[i] = { ...list[i], drive };
+    this.semAvisar(() => this.saveHistory(list));
+  },
+
+  /* Substitui histórico e exclusões de uma vez (resultado de uma sincronização). */
+  substituirHistorico(list, excluidos) {
+    this._excluidos = excluidos;
+    this.semAvisar(() => this.saveHistory(list));
+  },
+
+  _persistirHistorico() {
+    if (this._idb) {
+      this._idbPut('history', this._hist);
+      this._idbPut('excluidos', this._excluidos);
+      return;
+    }
+    // Sem IndexedDB: localStorage, com o limite antigo para não estourar a cota.
+    this._hist = this._hist.slice(0, 100);
+    localStorage.setItem(this.KEYS.history, JSON.stringify(this._hist));
+    localStorage.setItem('profe_excluidos', JSON.stringify(this._excluidos));
+  },
+
+  _lerLocal(chave, padrao) {
+    try {
+      const v = JSON.parse(localStorage.getItem(chave));
+      return v == null ? padrao : v;
+    } catch {
+      return padrao;
+    }
+  },
+
+  _abrirIdb() {
+    return new Promise(resolve => {
+      if (!window.indexedDB) { resolve(null); return; }
+      let req;
+      try { req = indexedDB.open('profeai-dados', 1); } catch { resolve(null); return; }
+      req.onupgradeneeded = () => req.result.createObjectStore('kv');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+      req.onblocked = () => resolve(null);
+    });
+  },
+
+  _idbGet(chave) {
+    return new Promise(resolve => {
+      try {
+        const r = this._idb.transaction('kv', 'readonly').objectStore('kv').get(chave);
+        r.onsuccess = () => resolve(r.result);
+        r.onerror = () => resolve(undefined);
+      } catch { resolve(undefined); }
+    });
+  },
+
+  _idbPut(chave, valor) {
+    return new Promise(resolve => {
+      try {
+        const t = this._idb.transaction('kv', 'readwrite');
+        t.objectStore('kv').put(valor, chave);
+        t.oncomplete = () => resolve(true);
+        t.onerror = () => resolve(false);
+      } catch { resolve(false); }
+    });
   },
 
   /* ===== Agenda ===== */
@@ -85,6 +204,24 @@ const Storage = {
 
   saveAgenda(map) {
     localStorage.setItem(this.KEYS.agenda, JSON.stringify(map));
+    // Instante da última mudança: na sincronização, a agenda mais recente vence.
+    localStorage.setItem('profe_agenda_em', String(Date.now()));
+    this._avisar();
+  },
+
+  getAgendaEm() { return +localStorage.getItem('profe_agenda_em') || 0; },
+  getReferenciasEm() { return +localStorage.getItem('profe_referencias_em') || 0; },
+
+  /* Agenda e referências vindas de outro aparelho (sincronização). */
+  substituirAgendaEReferencias({ agenda, agendaEm, referencias, referenciasEm }) {
+    if (agenda) {
+      localStorage.setItem(this.KEYS.agenda, JSON.stringify(agenda));
+      localStorage.setItem('profe_agenda_em', String(agendaEm || 0));
+    }
+    if (referencias) {
+      localStorage.setItem(this.KEYS.referencias, JSON.stringify(referencias));
+      localStorage.setItem('profe_referencias_em', String(referenciasEm || 0));
+    }
   },
 
   // Marca (uc não-vazia) ou desmarca (uc vazia) uma lista de datas ISO.
@@ -205,7 +342,10 @@ const Storage = {
     const map = this.getReferencias();
     const t = (texto || '').trim().slice(0, this.REF_MAX);
     if (t) map[k] = t; else delete map[k];
+    if (JSON.stringify(map) === localStorage.getItem(this.KEYS.referencias)) return;
     localStorage.setItem(this.KEYS.referencias, JSON.stringify(map));
+    localStorage.setItem('profe_referencias_em', String(Date.now()));
+    this._avisar();
   },
 
   /* ===== Backup (export/import) ===== */
@@ -252,14 +392,16 @@ const Storage = {
     }
 
     if (Array.isArray(data.history)) {
-      let lista = data.history;
+      // Itens importados contam como mudança: vão para o Drive na próxima sincronização.
+      const agora = Date.now();
+      let lista = data.history.map(i => ({ ...i, atualizadoEm: i.atualizadoEm || agora }));
       if (merge) {
         const atual = this.getHistory();
         const ids = new Set(atual.map(i => i.id));
-        lista = [...data.history.filter(i => !ids.has(i.id)), ...atual]
+        lista = [...lista.filter(i => !ids.has(i.id)), ...atual]
           .sort((a, b) => new Date(b.data) - new Date(a.data));
       }
-      this.saveHistory(lista.slice(0, 100));
+      this.saveHistory(lista);
     }
   },
 };

@@ -1168,13 +1168,41 @@ ${corpo}
     if (!window.PptxGenJS) { alert('A biblioteca de exportação PPTX não carregou.'); return; }
 
     const btn = els.pptxBtn;
-    const label = btn.textContent;
+    const label = btn.innerHTML;          // ícone + rótulo
     btn.disabled = true;
     btn.textContent = 'Gerando…';
 
-    const restaura = () => { btn.disabled = false; btn.textContent = label; };
+    const restaura = () => { btn.disabled = false; btn.innerHTML = label; };
 
     try {
+      montarPptx(slides).writeFile({ fileName: sanitizeFilename(titulo) + '.pptx' })
+        .then(restaura)
+        .catch(() => { restaura(); alert('Não foi possível gerar o arquivo PPTX.'); });
+    } catch (err) {
+      restaura();
+      alert('Não foi possível gerar o arquivo PPTX.');
+    }
+  }
+
+  /* PPTX de um texto de slides sem abrir o editor — usado para salvar os
+     slides no Google Drive. Carrega as imagens do material e a base atual. */
+  async function pptxBlob(texto) {
+    if (!window.PptxGenJS) throw new Error('A biblioteca de exportação PPTX não carregou.');
+    await garantirBasePng();
+    base = Storage.getBase();
+    const lista = parseSlides(texto);
+    if (!lista.length) throw new Error('Sem slides para exportar.');
+    const imgs = await Imagens.carregar(idsNoTexto(texto));
+    // A montagem lê `imageLibrary`; troca só durante a montagem (síncrona),
+    // para não mexer nas imagens do editor se ele estiver aberto.
+    const doEditor = imageLibrary;
+    imageLibrary = imgs;
+    let pptx;
+    try { pptx = montarPptx(lista); } finally { imageLibrary = doEditor; }
+    return pptx.write({ outputType: 'blob' });
+  }
+
+  function montarPptx(slides) {
       const pptx = new window.PptxGenJS();
       pptx.defineLayout({ name: 'WIDE', width: 13.333, height: 7.5 });
       pptx.layout = 'WIDE';
@@ -1251,13 +1279,7 @@ ${corpo}
         renderPptxPosicionadas(slide, s.blocks);
       });
 
-      pptx.writeFile({ fileName: sanitizeFilename(titulo) + '.pptx' })
-        .then(restaura)
-        .catch(() => { restaura(); alert('Não foi possível gerar o arquivo PPTX.'); });
-    } catch (err) {
-      restaura();
-      alert('Não foi possível gerar o arquivo PPTX.');
-    }
+      return pptx;
   }
 
   /* ===================== Galeria de imagens ===================== */
@@ -1950,5 +1972,5 @@ ${corpo}
     onChange = null;
   }
 
-  return { open, close, parseSlides, exportPrint, exportPptx, aplicarTema, usarImagemBase, baseInfo };
+  return { open, close, parseSlides, exportPrint, exportPptx, pptxBlob, aplicarTema, usarImagemBase, baseInfo };
 })();

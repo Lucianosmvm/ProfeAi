@@ -105,7 +105,50 @@ body {
 .nav-link:hover { background: var(--surface-2); color: var(--text); }
 .nav-link.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 600; }
 
-.sidebar-footer { margin-top: auto; padding: 0 8px; }
+.sidebar-footer { margin-top: auto; padding: 0 8px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+
+/* Indicador do Google Drive (sidebar e barra superior). */
+.drive-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.drive-chip .ic { width: 15px; height: 15px; }
+.drive-chip.is-ok { color: var(--success); }
+.drive-chip.is-sincronizando { color: var(--primary); }
+.drive-chip.is-sincronizando .ic { animation: spin 1s linear infinite; }
+.drive-chip.is-reconectar, .drive-chip.is-erro { color: #b45309; }
+
+/* Card do Drive em Ajustes. */
+.drive-box h3 { display: flex; align-items: center; gap: 8px; }
+.drive-box h3 .ic { color: var(--primary); }
+.drive-box > label { margin-bottom: 12px; }
+.drive-box input { width: 100%; }
+.drive-estado {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: .88rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.drive-estado .ic { margin-top: 1px; }
+.drive-estado.is-ok { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+.drive-estado.is-sincronizando { background: var(--primary-soft); border-color: #c7d2fe; color: var(--primary-dark); }
+.drive-estado.is-sincronizando .ic { animation: spin 1s linear infinite; }
+.drive-estado.is-reconectar, .drive-estado.is-erro { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+.drive-ajuda { margin-top: 14px; }
+.drive-ajuda ol { margin: 0 0 12px; padding-left: 20px; font-size: .88rem; }
+.drive-ajuda li { margin-bottom: 6px; }
+.drive-ajuda code { font-size: .8rem; background: var(--bg); padding: 1px 5px; border-radius: 4px; word-break: break-all; }
+.drive-ajuda > .form-hint { margin: 0 0 14px; }
 .key-status {
   display: inline-flex;
   align-items: center;
@@ -958,7 +1001,19 @@ textarea { resize: vertical; line-height: 1.5; }
     color: #92400e;
     font-weight: 500;
   }
-  .topbar .key-status.ok { background: #f0fdf4; color: var(--success); }
+  /* Com a chave configurada, o aviso sai do topo e sobra espaço para o Drive. */
+  .topbar .key-status.ok { display: none; }
+  .topbar-chips { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .topbar .brand { flex: none; white-space: nowrap; }
+  /* Drive e chave juntos não cabem: a chave fica só com o ícone. */
+  .topbar-chips:has(.drive-chip:not([hidden])) .key-status span { display: none; }
+  .topbar .drive-chip {
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+  }
+  .topbar .drive-chip.is-ok { background: #f0fdf4; border-color: #bbf7d0; }
 
   .layout { display: block; min-height: 0; }
 

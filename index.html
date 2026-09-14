@@ -42,7 +42,9 @@
       <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
       <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
       <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
-      <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+      <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></symbol>
+      <symbol id="i-cloud-off" viewBox="0 0 24 24"><path d="m2 2 20 20"/><path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193"/><path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07"/></symbol>
+      <symbol id="i-x"viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
       <symbol id="i-palette" viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r="1" fill="currentColor"/><circle cx="17.5" cy="10.5" r="1" fill="currentColor"/><circle cx="8.5" cy="7.5" r="1" fill="currentColor"/><circle cx="6.5" cy="12.5" r="1" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></symbol>
       <symbol id="i-scissors" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></symbol>
       <symbol id="i-image" viewBox="0 0 24 24"><path d="M16 5h6"/><path d="M19 2v6"/><path d="M21 11.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7.5"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/><circle cx="9" cy="9" r="2"/></symbol>
@@ -57,7 +59,10 @@
       <span class="brand-mark"><svg class="ic"><use href="#i-logo"/></svg></span>
       <span class="brand-name">Professor<span class="brand-plus">+</span> AI</span>
     </a>
-    <a href="#/config" class="key-status" data-key-status><svg class="ic"><use href="#i-key"/></svg><span>sem chave</span></a>
+    <span class="topbar-chips">
+      <a href="#/config" class="drive-chip" data-drive-chip hidden><svg class="ic"><use href="#i-cloud"/></svg><span>Drive</span></a>
+      <a href="#/config" class="key-status" data-key-status><svg class="ic"><use href="#i-key"/></svg><span>sem chave</span></a>
+    </span>
   </header>
 
   <div class="layout">
@@ -74,6 +79,7 @@
         <a href="#/config" class="nav-link" data-route="config"><svg class="ic"><use href="#i-settings"/></svg><span>Configurações</span></a>
       </nav>
       <div class="sidebar-footer">
+        <a href="#/config" class="drive-chip" data-drive-chip hidden><svg class="ic"><use href="#i-cloud"/></svg><span>Drive</span></a>
         <a href="#/config" class="key-status" data-key-status><svg class="ic"><use href="#i-key"/></svg><span>sem chave</span></a>
       </div>
     </aside>
@@ -199,7 +205,7 @@
       <!-- Histórico -->
       <section class="view" id="view-historico">
         <h1>Histórico</h1>
-        <p class="subtitle">Tudo o que você gerou fica salvo neste navegador, agrupado por UC.</p>
+        <p class="subtitle">Tudo o que você gerou, agrupado por UC. Fica salvo neste navegador — e no seu Google Drive, se conectar em Ajustes.</p>
         <div id="history-controls" class="history-controls no-print"></div>
         <div id="history-list"></div>
       </section>
@@ -234,6 +240,36 @@
           <p id="usage-summary" class="usage-summary"></p>
           <small>As APIs não informam o saldo/quota restante. Este é o total já consumido neste navegador.</small>
         </div>
+        <div class="usage-box drive-box" id="drive-box">
+          <h3><svg class="ic"><use href="#i-cloud"/></svg>Google Drive</h3>
+          <p>Salve cada material no seu Drive, em pastas por UC com <strong>Aulas</strong>, <strong>Atividades</strong>, <strong>Provas</strong> e <strong>Slides</strong> separados — e use o mesmo histórico no celular e no PC. Grátis, no espaço do seu próprio Google Drive.</p>
+
+          <p class="drive-estado" id="drive-estado" hidden></p>
+
+          <label>ID do cliente OAuth
+            <input type="text" id="drive-client" placeholder="123456789-abc123.apps.googleusercontent.com" autocomplete="off" spellcheck="false">
+          </label>
+
+          <div class="backup-actions">
+            <button type="button" class="btn-primary" id="drive-conectar"><svg class="ic"><use href="#i-cloud"/></svg><span>Conectar Google Drive</span></button>
+            <button type="button" class="btn-secondary" id="drive-sync" hidden><svg class="ic"><use href="#i-refresh"/></svg>Sincronizar agora</button>
+            <button type="button" class="btn-secondary" id="drive-sair" hidden><svg class="ic"><use href="#i-cloud-off"/></svg>Desconectar</button>
+          </div>
+
+          <details class="form-avancado drive-ajuda">
+            <summary>Como obter o ID do cliente <small>(uma vez só, grátis)</small></summary>
+            <ol>
+              <li>Abra o <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">Google Cloud Console</a> com a sua conta Google e crie um projeto (ex.: <em>Professor AI</em>). Não pede cartão.</li>
+              <li>Ative a <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener">Google Drive API</a> nesse projeto.</li>
+              <li>Em <a href="https://console.cloud.google.com/auth/overview" target="_blank" rel="noopener">Google Auth Platform</a>, clique em <strong>Começar</strong>: dê um nome ao app, informe seu e-mail e escolha o público <strong>Externo</strong>.</li>
+              <li>Em <strong>Público-alvo</strong>, deixe o app em <strong>Teste</strong> e adicione o seu e-mail em <strong>Usuários de teste</strong>.</li>
+              <li>Em <strong>Clientes</strong>, crie um cliente do tipo <strong>Aplicativo da Web</strong>. Em <strong>Origens JavaScript autorizadas</strong>, adicione <code id="drive-origem"></code> (e o endereço do site no GitHub Pages, se usar os dois). Não precisa de URI de redirecionamento.</li>
+              <li>Copie o <strong>ID do cliente</strong> (termina em <code>.apps.googleusercontent.com</code>), cole acima e clique em <strong>Conectar</strong>.</li>
+            </ol>
+            <p class="form-hint">Na janela do Google, aparece o aviso de app não verificado: é o seu próprio projeto — clique em <strong>Continuar</strong> e marque as permissões do Drive. O app só enxerga os arquivos que ele mesmo cria.</p>
+          </details>
+        </div>
+
         <div class="usage-box">
           <h3>Backup</h3>
           <p>Salve seus materiais num arquivo e restaure quando quiser — troca de PC, navegador ou guarde no Drive/pen drive.</p>
@@ -463,6 +499,7 @@
   <script src="js/vendor/pptxgen.bundle.js"></script>
   <script src="js/temas.js"></script>
   <script src="js/slides.js"></script>
+  <script src="js/drive.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

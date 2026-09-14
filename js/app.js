@@ -66,7 +66,17 @@
     });
 
     window.scrollTo(0, 0);
+    renderView(name);
+  }
 
+  function rotaAtual() {
+    const hash = location.hash.replace('#/', '') || 'aula';
+    return routes.includes(hash) ? hash : 'aula';
+  }
+
+  /* Redesenha a tela sem rolar — também chamado quando a sincronização com o
+     Drive traz dados de outro aparelho. */
+  function renderView(name = rotaAtual()) {
     refreshUcList();
     if (name === 'aula') renderTelaAula();
     if (name === 'agenda') renderAgenda();
@@ -1245,7 +1255,10 @@
   });
 
   $('#btn-clear-history').addEventListener('click', () => {
-    if (confirm('Apagar todo o histórico? Esta ação não pode ser desfeita.')) {
+    const noDrive = Drive.conectado()
+      ? ' Com o Google Drive conectado, os arquivos também vão para a lixeira do Drive (e somem dos outros aparelhos).'
+      : '';
+    if (confirm(`Apagar todo o histórico? Esta ação não pode ser desfeita.${noDrive}`)) {
       Storage.clearHistory();
       renderHistory();
     }
@@ -1287,8 +1300,74 @@
 
   $('#btn-present').addEventListener('click', abrirSlides);
 
+  /* ===== Google Drive ===== */
+  const ESTADO_DRIVE = {
+    off: { icone: 'cloud-off', chip: '' },
+    desconectado: { icone: 'cloud-off', chip: '' },
+    reconectar: { icone: 'cloud-off', chip: 'Reconectar' },
+    sincronizando: { icone: 'refresh', chip: 'Salvando…' },
+    ok: { icone: 'cloud', chip: 'Drive' },
+    erro: { icone: 'cloud-off', chip: 'Drive' },
+  };
+
+  function renderDrive(est) {
+    const info = ESTADO_DRIVE[est.fase] || ESTADO_DRIVE.off;
+    // Indicador no topo (celular) e na sidebar: só quando o Drive está em uso.
+    $$('[data-drive-chip]').forEach(el => {
+      el.hidden = !info.chip;
+      el.className = `drive-chip is-${est.fase}`;
+      el.title = est.msg || 'Google Drive';
+      el.innerHTML = `${ic(info.icone)}<span>${info.chip}</span>`;
+    });
+
+    const conectado = Drive.conectado();
+    const msg = $('#drive-estado');
+    msg.hidden = !est.msg && est.fase !== 'desconectado';
+    msg.className = `drive-estado is-${est.fase}`;
+    msg.innerHTML = `${ic(info.icone)}<span>${escapeHtml(est.msg || 'Não conectado.')}</span>`;
+
+    const btn = $('#drive-conectar');
+    btn.hidden = conectado && est.fase !== 'reconectar';
+    btn.querySelector('span').textContent = est.fase === 'reconectar' ? 'Reconectar' : 'Conectar Google Drive';
+    $('#drive-sync').hidden = !conectado || est.fase === 'reconectar';
+    $('#drive-sync').disabled = est.fase === 'sincronizando';
+    $('#drive-sair').hidden = !conectado;
+  }
+
+  function carregarDriveConfig() {
+    $('#drive-client').value = Drive.getClientId();
+    $('#drive-origem').textContent = location.origin;
+  }
+
+  // Colou o ID: já carrega o login do Google, para o popup abrir direto no clique.
+  $('#drive-client').addEventListener('change', e => Drive.setClientId(e.target.value));
+
+  $('#drive-conectar').addEventListener('click', async () => {
+    Drive.setClientId($('#drive-client').value);
+    try {
+      await Drive.conectar();
+    } catch (err) {
+      alert('⚠️ ' + err.message);
+    }
+  });
+
+  $('#drive-sync').addEventListener('click', () => Drive.sincronizar());
+
+  $('#drive-sair').addEventListener('click', () => {
+    if (confirm('Desconectar o Google Drive? Os arquivos que já estão no Drive continuam lá; este aparelho só para de sincronizar.')) {
+      Drive.desconectar();
+    }
+  });
+
   /* ===== Init ===== */
+  // O histórico vem do IndexedDB (assíncrono): a tela só é desenhada depois.
   setModoForm('aula');
   updateKeyStatus();
-  route();
+  Storage.iniciar().then(() => {
+    route();
+    carregarDriveConfig();
+    Drive.onEstado(renderDrive);
+    // Em Ajustes não redesenha: apagaria o que o professor estiver digitando.
+    Drive.iniciar({ aoAtualizar: () => { if (!state.generating && rotaAtual() !== 'config') renderView(); } });
+  });
 })();

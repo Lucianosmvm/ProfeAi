@@ -21,7 +21,8 @@ Plataforma web para professores gerarem a **aula** com IA — e, a partir dela, 
 - 🎨 **Base do slide** — monte seu template sem sair do app: cor de fundo, cor de destaque, uma forma (faixa lateral, barra no topo, bloco no canto, diagonais ou hachura) e as cores do título e do texto. Enquanto monta, as **áreas do título e do conteúdo aparecem tracejadas**, para você não colocar forma nenhuma em cima do texto. Também dá para usar uma imagem sua como fundo. A base vale para todos os slides e vai junto no PDF e no PPTX
 - ✏️ **Editar antes de exportar** — ajuste o resultado direto na tela; edições entram no PDF, Word e cópia
 - 📅 **Agenda** — marque os dias de cada UC no calendário e gere a aula de cada dia. A aula fica presa à data, e a aula anterior e a próxima já vêm preenchidas — é o que garante a progressão entre as aulas
-- 📂 **Histórico** — tudo fica salvo no navegador, agrupado por UC; duplique e adapte para outra turma
+- 📂 **Histórico** — tudo fica salvo no navegador (IndexedDB, sem limite de itens), agrupado por UC; duplique e adapte para outra turma
+- ☁️ **Google Drive** — conecte sua conta e cada material vai para o seu Drive em `Professor+ AI / <UC> / Aulas | Atividades | Provas | Slides` (aulas, atividades e provas como Google Docs; slides como Google Slides). O histórico e a agenda sincronizam entre celular e PC
 - 💾 **Backup** — exporte tudo num arquivo `.json` e importe em outro PC/navegador
 - ⬇️ **Exportação** — PDF (impressão), Word (.doc) e copiar
 
@@ -35,6 +36,26 @@ Plataforma web para professores gerarem a **aula** com IA — e, a partir dela, 
 4. Na aula pronta, use os botões de **Criar a partir desta aula** para a atividade, a prova e os slides.
 
 A chave fica salva **apenas no seu navegador** (localStorage) e é enviada somente para o provedor de IA escolhido. Nenhum dado passa por servidor próprio.
+
+## Google Drive
+
+Grátis e sem servidor: o login é feito pelo Google Identity Services direto no navegador, e o app usa só os escopos `drive.file` (enxerga apenas os arquivos que ele mesmo criou) e `drive.appdata` (o arquivo oculto de sincronização).
+
+Configuração, uma vez só:
+
+1. No [Google Cloud Console](https://console.cloud.google.com/projectcreate), crie um projeto (não pede cartão).
+2. Ative a [Google Drive API](https://console.cloud.google.com/apis/library/drive.googleapis.com).
+3. Em [Google Auth Platform](https://console.cloud.google.com/auth/overview), configure o app com público **Externo**, deixe em **Teste** e adicione seu e-mail em **Usuários de teste**.
+4. Em **Clientes**, crie um cliente **Aplicativo da Web** e adicione em **Origens JavaScript autorizadas** o endereço do site — ex.: `https://SEU-USUARIO.github.io` e, para testar local, `http://localhost:8000`.
+5. Cole o **ID do cliente** em **Ajustes → Google Drive** e clique em **Conectar**.
+
+Como funciona:
+
+- Cada material vira um arquivo em `Professor+ AI / <UC> / <tipo>`; sem UC, vai para `Sem UC`. O nome começa pela data (`2026-09-08 — Modelo ER`), para ordenar.
+- Editou o material no app: a versão nova é enviada e a anterior vai para a **lixeira do Drive** (recuperável por 30 dias). Excluiu no app: o arquivo também vai para a lixeira.
+- O arquivo oculto `profeai-dados.json` (pasta de dados do app) guarda histórico, agenda e referências das UCs. Cada aparelho mescla o que tem com ele; vence a versão mais recente de cada item.
+- O token do Google dura 1 hora. Quando expira, aparece **Reconectar** no topo: um clique e as mudanças pendentes seguem para o Drive.
+- Editar o arquivo direto no Drive não volta para o app — o app é a fonte, e a próxima edição feita nele substitui o arquivo.
 
 ## Formato dos slides
 
