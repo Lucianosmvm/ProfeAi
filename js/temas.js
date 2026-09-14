@@ -49,7 +49,10 @@ window.Temas = (function () {
   const TX = 112;
   const TW = W - TX * 2;
 
-  /* Barra de acento embaixo do título — assinatura visual comum aos temas. */
+  /* Barra de acento embaixo do título — assinatura visual comum aos temas.
+     Não entra no fundo rasterizado: lá ela ficava numa altura fixa e cortava
+     o título que quebra em duas linhas. O slide a desenha logo abaixo do
+     título (CSS e PPTX); aqui ela só aparece na miniatura da galeria. */
   function acento(larg) {
     return `<rect x="${TX}" y="176" width="${larg || 120}" height="7" rx="3.5" fill="url(#g1)"/>`;
   }
@@ -66,13 +69,13 @@ window.Temas = (function () {
 
     /* Barra de gradiente na lateral esquerda + brilho no canto. */
     lateral: {
+      acento: 120,
       conteudo: p => `<defs>${lg('g1', p.d1, p.d2, 'v')}${rg('b1', p.d2, 0.5)}</defs>
         <rect width="${W}" height="${H}" fill="${p.fundo}"/>
         <circle cx="${W}" cy="0" r="430" fill="url(#b1)" opacity="0.5"/>
         <rect x="0" y="0" width="30" height="${H}" fill="url(#g1)"/>
         <rect x="44" y="0" width="5" height="${H}" fill="${p.d2}" opacity="0.28"/>
-        <path d="M${W},${H} L${W},690 L1310,${H} Z" fill="url(#g1)" opacity="0.16"/>
-        ${acento(120)}`,
+        <path d="M${W},${H} L${W},690 L1310,${H} Z" fill="url(#g1)" opacity="0.16"/>`,
       capa: p => `<defs>${lg('g1', p.d1, p.d2, 'd')}</defs>
         ${capaFundo()}
         <circle cx="1370" cy="150" r="330" fill="#ffffff" opacity="0.07"/>
@@ -83,13 +86,12 @@ window.Temas = (function () {
 
     /* Blocos e réguas — o visual de template corporativo. */
     blocos: {
+      acento: 180,
       conteudo: p => `<defs>${lg('g1', p.d1, p.d2, 'r')}</defs>
         <rect width="${W}" height="${H}" fill="${p.fundo}"/>
         <path d="M1330,0 L${W},0 L${W},250 Z" fill="${p.d2}" opacity="0.10"/>
         <rect x="0" y="0" width="${W}" height="11" fill="url(#g1)"/>
         <rect x="1530" y="46" width="58" height="58" rx="10" fill="url(#g1)" opacity="0.9"/>
-        <rect x="${TX}" y="172" width="${TW}" height="3" fill="${p.d1}" opacity="0.14"/>
-        <rect x="${TX}" y="169" width="180" height="8" rx="4" fill="url(#g1)"/>
         <rect x="1180" y="884" width="420" height="16" fill="url(#g1)"/>
         <rect x="0" y="884" width="1180" height="16" fill="${p.d1}" opacity="0.10"/>`,
       capa: p => `<defs>${lg('g1', p.d1, p.d2, 'd')}</defs>
@@ -103,14 +105,14 @@ window.Temas = (function () {
 
     /* Faixa fina no topo + cunha diagonal no canto. */
     topo: {
+      acento: 140,
       conteudo: p => `<defs>${lg('g1', p.d1, p.d2, 'r')}${rg('b1', p.d1, 0.45)}</defs>
         <rect width="${W}" height="${H}" fill="${p.fundo}"/>
         <path d="M1240,0 L${W},0 L${W},200 Z" fill="${p.d1}" opacity="0.11"/>
         <circle cx="90" cy="840" r="150" fill="url(#b1)" opacity="0.55"/>
         <rect x="0" y="0" width="${W}" height="14" fill="url(#g1)"/>
         <rect x="0" y="884" width="540" height="16" fill="url(#g1)"/>
-        <rect x="540" y="884" width="1060" height="16" fill="${p.d1}" opacity="0.12"/>
-        ${acento(140)}`,
+        <rect x="540" y="884" width="1060" height="16" fill="${p.d1}" opacity="0.12"/>`,
       capa: p => `<defs>${lg('g1', p.d1, p.d2, 'r')}</defs>
         ${capaFundo()}
         <path d="M0,${H} L${W},${H} L${W},620 Z" fill="#ffffff" opacity="0.07"/>
@@ -120,14 +122,14 @@ window.Temas = (function () {
 
     /* Ondas suaves na base — mais leve, bom para aula. */
     onda: {
+      acento: 120,
       conteudo: p => `<defs>${lg('g1', p.d1, p.d2, 'r')}${rg('b1', p.d2, 0.45)}</defs>
         <rect width="${W}" height="${H}" fill="${p.fundo}"/>
         <circle cx="1500" cy="60" r="230" fill="url(#b1)" opacity="0.6"/>
         <path d="M0,812 C 300,762 560,890 900,846 C 1200,806 1400,764 ${W},796 L${W},${H} L0,${H} Z"
           fill="url(#g1)" opacity="0.16"/>
         <path d="M0,868 C 340,828 620,914 980,874 C 1260,842 1420,830 ${W},852 L${W},${H} L0,${H} Z"
-          fill="url(#g1)" opacity="0.85"/>
-        ${acento(120)}`,
+          fill="url(#g1)" opacity="0.85"/>`,
       capa: p => `<defs>${lg('g1', p.d1, p.d2, 'd')}</defs>
         ${capaFundo()}
         <path d="M0,700 C 340,640 620,790 980,730 C 1260,684 1420,660 ${W},690 L${W},${H} L0,${H} Z"
@@ -139,13 +141,13 @@ window.Temas = (function () {
 
     /* Malha de pontos nos cantos — cara de tecnologia. */
     malha: {
+      acento: 140,
       conteudo: p => `<defs>${lg('g1', p.d1, p.d2, 'r')}${pontos('pt', p.d1)}</defs>
         <rect width="${W}" height="${H}" fill="${p.fundo}"/>
         <rect x="1260" y="0" width="340" height="290" fill="url(#pt)" opacity="0.35"/>
         <rect x="0" y="610" width="250" height="290" fill="url(#pt)" opacity="0.28"/>
         <rect x="0" y="0" width="${W}" height="12" fill="url(#g1)"/>
-        <path d="M${W},${H} L${W},806 L1424,${H} Z" fill="url(#g1)" opacity="0.55"/>
-        ${acento(140)}`,
+        <path d="M${W},${H} L${W},806 L1424,${H} Z" fill="url(#g1)" opacity="0.55"/>`,
       capa: p => `<defs>${lg('g1', p.d1, p.d2, 'd')}${pontos('pt', '#ffffff')}</defs>
         ${capaFundo()}
         <rect x="1140" y="0" width="460" height="420" fill="url(#pt)" opacity="0.22"/>
@@ -216,21 +218,32 @@ window.Temas = (function () {
   }
 
   /* Miolo do SVG (sem a tag <svg>): quem chama monta a moldura. */
-  function desenho(id, b, capa) {
+  function desenho(id, b, capa, comAcento) {
     const tema = get(id);
     if (!tema) return '';
     const layout = LAYOUTS[tema.layout] || LAYOUTS.lateral;
-    return (capa ? layout.capa : layout.conteudo)(paleta(tema, b));
+    if (capa) return layout.capa(paleta(tema, b));
+    return layout.conteudo(paleta(tema, b)) + (comAcento ? acento(layout.acento) : '');
   }
 
-  function svgCompleto(id, b, capa) {
+  function svgCompleto(id, b, capa, comAcento) {
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"
-      viewBox="0 0 ${W} ${H}">${desenho(id, b, capa)}</svg>`;
+      viewBox="0 0 ${W} ${H}">${desenho(id, b, capa, comAcento)}</svg>`;
+  }
+
+  /* Barra de acento do slide de conteúdo: largura em % da largura do slide e
+     as duas cores do gradiente. null = tema desconhecido. */
+  function acentoInfo(id, b) {
+    const tema = get(id);
+    if (!tema) return null;
+    const layout = LAYOUTS[tema.layout] || LAYOUTS.lateral;
+    const p = paleta(tema, b);
+    return { largura: layout.acento / W * 100, d1: p.d1, d2: p.d2 };
   }
 
   /* Miniatura para as galerias de escolha (não passa por rasterização). */
   function previewUrl(id, capa, b) {
-    const svg = svgCompleto(id, b, capa).replace(/\s+/g, ' ');
+    const svg = svgCompleto(id, b, capa, true).replace(/\s+/g, ' ');
     return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
   }
 
@@ -252,5 +265,5 @@ window.Temas = (function () {
     };
   }
 
-  return { W, H, LISTA, get, desenho, svgCompleto, previewUrl, patchBase };
+  return { W, H, LISTA, get, desenho, svgCompleto, previewUrl, patchBase, acentoInfo };
 })();

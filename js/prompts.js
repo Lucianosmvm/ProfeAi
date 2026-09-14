@@ -90,7 +90,7 @@ Contexto adicional da turma/aluno: ${d.adaptobs.trim()}` : ''}
       lista: 'No máximo 6 itens por slide, cada um com no máximo 16 palavras.',
       conteudo: `- Cada slide de conteúdo precisa dar ao professor O QUE FALAR: depois dos tópicos, escreva um parágrafo de 2 a 4 linhas explicando o conceito em linguagem simples e, em outro parágrafo curto, um exemplo concreto do cotidiano ou do mundo do trabalho.
 - Escreva as definições por extenso e explique ali mesmo, no slide, todo termo técnico e toda sigla — quem conduz a aula está dando esse conteúdo pela primeira vez.
-- Um conceito por slide, mesmo assim. LIMITE DE TELA: no máximo 90 palavras por slide. Passou disso, divida em dois slides com o mesmo tema, titulados \`Tema (1/2)\` e \`Tema (2/2)\` — nunca encolha a explicação para caber.`,
+- Um conceito por slide, mesmo assim. LIMITE DE TELA: no máximo 90 palavras por slide. Passou disso, divida em dois slides com o MESMO título, sem numerar — nada de \`(1/2)\`, \`(2/2)\`, "parte 1" ou "continuação" no título — e nunca encolha a explicação para caber.`,
     },
   },
 

@@ -340,12 +340,17 @@ window.Deck = (function () {
     return splitByHeadings(only) || autoSplitBlocks(only) || blocks;
   }
 
-  /* Limpa "## ", "1. " e "**" do título. */
+  /* Marcador de continuação no fim do título: "(1/2)", "[2/3]", "(parte 1)",
+     "(cont.)". Materiais antigos do histórico ainda trazem isso. */
+  const CONTINUACAO_RE = /\s*[([]\s*(?:parte\s*\d+(?:\s*(?:\/|de)\s*\d+)?|\d+\s*(?:\/|de)\s*\d+|cont\.?|continua[çc][ãa]o)\s*[)\]]$/i;
+
+  /* Limpa "## ", "1. ", "**" e o marcador de continuação do título. */
   function cleanTitle(line) {
     return (line || '').trim()
       .replace(/^#{1,6}\s+/, '')
       .replace(/^\d+[.)]\s+/, '')
       .replace(/^\*\*(.+?)\*\*$/, '$1')
+      .replace(CONTINUACAO_RE, '')
       .trim();
   }
 
@@ -357,24 +362,19 @@ window.Deck = (function () {
       const rest = repairTables(lines.join('\n').trim());
 
       const chunks = rest.split(/\n\s*\n/).filter(c => c.trim().length);
-      let bodyHtml = '';
       const blocks = [];
       chunks.forEach(chunk => {
         const chunkLines = chunk.split('\n').map(l => l.trim()).filter(Boolean);
 
         const codeMatch = chunkLines.length === 1 && chunkLines[0].match(CODE_TOKEN_RE);
         if (codeMatch) {
-          const code = codes[Number(codeMatch[1])];
-          bodyHtml += codeHtml(code);
-          blocks.push({ type: 'code', text: code });
+          blocks.push({ type: 'code', text: codes[Number(codeMatch[1])] });
           return;
         }
 
         const tagImg = chunkLines.length === 1 && chunkLines[0].match(/^!\[(.+?)\]$/);
         const imgInfo = tagImg ? parseImgTagInner(tagImg[1].trim()) : null;
         if (imgInfo) {
-          // A imagem posicionada não entra no fluxo: é desenhada solta por cima.
-          if (!imgInfo.positioned) bodyHtml += imgTagHtml(imgInfo.id);
           blocks.push({ type: 'img', ...imgInfo });
           return;
         }
@@ -383,29 +383,50 @@ window.Deck = (function () {
         if (isTable) {
           const rows = cellsFromLines(chunkLines);
           if (rows && rows.length) {
-            const head = rows[0];
-            const body = rows.slice(1);
-            bodyHtml += tableHtml(head, body);
-            blocks.push({ type: 'table', head, rows: body });
+            blocks.push({ type: 'table', head: rows[0], rows: rows.slice(1) });
             return;
           }
         }
 
         if (chunkLines.every(l => BULLET_RE.test(l))) {
-          const items = chunkLines.map(l => l.replace(BULLET_RE, ''));
-          bodyHtml += '<ul>' + items.map(t => `<li>${inlineFormat(t)}</li>`).join('') + '</ul>';
-          blocks.push({ type: 'ul', items });
+          blocks.push({ type: 'ul', items: chunkLines.map(l => l.replace(BULLET_RE, '')) });
           return;
         }
 
+        // Parágrafo logo depois de uma lista é a explicação dos tópicos: vai
+        // para a caixa de destaque, junto com os parágrafos que o seguem.
+        const anterior = blocks[blocks.length - 1];
+        const callout = !!anterior && (anterior.type === 'ul' || (anterior.type === 'p' && anterior.callout));
         chunkLines.forEach(l => {
-          bodyHtml += `<p>${inlineFormat(l)}</p>`;
-          blocks.push({ type: 'p', text: l });
+          blocks.push({ type: 'p', text: l, callout });
         });
       });
 
-      return { title, bodyHtml, blocks, isTitleSlide: chunks.length === 0 };
+      return { title, bodyHtml: blocksHtml(blocks), blocks, isTitleSlide: chunks.length === 0 };
     });
+  }
+
+  /* HTML do corpo. Os parágrafos seguidos da caixa de destaque saem numa
+     <div> só, para a caixa não virar uma pilha de caixinhas. */
+  function blocksHtml(blocks) {
+    let html = '';
+    let caixa = '';
+    const fechaCaixa = () => {
+      if (caixa) html += `<div class="slide-callout">${caixa}</div>`;
+      caixa = '';
+    };
+    blocks.forEach(b => {
+      if (b.type === 'p' && b.callout) { caixa += `<p>${inlineFormat(b.text)}</p>`; return; }
+      fechaCaixa();
+      if (b.type === 'code') html += codeHtml(b.text);
+      // A imagem posicionada não entra no fluxo: é desenhada solta por cima.
+      else if (b.type === 'img') { if (!b.positioned) html += imgTagHtml(b.id); }
+      else if (b.type === 'table') html += tableHtml(b.head, b.rows);
+      else if (b.type === 'ul') html += '<ul>' + b.items.map(t => `<li>${inlineFormat(t)}</li>`).join('') + '</ul>';
+      else html += `<p>${inlineFormat(b.text)}</p>`;
+    });
+    fechaCaixa();
+    return html;
   }
 
   /* ===================== Base (template) do slide ===================== */
@@ -491,14 +512,14 @@ window.Deck = (function () {
 
   /* Fundo: a imagem enviada OU a cor + a forma pronta. Os elementos vêm sempre
      por cima dos dois — é o que permite escrever sobre uma imagem de fundo. */
-  function baseSvg(b, semElementos, capa) {
+  function baseSvg(b, semElementos, capa, comAcento) {
     const img = b.origem === 'imagem' && (b.imgPng || b.png);
     let fundo;
     if (img) {
       fundo = `<image href="${img}" x="0" y="0" width="${BASE_SVG_W}" height="${BASE_SVG_H}"
           preserveAspectRatio="xMidYMid slice"/>`;
     } else if (b.tema && window.Temas && Temas.get(b.tema)) {
-      fundo = Temas.desenho(b.tema, b, capa);
+      fundo = Temas.desenho(b.tema, b, capa, comAcento);
     } else {
       fundo = `<rect width="100%" height="100%" fill="${b.fundo}"/>${formasSvg(b)}`;
     }
@@ -551,7 +572,12 @@ window.Deck = (function () {
   /* Rasteriza a base e guarda. Estilo pronto e imagem de fundo saem em JPEG:
      são gradientes de ponta a ponta e em PNG passariam de 1 MB, estourando a
      cota do localStorage. A base montada à mão continua PNG. */
+  /* Sobe quando o desenho dos temas muda: a base salva com o bitmap antigo é
+     redesenhada na próxima abertura. 2 = barra de acento saiu do fundo. */
+  const DESENHO_VERSAO = 2;
+
   async function rasterizarBase(b) {
+    b.desenhoVersao = DESENHO_VERSAO;
     const chapado = b.origem === 'imagem' || !!b.tema;
     const composto = await svgParaPng(baseSvg(b), chapado, 0.94);
     if (composto) b.png = composto;
@@ -577,7 +603,8 @@ window.Deck = (function () {
      desenha uma vez, na primeira abertura. */
   async function garantirBasePng() {
     const b = Storage.getBase();
-    if (b.origem === 'imagem' || !b.tema || (b.png && b.pngCapa)) return;
+    if (b.origem === 'imagem' || !b.tema) return;
+    if (b.png && b.pngCapa && b.desenhoVersao === DESENHO_VERSAO) return;
     await rasterizarBase(b);
     salvarBase(b);
   }
@@ -643,6 +670,30 @@ window.Deck = (function () {
 
   /* Na preview as imagens soltas são elementos interativos, montados à parte
      (arrastar/redimensionar); no PDF elas entram já aqui, estáticas. */
+  /* Barra de acento sob o título: só nos estilos prontos, que a tinham no
+     fundo. null = sem barra (base montada à mão, imagem de fundo, capa). */
+  function acentoDoSlide(b, capa) {
+    if (capa || !b.tema || b.origem === 'imagem' || !window.Temas) return null;
+    return Temas.acentoInfo(b.tema, b);
+  }
+
+  /* Largura útil do slide (.slide-content tem 7% de padding de cada lado). */
+  const CONTEUDO_W_PCT = 86;
+
+  /* "3 / 14" no rodapé; a capa não leva número. */
+  function numeroHtml(opts, capa) {
+    if (capa || !opts || !opts.total) return '';
+    const b = baseAtual();
+    const fundo = b.origem === 'imagem' ? '#ffffff' : (b.fundo || '#ffffff');
+    // Com a faixa colorida do rodapé, o número sobe para não ficar em cima dela.
+    const bottom = b.barra ? 'bottom:6.5%;' : '';
+    return `<div class="slide-num" style="background:${fundo};color:${b.corTexto};${bottom}">`
+      + `${opts.num}<span> / ${opts.total}</span></div>`;
+  }
+
+  /* Na preview as imagens soltas são elementos interativos, montados à parte
+     (arrastar/redimensionar); no PDF elas entram já aqui, estáticas.
+     opts: { comPosicionadas, num, total }. */
   function slideHtml(s, opts) {
     const b = baseAtual();
     const soltas = (opts && opts.comPosicionadas) ? posicionadasHtml(s) : '';
@@ -651,13 +702,17 @@ window.Deck = (function () {
     // As cores vão inline no slide: a capa pode ter cor própria, e assim a
     // janela de impressão herda a mesma regra sem depender do :root.
     const c = coresDoSlide(b, capa);
-    const vars = ` style="--slide-titulo:${c.titulo};--slide-texto:${c.texto};"`;
+    const ac = acentoDoSlide(b, capa);
+    const vars = ` style="--slide-titulo:${c.titulo};--slide-texto:${c.texto};--slide-destaque:${b.destaque || c.titulo};`
+      + (ac ? `--acento-w:${(ac.largura / CONTEUDO_W_PCT * 100).toFixed(2)}%;--acento-1:${ac.d1};--acento-2:${ac.d2};` : '')
+      + '"';
     return `<div class="slide-bg"${png ? ' data-base="1"' : ''}${bgStyle(capa)}></div>
       <div class="slide-content"${vars}>
-        <h1 class="slide-title">${inlineFormat(s.title)}</h1>
+        <h1 class="slide-title${ac ? ' com-acento' : ''}">${inlineFormat(s.title)}</h1>
         <div class="slide-body">${s.bodyHtml}</div>
       </div>
       ${soltas}
+      ${numeroHtml(opts, capa)}
       ${barHtml()}`;
   }
 
@@ -715,7 +770,7 @@ window.Deck = (function () {
 
     els.stage.className = 'deck-stage' + (s.isTitleSlide ? ' title-slide' : '');
     aplicarCoresTexto(els.stage, s.isTitleSlide);
-    els.stage.innerHTML = slideHtml(s);
+    els.stage.innerHTML = slideHtml(s, { num: current + 1, total: slides.length });
     els.page.textContent = `${current + 1} / ${slides.length}`;
     els.prev.disabled = current === 0;
     els.next.disabled = current === slides.length - 1;
@@ -859,9 +914,16 @@ window.Deck = (function () {
   .slide-title{font-size:2.6em;font-weight:800;color:var(--slide-titulo,#3d4a5c);margin:0 0 .1em 0;line-height:1.15;}
   .slide-body{font-size:1.05em;color:var(--slide-texto,#3d4a5c);line-height:1.55;}
   .slide-body p{margin:0 0 .7em 0;}
-  .slide-body ul{margin:.2em 0 0 0;padding-left:1.2em;list-style:disc;}
-  .slide-body li{margin-bottom:.35em;}
+  .slide-body ul{margin:.2em 0 .9em 0;padding-left:0;list-style:none;}
+  .slide-body li{position:relative;padding-left:1.3em;margin-bottom:.6em;}
+  .slide-body li:last-child{margin-bottom:0;}
+  .slide-body li::before{content:'';position:absolute;left:.1em;top:.53em;width:.48em;height:.48em;border-radius:2px;background:var(--slide-destaque,var(--slide-titulo,#3d4a5c));}
   .slide-body strong{color:var(--slide-texto,#3d4a5c);}
+  .slide-title.com-acento::after{content:'';display:block;width:var(--acento-w,8%);height:.13em;margin-top:.26em;border-radius:.07em;background:linear-gradient(90deg,var(--acento-1),var(--acento-2));}
+  .slide-body .slide-callout{background:rgba(0,0,0,.035);background:color-mix(in srgb,var(--slide-destaque,#3d4a5c) 9%,transparent);border-left:4px solid var(--slide-destaque,#3d4a5c);border-radius:0 8px 8px 0;padding:.6em 1em;margin:.3em 0 .7em 0;}
+  .slide-body .slide-callout p:last-child{margin-bottom:0;}
+  .slide-num{position:absolute;right:3%;bottom:2.4%;z-index:2;font-size:.78em;font-weight:700;line-height:1.4;padding:.15em .7em;border-radius:999px;box-shadow:0 0 0 1px rgba(0,0,0,.07);}
+  .slide-num span{font-weight:400;opacity:.6;}
   .slide-body .slide-code{background:#f4f6f8;border:1px solid #e2e6ec;border-left:3px solid #9aa5b4;border-radius:4px;padding:.5em .7em;margin:.5em 0 .8em 0;overflow-x:auto;}
   .slide-body .slide-code code{font-family:Consolas,"Courier New",monospace;font-size:.88em;line-height:1.45;white-space:pre;color:#2f3b4c;display:block;}
   .slide-body .slide-table{width:100%;border-collapse:collapse;margin:.5em 0 .8em 0;font-size:.92em;line-height:1.35;}
@@ -878,9 +940,9 @@ window.Deck = (function () {
   function exportPrint() {
     if (!slides.length) { alert('Sem slides para exportar.'); return; }
     const b = baseAtual();
-    const corpo = slides.map(s =>
+    const corpo = slides.map((s, i) =>
       `<div class="pageBox"><section class="pslide${s.isTitleSlide ? ' title-slide' : ''}">`
-      + slideHtml(s, { comPosicionadas: true }) + '</section></div>'
+      + slideHtml(s, { comPosicionadas: true, num: i + 1, total: slides.length }) + '</section></div>'
     ).join('\n');
 
     // As cores da base entram como variáveis no :root da janela de impressão.
@@ -920,10 +982,14 @@ ${corpo}
     const LINE_H = 0.25;
     const PARA_GAP = 0.12;
     const IMG_MAX_H = 2.6;
+    const ITEM_GAP_PT = 9;                         // respiro entre tópicos da lista
+    const ITEM_GAP_LINES = ITEM_GAP_PT / 72 / LINE_H;   // o mesmo respiro, em "linhas"
     const corTexto = hex(baseAtual().corTexto);
+    const corDestaque = hex(baseAtual().destaque || baseAtual().corTitulo);
     let cursorY = y;
     let pendingRuns = [];
     let estLines = 0;
+    let caixa = [];          // parágrafos da caixa de destaque ainda não desenhados
 
     function flushText() {
       if (!pendingRuns.length) return;
@@ -937,7 +1003,54 @@ ${corpo}
       estLines = 0;
     }
 
+    /* Caixa de destaque: fundo claro na cor do tema + filete à esquerda,
+       espelhando o .slide-callout da tela. */
+    function flushCaixa() {
+      if (!caixa.length) return;
+      const BORDA = 0.055, PAD = 0.12;
+      const runs = [];
+      let linhas = 0;
+      caixa.forEach((texto, k) => {
+        const segs = mdRuns(texto);
+        segs.forEach((seg, i) => {
+          const fim = i === segs.length - 1;
+          runs.push({
+            text: seg.text,
+            options: {
+              bold: seg.bold, breakLine: fim,
+              paraSpaceAfter: fim && k < caixa.length - 1 ? 8 : 0,
+              fontSize: 15, color: corTexto, fontFace: 'Arial',
+            },
+          });
+        });
+        linhas += Math.max(1, Math.ceil(texto.length / (CHARS_PER_LINE - 6)));
+      });
+      const h = linhas * LINE_H + (caixa.length - 1) * 0.11 + PAD * 2;
+      slide.addShape('rect', {
+        x: x + BORDA, y: cursorY, w: w - BORDA, h,
+        fill: { color: corDestaque, transparency: 91 }, line: { type: 'none' },
+      });
+      slide.addShape('rect', {
+        x, y: cursorY, w: BORDA, h,
+        fill: { color: corDestaque }, line: { type: 'none' },
+      });
+      slide.addText(runs, {
+        x: x + BORDA, y: cursorY, w: w - BORDA, h,
+        // margem em pontos, na ordem do pptxgenjs: [esquerda, direita, baixo, cima]
+        valign: 'middle', margin: [PAD * 1.6 * 72, PAD * 1.6 * 72, PAD * 72, PAD * 72],
+        fontSize: 15, color: corTexto, fontFace: 'Arial',
+      });
+      cursorY += h + PARA_GAP;
+      caixa = [];
+    }
+
     blocks.forEach(block => {
+      if (block.type === 'p' && block.callout) {
+        flushText();
+        caixa.push(block.text);
+        return;
+      }
+      flushCaixa();
       if (block.type === 'img') {
         // As soltas são posicionadas à parte, em coordenadas absolutas.
         if (block.positioned) return;
@@ -987,12 +1100,13 @@ ${corpo}
               options: {
                 bold: seg.bold,
                 breakLine: i === segs.length - 1,
-                bullet: i === 0 ? { code: '25CF' } : undefined,
+                bullet: i === 0 ? { code: '25A0' } : undefined,
+                paraSpaceAfter: ITEM_GAP_PT,
                 fontSize: 15, color: corTexto, fontFace: 'Arial',
               },
             });
           });
-          estLines += Math.max(1, Math.ceil(item.length / CHARS_PER_LINE));
+          estLines += Math.max(1, Math.ceil(item.length / CHARS_PER_LINE)) + ITEM_GAP_LINES;
         });
       } else {
         const segs = mdRuns(block.text);
@@ -1011,6 +1125,7 @@ ${corpo}
       }
     });
     flushText();
+    flushCaixa();
   }
 
   function sanitizeFilename(name) {
@@ -1052,7 +1167,7 @@ ${corpo}
 
       const b = baseAtual();
 
-      slides.forEach(s => {
+      slides.forEach((s, i) => {
         const slide = pptx.addSlide();
         const capa = !!s.isTitleSlide;
         const corDoTitulo = hex(coresDoSlide(b, capa).titulo);
@@ -1082,11 +1197,41 @@ ${corpo}
             fontSize: 40, bold: true, color: corDoTitulo, fontFace: 'Arial',
           });
         } else {
+          // Sem fluxo automático: a altura do título sai do número estimado de
+          // linhas, e a barra de acento e o corpo descem junto quando ele quebra.
+          const TITULO_CHARS = 46;
+          const linhasTitulo = Math.max(1, Math.ceil(s.title.length / TITULO_CHARS));
+          const tituloH = linhasTitulo * 0.53 + 0.15;
           slide.addText(s.title, {
-            x: 0.6, y: 0.45, w: 13.333 - 1.2, h: 1.0,
-            fontSize: 32, bold: true, color: corDoTitulo, fontFace: 'Arial',
+            x: 0.6, y: 0.45, w: 13.333 - 1.2, h: tituloH,
+            fontSize: 32, bold: true, color: corDoTitulo, fontFace: 'Arial', valign: 'top',
           });
-          renderPptxBody(slide, s.blocks, 0.6, 1.55, 13.333 - 1.2);
+          let corpoY = 0.45 + tituloH + 0.3;
+          const ac = acentoDoSlide(b, capa);
+          if (ac) {
+            // O PPTX não faz gradiente em forma: a barra sai na primeira cor.
+            const acY = 0.45 + tituloH + 0.02;
+            slide.addShape('roundRect', {
+              x: 0.7, y: acY, w: ac.largura / 100 * 13.333, h: 0.06, rectRadius: 0.03,
+              fill: { color: hex(ac.d1) }, line: { type: 'none' },
+            });
+            corpoY = acY + 0.36;
+          }
+          renderPptxBody(slide, s.blocks, 0.6, corpoY, 13.333 - 1.2);
+
+          // Número do slide no rodapé, como na tela.
+          const NUM_W = 0.95, NUM_H = 0.3;
+          slide.addText([
+            { text: String(i + 1), options: { bold: true } },
+            { text: ` / ${slides.length}`, options: { bold: false } },
+          ], {
+            shape: 'roundRect', rectRadius: NUM_H / 2,
+            x: 13.333 * 0.97 - NUM_W, y: 7.5 * (b.barra ? 0.935 : 0.976) - NUM_H, w: NUM_W, h: NUM_H,
+            align: 'center', valign: 'middle', margin: 0,
+            fontSize: 11, color: hex(b.corTexto), fontFace: 'Arial',
+            fill: { color: b.origem === 'imagem' ? 'FFFFFF' : hex(b.fundo) },
+            line: { color: 'DDDDDD', width: 0.5 },
+          });
         }
         renderPptxPosicionadas(slide, s.blocks);
       });
@@ -1275,7 +1420,7 @@ ${corpo}
     const corT = capa ? (b.capaCor || '#ffffff') : b.corTitulo;
     const corC = capa ? (b.capaCor || '#ffffff') : b.corTexto;
     // Fundo sem os elementos: eles entram como HTML, para poderem ser arrastados.
-    els.baseCanvas.style.backgroundImage = `url('${svgDataUrl(baseSvg(b, true, capa))}')`;
+    els.baseCanvas.style.backgroundImage = `url('${svgDataUrl(baseSvg(b, true, capa, true))}')`;
 
     const zona = (z, classe, rotulo) =>
       `<div class="base-zona ${classe}" style="left:${z.x}%;top:${z.y}%;width:${z.w}%;height:${z.h}%">`

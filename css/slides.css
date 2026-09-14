@@ -199,15 +199,65 @@
   margin: 0 0 .1em 0;
   line-height: 1.15;
 }
+/* Barra de acento dos estilos prontos: acompanha o título, então nunca corta
+   um título que quebrou em duas linhas. Largura e cores vêm do tema. */
+.slide-title.com-acento::after {
+  content: '';
+  display: block;
+  width: var(--acento-w, 8%);
+  height: .13em;
+  margin-top: .26em;
+  border-radius: .07em;
+  background: linear-gradient(90deg, var(--acento-1), var(--acento-2));
+}
 .slide-body {
   font-size: 1.05em;
   color: var(--slide-texto, #3d4a5c);
   line-height: 1.55;
 }
 .slide-body p { margin: 0 0 .7em 0; }
-.slide-body ul { margin: .2em 0 0 0; padding-left: 1.2em; list-style: disc; }
-.slide-body li { margin-bottom: .35em; }
+/* Marcador desenhado (quadradinho na cor de destaque da base) em vez do disc:
+   dá respiro entre os tópicos e amarra a lista às cores do tema. */
+.slide-body ul { margin: .2em 0 .9em 0; padding-left: 0; list-style: none; }
+.slide-body li { position: relative; padding-left: 1.3em; margin-bottom: .6em; }
+.slide-body li:last-child { margin-bottom: 0; }
+.slide-body li::before {
+  content: '';
+  position: absolute;
+  left: .1em;
+  top: .53em;
+  width: .48em;
+  height: .48em;
+  border-radius: 2px;
+  background: var(--slide-destaque, var(--slide-titulo, #3d4a5c));
+}
 .slide-body b, .slide-body strong { color: var(--slide-texto, #3d4a5c); }
+
+/* Caixa de destaque: a explicação que vem depois dos tópicos. */
+.slide-body .slide-callout {
+  background: rgba(0, 0, 0, .035);
+  background: color-mix(in srgb, var(--slide-destaque, #3d4a5c) 9%, transparent);
+  border-left: 4px solid var(--slide-destaque, #3d4a5c);
+  border-radius: 0 8px 8px 0;
+  padding: .6em 1em;
+  margin: .3em 0 .7em 0;
+}
+.slide-body .slide-callout p:last-child { margin-bottom: 0; }
+
+/* Número do slide no rodapé. */
+.slide-num {
+  position: absolute;
+  right: 3%;
+  bottom: 2.4%;
+  z-index: 2;
+  font-size: .78em;
+  font-weight: 700;
+  line-height: 1.4;
+  padding: .15em .7em;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .07);
+}
+.slide-num span { font-weight: 400; opacity: .6; }
 .slide-body .slide-code {
   background: #f4f6f8;
   border: 1px solid #e2e6ec;
