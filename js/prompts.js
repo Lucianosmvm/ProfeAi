@@ -286,7 +286,7 @@ FORMATO DE SAÍDA — siga ao pé da letra, o texto vai direto para um gerador d
 - O corpo do slide vem nas linhas seguintes.
 - O PRIMEIRO slide é a capa: só o título da aula, nada no corpo.
 - Listas: uma linha por item, começando com \`- \`. ${Prompts.slidesDensidade(d).lista}
-- Destaque um termo com \`**negrito**\` — não use itálico, links, notas de rodapé nem emojis.
+- Destaque um termo com \`**negrito**\` — não use itálico, links, notas de rodapé nem emojis. Endereços, comandos, valores e nomes técnicos no meio do texto também vão em \`**negrito**\`, NUNCA entre crases.
 - Deixe uma LINHA EM BRANCO entre a lista e o parágrafo (ou entre dois parágrafos). É a linha em branco que separa os blocos do slide.
 - Tabelas: markdown normal, uma linha por linha da tabela, ex.: \`| Camada | Função |\`, com a linha de traços \`| --- | --- |\` logo abaixo do cabeçalho. No máximo 5 linhas.
 - Código: numa linha só com \`\`\` antes e outra igual depois.

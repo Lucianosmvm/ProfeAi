@@ -354,8 +354,22 @@ window.Deck = (function () {
       .trim();
   }
 
+  /* Crase de código inline (`192.168.1.5`, ``ping``) vira negrito: no slide as
+     crases só poluem. Roda depois de extractCodeBlocks, então os blocos ```
+     ficam intactos. O \*{4,} desfaz o **`x`** que viraria ****x****. */
+  function crasesParaNegrito(text) {
+    return text.replace(/`+([^`\n]+?)`+/g, '**$1**').replace(/\*{4,}/g, '**');
+  }
+
+  /* Título sem as marcas de negrito — para onde não há formatação (PPTX, miniatura). */
+  function semMarcas(t) {
+    return (t || '').replace(/\*\*(.+?)\*\*/g, '$1');
+  }
+
   function parseSlides(raw) {
-    const { text: semCodigo, codes } = extractCodeBlocks(raw || '');
+    const extraido = extractCodeBlocks(raw || '');
+    const codes = extraido.codes;
+    const semCodigo = crasesParaNegrito(extraido.text);
     return splitSlideBlocks(semCodigo).map(block => {
       const lines = block.split('\n');
       const title = cleanTitle(lines.shift());
@@ -749,7 +763,7 @@ window.Deck = (function () {
     slides.forEach((s, i) => {
       const t = document.createElement('div');
       t.className = 'deck-thumb' + (i === current ? ' active' : '');
-      t.innerHTML = `<span class="num">${i + 1}</span>${escapeHtml(s.title.slice(0, 40))}`;
+      t.innerHTML = `<span class="num">${i + 1}</span>${escapeHtml(semMarcas(s.title).slice(0, 40))}`;
       t.onclick = () => { current = i; renderStage(); };
       els.thumbs.appendChild(t);
     });
@@ -1190,8 +1204,9 @@ ${corpo}
           });
         }
 
+        const tituloTxt = semMarcas(s.title);   // título já sai todo em negrito
         if (capa) {
-          slide.addText(s.title, {
+          slide.addText(tituloTxt, {
             x: 0.6, y: 0, w: 13.333 - 1.2, h: 7.5 - 0.16,
             align: 'center', valign: 'middle',
             fontSize: 40, bold: true, color: corDoTitulo, fontFace: 'Arial',
@@ -1200,9 +1215,9 @@ ${corpo}
           // Sem fluxo automático: a altura do título sai do número estimado de
           // linhas, e a barra de acento e o corpo descem junto quando ele quebra.
           const TITULO_CHARS = 46;
-          const linhasTitulo = Math.max(1, Math.ceil(s.title.length / TITULO_CHARS));
+          const linhasTitulo = Math.max(1, Math.ceil(tituloTxt.length / TITULO_CHARS));
           const tituloH = linhasTitulo * 0.53 + 0.15;
-          slide.addText(s.title, {
+          slide.addText(tituloTxt, {
             x: 0.6, y: 0.45, w: 13.333 - 1.2, h: tituloH,
             fontSize: 32, bold: true, color: corDoTitulo, fontFace: 'Arial', valign: 'top',
           });
