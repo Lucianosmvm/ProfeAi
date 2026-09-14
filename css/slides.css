@@ -7,49 +7,69 @@
   position: fixed;
   inset: 0;
   z-index: 100;
-  background: #f7f8fa;
+  background: #f4f5f9;
   color: #3d4a5c;
-  font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+  /* A fonte da interface; o slide em si (.deck-stage) mantém a fonte original,
+     que precisa bater com a exportação. */
+  font-family: var(--font, "Segoe UI", Arial, Helvetica, sans-serif);
   display: flex;
   flex-direction: column;
 }
 .deck-overlay[hidden] { display: none; }
+.deck-stage, .base-canvas { font-family: "Segoe UI", Arial, Helvetica, sans-serif; }
 
 /* ---------- Barra de cima ---------- */
 .deck-top {
-  padding: 12px 18px;
+  padding: 10px 16px;
+  padding-top: calc(10px + env(safe-area-inset-top));
   background: #fff;
-  border-bottom: 1px solid #eceef1;
+  border-bottom: 1px solid #e4e7ef;
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 8px;
   flex: none;
 }
 .deck-top h2 {
-  font-size: 16px;
-  margin: 0;
+  font-size: 15px;
+  margin: 0 0 0 4px;
   font-weight: 700;
-  max-width: 40vw;
+  color: #161b2b;
+  letter-spacing: -.01em;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .deck-top .deck-spacer { flex: 1; }
 .deck-btn {
-  border: 1px solid #eceef1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #d3d8e4;
   background: #fff;
-  color: #3d4a5c;
-  padding: 8px 14px;
-  border-radius: 6px;
+  color: #2b3546;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font: inherit;
   font-size: 13px;
   font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
   cursor: pointer;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .05);
+  transition: background .15s, border-color .15s;
 }
-.deck-btn:hover:not(:disabled) { background: #f7f8fa; }
+.deck-btn .ic { width: 16px; height: 16px; }
+.deck-btn:hover:not(:disabled) { background: #f6f7fb; border-color: #b9c0cf; }
 .deck-btn:disabled { opacity: .45; cursor: default; }
-.deck-btn.primary { background: #3d4a5c; color: #fff; border-color: #3d4a5c; }
-.deck-btn.primary:hover:not(:disabled) { background: #2f3b4c; }
+.deck-btn.primary { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+.deck-btn.primary:hover:not(:disabled) { background: #4338ca; border-color: #4338ca; }
+.deck-btn-icon { padding: 7px; }
+.deck-fechar { border-color: transparent; box-shadow: none; }
+
+/* Abas Texto | Preview: só no celular. */
+.deck-abas { display: none; }
 
 /* ---------- Corpo: editor + preview ---------- */
 .deck-main { flex: 1; display: flex; min-height: 0; }
@@ -70,7 +90,15 @@
   font-size: 12px;
   line-height: 1.5;
   color: #5a6678;
+  flex: none;
 }
+.deck-hint summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #3d4a5c;
+  padding: 2px 0;
+}
+.deck-hint[open] summary { margin-bottom: 4px; }
 .deck-hint code {
   background: #f0f2f5;
   border-radius: 3px;
@@ -305,18 +333,66 @@
 
 /* ---------- Responsivo ---------- */
 @media (max-width: 860px) {
-  .deck-main { flex-direction: column; overflow: auto; }
+  /* Barra de cima: fechar + título + ações só com ícone. */
+  .deck-top { padding: 8px 10px; padding-top: calc(8px + env(safe-area-inset-top)); gap: 6px; }
+  .deck-top h2 { flex: 1; }
+  .deck-top .deck-spacer { display: none; }
+  .deck-top .deck-btn { padding: 8px; min-width: 40px; min-height: 40px; }
+  .deck-top .deck-btn .ic { width: 19px; height: 19px; }
+  .deck-top .deck-btn .lbl { display: none; }
+
+  .deck-abas {
+    display: flex;
+    gap: 4px;
+    margin: 8px 10px 0;
+    padding: 4px;
+    background: #e9ebf2;
+    border-radius: 10px;
+    flex: none;
+  }
+  .deck-aba {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 36px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: #5c6478;
+    background: none;
+    border: none;
+    border-radius: 7px;
+    cursor: pointer;
+  }
+  .deck-aba .ic { width: 16px; height: 16px; }
+  .deck-aba.ativa { background: #fff; color: #4f46e5; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+
+  /* Um painel por vez, ocupando a tela toda. */
+  .deck-main { flex-direction: column; }
+  .deck-main[data-aba="preview"] .deck-editor,
+  .deck-main[data-aba="texto"] .deck-preview { display: none; }
   .deck-editor {
     width: 100%;
     max-width: none;
+    flex: 1;
     border-right: none;
-    border-bottom: 1px solid #eceef1;
-    flex: 0 0 auto;
+    background: transparent;
+    padding: 10px;
   }
-  .deck-editor textarea { height: 26vh; flex: none; }
-  .deck-top h2 { max-width: 100%; width: 100%; }
-  .deck-top .deck-spacer { display: none; }
-  .deck-btn { flex: 1; }
+  .deck-editor textarea { font-size: 16px; border-color: #d3d8e4; }
+
+  .deck-thumbs { padding: 10px; background: transparent; border-bottom: none; }
+  .deck-stage-outer { padding: 8px 10px; }
+  .deck-nav {
+    gap: 10px;
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+    background: #fff;
+    border-top-color: #e4e7ef;
+  }
+  .deck-nav .deck-btn { flex: 1; min-height: 44px; }
+  .deck-nav .deck-page { font-weight: 600; color: #2b3546; }
 }
 
 /* ===== Imagens do slide ===== */
@@ -695,6 +771,10 @@
   cursor: pointer;
 }
 .base-check { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+/* O style.css do app deixa todo label em coluna e dá padding aos inputs:
+   aqui os checkboxes ficam na linha do texto. */
+.base-check, .base-ver-capa, .base-el-check, .base-cores label { flex-direction: row; }
+.deck-overlay input[type="checkbox"] { width: auto; padding: 0; accent-color: #4f46e5; }
 .base-imagem { display: flex; flex-direction: column; gap: 6px; }
 .base-imagem small { color: #5a6678; font-size: 11.5px; line-height: 1.4; }
 
@@ -709,6 +789,15 @@
 .base-nota { flex: 1; font-size: 12px; color: #5a6678; }
 
 @media (max-width: 860px) {
-  .base-corpo { flex-direction: column; }
+  /* Montador da base em tela cheia no celular. */
+  .base-modal { padding: 0; }
+  .base-box { width: 100%; height: 100%; max-height: none; border-radius: 0; }
+  .base-head { padding-top: calc(12px + env(safe-area-inset-top)); }
+  .base-corpo { flex-direction: column; flex: 1; padding: 12px; }
   .base-controles { width: 100%; }
+  .base-temas { max-height: none; overflow: visible; }
+  .base-el-bar .deck-btn { min-height: 36px; }
+  .base-rodape { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .base-nota { display: none; }
+  .base-rodape .deck-btn { flex: 1; min-height: 44px; }
 }

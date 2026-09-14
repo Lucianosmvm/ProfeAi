@@ -787,8 +787,42 @@
           .join('')
       : '';
 
+    renderAgendaLista(map, ano, mes);
     renderAgendaDetalhe();
     updateAgendaSelInfo();
+  }
+
+  /* Lista dos dias com UC no mês exibido (visível só no celular, via CSS). */
+  function renderAgendaLista(map, ano, mes) {
+    const box = $('#agenda-lista');
+    if (agenda.modo !== 'ver') { box.innerHTML = ''; return; }
+    const prefixo = `${ano}-${String(mes + 1).padStart(2, '0')}`;
+    const dias = Object.keys(map).filter(iso => iso.startsWith(prefixo) && map[iso]).sort();
+
+    if (!dias.length) {
+      box.innerHTML = `<h2 class="agenda-lista-titulo">Aulas do mês</h2>
+        <p class="agenda-lista-vazio">Nenhum dia marcado neste mês. Use <strong>Marcar UCs</strong> para montar o cronograma.</p>`;
+      return;
+    }
+
+    box.innerHTML = '<h2 class="agenda-lista-titulo">Aulas do mês</h2>' + dias.map(iso => {
+      const d = fromISO(iso);
+      const uc = map[iso];
+      const item = agenda.aulas[iso];
+      const semana = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+      const tema = item
+        ? `<span class="agenda-li-tema">${escapeHtml(Cronograma.tema(item))}</span>`
+        : '<span class="agenda-li-tema pendente">Aula ainda não gerada</span>';
+      return `<button type="button" class="agenda-li${iso === agenda.detalhe ? ' aberto' : ''}"
+          data-date="${iso}" style="--uc-cor:${corDaUc(uc)}">
+        <span class="agenda-li-data"><b>${d.getDate()}</b><small>${escapeHtml(semana)}</small></span>
+        <span class="agenda-li-info">
+          <span class="agenda-li-uc">${escapeHtml(uc)}${item ? ` ${ic('check')}` : ''}</span>
+          ${tema}
+        </span>
+        ${ic('chev-right')}
+      </button>`;
+    }).join('');
   }
 
   /* ===== Painel do dia: a aula daquela data ===== */
@@ -921,10 +955,20 @@
       if (agenda.modo !== 'ver') return;
       const day = e.target.closest('.agenda-day');
       if (!day) return;
-      agenda.detalhe = agenda.detalhe === day.dataset.date ? null : day.dataset.date;
+      abrirDiaAgenda(day.dataset.date);
+    });
+
+    // Lista do mês (celular): tocar num item abre o mesmo painel do dia.
+    $('#agenda-lista').addEventListener('click', e => {
+      const li = e.target.closest('.agenda-li');
+      if (li) abrirDiaAgenda(li.dataset.date);
+    });
+
+    function abrirDiaAgenda(iso) {
+      agenda.detalhe = agenda.detalhe === iso ? null : iso;
       renderAgenda();
       if (agenda.detalhe) $('#agenda-detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    });
+    }
 
     $$('.agenda-modo').forEach(btn => {
       btn.addEventListener('click', () => {

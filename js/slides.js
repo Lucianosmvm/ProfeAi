@@ -1751,6 +1751,10 @@ ${corpo}
       update();
       if (onChange) onChange(els.src.value);
     });
+    // Abas Texto | Preview (só aparecem no celular; no desktop os dois ficam lado a lado).
+    els.overlay.querySelectorAll('.deck-aba').forEach(b => {
+      b.addEventListener('click', () => mostrarAba(b.dataset.aba));
+    });
     els.prev.addEventListener('click', () => { current--; renderStage(); });
     els.next.addEventListener('click', () => { current++; renderStage(); });
     els.pdfBtn.addEventListener('click', exportPrint);
@@ -1903,8 +1907,21 @@ ${corpo}
     });
   }
 
+  function mostrarAba(aba) {
+    els.overlay.querySelector('.deck-main').dataset.aba = aba;
+    els.overlay.querySelectorAll('.deck-aba').forEach(b => {
+      b.classList.toggle('ativa', b.dataset.aba === aba);
+      b.setAttribute('aria-selected', b.dataset.aba === aba);
+    });
+    if (aba === 'preview') { lastScale = -1; requestScaleStage(); }
+  }
+
   async function open(texto, opts) {
     if (!els) bind();
+    // No celular abre na preview e com a ajuda de formatação recolhida.
+    const celular = matchMedia('(max-width: 860px)').matches;
+    document.getElementById('deck-hint').open = !celular;
+    mostrarAba('preview');
     const o = opts || {};
     titulo = o.titulo || 'Slides';
     onChange = o.onChange || null;

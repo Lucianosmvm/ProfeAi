@@ -1032,43 +1032,98 @@ textarea { resize: vertical; line-height: 1.5; }
   .agenda-modos { display: flex; }
   .agenda-modo { flex: 1; justify-content: center; min-height: 36px; }
   .agenda-apply > * { flex: 1 1 100%; }
+
+  /* Mês compacto: número centralizado e a UC vira uma barrinha colorida
+     (clara = dia marcado; cheia = aula já gerada). O tema vai para a lista. */
   .agenda-grid, .agenda-weekdays { gap: 4px; }
+  .agenda-weekdays span { font-size: .66rem; }
   .agenda-day, .agenda-empty { aspect-ratio: auto; }
   .agenda-day {
-    min-height: 56px;
-    padding: 3px;
-    border-radius: 8px;
+    min-height: 46px;
+    padding: 4px 3px 5px;
+    border-radius: 9px;
+    align-items: center;
   }
-  .agenda-daynum { font-size: .78rem; }
+  .agenda-day.has-uc { background: var(--surface); border-color: var(--border); }
+  .agenda-day.today { border-color: var(--primary); }
+  .agenda-daynum { font-size: .82rem; margin-top: 2px; }
+  .agenda-day.has-uc .agenda-daynum { color: var(--text); }
   .agenda-uctag {
-    font-size: .6rem;
-    padding: 1px 2px;
-    border-radius: 4px;
-    text-align: center;
+    font-size: 0;
+    height: 5px;
+    width: 60%;
+    align-self: center;
+    padding: 0;
+    border-radius: 999px;
+    opacity: .35;
   }
-  /* Sem espaço para o título da aula: fica só o número (A3). */
-  .agenda-aula { font-size: 0; text-align: center; }
-  .agenda-aula b { font-size: .6rem; }
+  .agenda-day.tem-aula .agenda-uctag { opacity: 1; }
+  .agenda-aula { display: none; }
+  .agenda-legend { margin-top: 12px; }
+
   .detail-acoes > * { flex: 1 1 100%; }
 }
 
-/* Telas bem estreitas: célula mínima, tag vira barra colorida
-   colada na base (legenda identifica a UC). */
-@media (max-width: 420px) {
-  .agenda-grid, .agenda-weekdays { gap: 3px; }
-  .agenda-day {
-    min-height: 48px;
-    padding: 2px;
-    border-radius: 6px;
-  }
-  .agenda-daynum { font-size: .72rem; padding-left: 2px; }
-  .agenda-uctag {
-    font-size: 0;           /* esconde o texto; cor + legenda bastam */
-    height: 8px;
-    padding: 0;
-    border-radius: 3px;
-  }
-  .agenda-aula { display: none; }
+/* ===== Lista do mês (Agenda, só no celular) ===== */
+.agenda-lista { display: none; }
+.agenda-lista-titulo {
+  margin: 0 0 10px;
+  font-size: .8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-muted);
+}
+.agenda-lista-vazio { margin: 0; color: var(--text-muted); font-size: .9rem; }
+.agenda-li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 10px 12px 10px 10px;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--uc-cor);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+}
+.agenda-li.aberto { border-color: var(--primary); border-left-color: var(--uc-cor); box-shadow: 0 0 0 3px rgba(79, 70, 229, .12); }
+.agenda-li > .ic { color: var(--text-soft); }
+.agenda-li-data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 40px;
+  flex: none;
+  line-height: 1.1;
+}
+.agenda-li-data b { font-size: 1.2rem; }
+.agenda-li-data small { font-size: .7rem; color: var(--text-muted); text-transform: capitalize; }
+.agenda-li-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.agenda-li-uc {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--uc-cor);
+}
+.agenda-li-uc .ic { width: 13px; height: 13px; stroke-width: 2.5; color: var(--success); }
+.agenda-li-tema {
+  font-size: .9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.agenda-li-tema.pendente { color: var(--text-soft); font-weight: 400; font-style: italic; }
+@media (max-width: 760px) {
+  .agenda-lista { display: block; margin-top: 24px; }
 }
 
 /* ===== Impressão (PDF) ===== */
