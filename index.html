@@ -347,7 +347,13 @@
       <section class="view" id="view-resultado">
         <div class="result-header no-print">
           <button type="button" class="btn-voltar" id="btn-voltar" aria-label="Voltar"><svg class="ic"><use href="#i-chev-left"/></svg></button>
-          <h1 id="result-title">Resultado</h1>
+          <h1 id="result-title" title="Renomear">Resultado</h1>
+          <button type="button" class="btn-renomear" id="btn-renomear" aria-label="Renomear" title="Renomear"><svg class="ic"><use href="#i-pencil"/></svg></button>
+          <form class="form-renomear" id="form-renomear" hidden>
+            <input type="text" id="renomear-input" maxlength="150" autocomplete="off" aria-label="Nome do material">
+            <button type="submit" class="btn-primary btn-icon" aria-label="Salvar nome"><svg class="ic"><use href="#i-check"/></svg></button>
+            <button type="button" class="btn-secondary btn-icon" id="renomear-cancelar" aria-label="Cancelar"><svg class="ic"><use href="#i-x"/></svg></button>
+          </form>
         </div>
         <div class="resultado-layout">
         <aside class="resultado-painel no-print" id="resultado-painel">

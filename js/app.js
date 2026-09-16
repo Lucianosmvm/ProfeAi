@@ -201,6 +201,15 @@
       const id = Date.now().toString(36);
       state.current.conteudo = texto;
       state.current.id = id;
+      // O nome vem do título que a IA escreveu no material — o pedido do
+      // professor ("Conteúdos", "aula 3"...) raramente diz do que a aula trata.
+      const tituloGerado = tituloDoConteudo(tipo, texto);
+      if (tituloGerado) {
+        titulo = tituloGerado;
+        if (tipo === 'aula') params.tema = tituloGerado;   // Agenda e materiais derivados usam o tema
+        state.current.titulo = titulo;
+        $('#result-title').textContent = titulo;
+      }
       Storage.addUsage(usage?.total);
       renderUsage(usage);
       Storage.addHistoryItem({
@@ -232,6 +241,7 @@
   /* Prepara a tela de Resultado para uma geração nova. */
   function abrirResultado(tipo, params, titulo) {
     state.current = { tipo, params, titulo, conteudo: '' };
+    editarNome(false);
     $('#result-title').textContent = titulo || Prompts.labels[tipo] || 'Resultado';
     togglePresentBtn(tipo);
     renderChain(tipo);
@@ -384,8 +394,61 @@
     const c = state.current;
     if (!c) return 'documento';
     const fn = Prompts.titulo[c.tipo];
-    return (fn && fn(c.params || {})) || c.titulo || 'documento';
+    return c.titulo || (fn && fn(c.params || {})) || 'documento';
   }
+
+  /* ===== Nome do material =====
+     Título escrito pela IA no topo do material: o primeiro "# " ou "## " — nos
+     slides, a primeira linha (a capa). Sem marcações de negrito. */
+  const TITULO_MAX = 150;
+
+  function tituloDoConteudo(tipo, texto) {
+    const linhas = String(texto || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    let bruto = '';
+    if (tipo === 'slides') bruto = (linhas[0] || '').replace(/^#+\s*/, '');
+    else {
+      const titulo = linhas.find(l => /^#{1,2}\s+\S/.test(l));
+      bruto = titulo ? titulo.replace(/^#{1,2}\s+/, '') : '';
+    }
+    const limpo = bruto.replace(/[*_`]/g, '').replace(/\s+/g, ' ').replace(/[:\s]+$/, '').trim();
+    return limpo.slice(0, TITULO_MAX);
+  }
+
+  function editarNome(on) {
+    const c = state.current;
+    if (on && (!c?.id || state.generating)) return;   // ainda gerando: não há item para renomear
+    $('#form-renomear').hidden = !on;
+    $('#result-title').hidden = on;
+    $('#btn-renomear').hidden = on;
+    if (on) {
+      const input = $('#renomear-input');
+      input.value = c.titulo || '';
+      input.focus();
+      input.select();
+    }
+  }
+
+  $('#btn-renomear').addEventListener('click', () => editarNome(true));
+  $('#result-title').addEventListener('click', () => editarNome(true));
+  $('#renomear-cancelar').addEventListener('click', () => editarNome(false));
+  $('#renomear-input').addEventListener('keydown', e => { if (e.key === 'Escape') editarNome(false); });
+
+  $('#form-renomear').addEventListener('submit', e => {
+    e.preventDefault();
+    const c = state.current;
+    const nome = $('#renomear-input').value.replace(/\s+/g, ' ').trim().slice(0, TITULO_MAX);
+    if (!c?.id || !nome || nome === c.titulo) { editarNome(false); return; }
+    c.titulo = nome;
+    const patch = { titulo: nome };
+    // A aula também é chamada pelo tema na Agenda e nos materiais gerados dela.
+    if (c.tipo === 'aula') {
+      c.params = { ...(c.params || {}), tema: nome };
+      patch.params = c.params;
+    }
+    Storage.updateHistoryItem(c.id, patch);
+    $('#result-title').textContent = nome;
+    editarNome(false);
+  });
 
   /* ===== Folha do aluno × gabarito =====
      Em prova e atividade, a tela, a impressão, o Word e o Copiar seguem a
@@ -1034,6 +1097,7 @@
       id: item.id, tipo: item.tipo, params: item.params, titulo: item.titulo,
       conteudo: item.conteudo, conteudoHtml: item.conteudoHtml,
     };
+    editarNome(false);
     $('#result-title').textContent = item.titulo || Prompts.labels[item.tipo] || 'Resultado';
     setEditUI(false);
     $('#result-content').innerHTML = item.conteudoHtml ? Seguro.html(item.conteudoHtml) : Seguro.md(item.conteudo);

@@ -806,6 +806,34 @@ textarea { resize: vertical; line-height: 1.5; }
   background: #f2f4f7;
 }
 
+/* ===== Renomear material ===== */
+.result-header { justify-content: flex-start; }
+#result-title { cursor: pointer; }
+.btn-renomear {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  color: var(--text-soft);
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.btn-renomear:hover { color: var(--primary); background: var(--primary-soft); }
+.btn-renomear .ic { width: 17px; height: 17px; }
+.form-renomear { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+.form-renomear input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  font-weight: 700;
+  padding: 6px 10px;
+}
+.form-renomear .btn-icon { min-width: 40px; min-height: 40px; }
+
 /* ===== Folha do aluno × gabarito ===== */
 .vista-impressao {
   display: flex;
