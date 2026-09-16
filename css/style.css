@@ -744,6 +744,51 @@ textarea { resize: vertical; line-height: 1.5; }
   background: #f2f4f7;
 }
 
+/* ===== Folha do aluno × gabarito ===== */
+.vista-impressao {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 0 0 16px;
+}
+.vista-impressao.desativado { opacity: .5; pointer-events: none; }
+.vista-label { font-size: .85rem; color: var(--text-muted); font-weight: 500; }
+.segmentado {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.segmentado button {
+  font: inherit;
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-radius: 7px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.segmentado button:hover { color: var(--text); }
+.segmentado button.ativo { background: var(--surface); color: var(--primary); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+
+.result-content.vista-aluno > .bloco-gabarito,
+.result-content.vista-aluno > .bloco-adaptacao,
+.result-content.vista-gabarito > :not(.bloco-gabarito):not(h1:first-child) { display: none; }
+/* Completo: na tela, uma divisória marca onde começa a parte do professor. */
+.result-content:not(.vista-gabarito) > .bloco-gabarito {
+  margin-top: 28px;
+  padding-top: 8px;
+  border-top: 2px dashed var(--border-strong);
+}
+.result-content > .bloco-gabarito > hr:first-child { display: none; }
+
+.aviso-lgpd { color: #92400e; }
+
 /* ===== Editar resultado ===== */
 .result-content.editing {
   outline: 2px dashed var(--primary);
@@ -1110,6 +1155,8 @@ textarea { resize: vertical; line-height: 1.5; }
   .result-content th, .result-content td { min-width: 110px; }
 
   .result-chain .chain-label { flex-basis: 100%; }
+  .vista-impressao .segmentado { display: flex; width: 100%; }
+  .vista-impressao .segmentado button { flex: 1; min-height: 38px; padding: 6px 4px; }
   .result-chain button { flex: 1; min-height: 40px; }
   .chain-opts > .btn-primary { flex: 1 1 100%; }
 
@@ -1227,5 +1274,7 @@ textarea { resize: vertical; line-height: 1.5; }
   body, .main { background: #fff; padding: 0; max-width: none; }
   .layout { display: block; }
   .result-content { border: none; box-shadow: none; padding: 0; }
+  /* Impressão completa: o gabarito começa numa folha nova, fácil de separar. */
+  .result-content:not(.vista-gabarito) > .bloco-gabarito { break-before: page; border-top: none; margin-top: 0; }
   .result-content.editing { outline: none; background: none; }
 }

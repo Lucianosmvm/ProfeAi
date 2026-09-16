@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/slides.css">
   <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.7/dist/purify.min.js"></script>
 </head>
 <body>
   <!-- Ícones (traço no estilo Lucide). Uso: <svg class="ic"><use href="#i-nome"/></svg> -->
@@ -44,12 +45,13 @@
       <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
       <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></symbol>
       <symbol id="i-cloud-off" viewBox="0 0 24 24"><path d="m2 2 20 20"/><path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193"/><path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07"/></symbol>
-      <symbol id="i-x"viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+      <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="m18 14 4 4-4 4"/><path d="m18 2 4 4-4 4"/><path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-7.6a4 4 0 0 1 3.3-1.7H22"/><path d="M2 6h1.972a4 4 0 0 1 3.228 1.638l.6.83"/><path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
       <symbol id="i-palette" viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r="1" fill="currentColor"/><circle cx="17.5" cy="10.5" r="1" fill="currentColor"/><circle cx="8.5" cy="7.5" r="1" fill="currentColor"/><circle cx="6.5" cy="12.5" r="1" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></symbol>
       <symbol id="i-scissors" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></symbol>
       <symbol id="i-image" viewBox="0 0 24 24"><path d="M16 5h6"/><path d="M19 2v6"/><path d="M21 11.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7.5"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/><circle cx="9" cy="9" r="2"/></symbol>
       <symbol id="i-undo" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h8"/></symbol>
-      <symbol id="i-eraser"viewBox="0 0 24 24"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></symbol>
+      <symbol id="i-eraser" viewBox="0 0 24 24"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></symbol>
     </defs>
   </svg>
 
@@ -146,7 +148,8 @@
             <p class="form-hint">Marque as necessidades da turma. O material já sai adaptado — e o que for gerado a partir dele também.</p>
             <div class="check-grid" id="adaptacoes-lista"></div>
             <label>Observações sobre o aluno / turma (opcional)
-              <input type="text" name="adaptobs" placeholder="Ex.: aluno usa leitor de tela">
+              <input type="text" name="adaptobs" placeholder="Ex.: um aluno usa leitor de tela">
+              <small class="aviso-lgpd">Não escreva o nome do aluno: necessidade de saúde ligada a um nome é dado pessoal sensível (LGPD), e este texto vai para a IA e para o seu Drive.</small>
             </label>
           </details>
 
@@ -323,6 +326,15 @@
           <button type="button" class="btn-primary" id="slides-gerar"><svg class="ic"><use href="#i-present"/></svg>Gerar slides</button>
           <small class="chain-opts-hint">Mais texto no slide ajuda a conduzir a aula; para projetar, prefira Enxuto.</small>
         </div>
+        <!-- Prova/atividade: escolhe o que aparece, imprime e vai para o Word. -->
+        <div class="vista-impressao no-print" id="vista-impressao" hidden>
+          <span class="vista-label">Imprimir e baixar:</span>
+          <div class="segmentado" role="group" aria-label="O que imprimir e baixar">
+            <button type="button" data-vista="completo" class="ativo">Completo</button>
+            <button type="button" data-vista="aluno">Folha do aluno</button>
+            <button type="button" data-vista="gabarito">Gabarito</button>
+          </div>
+        </div>
         <div id="result-status" class="result-status no-print" hidden>
           <span class="spinner"></span> Gerando…
         </div>
@@ -491,6 +503,7 @@
     </div>
   </div>
 
+  <script src="js/seguro.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/prompts.js"></script>
   <script src="js/cronograma.js"></script>
@@ -499,6 +512,7 @@
   <script src="js/vendor/pptxgen.bundle.js"></script>
   <script src="js/temas.js"></script>
   <script src="js/slides.js"></script>
+  <script src="js/avaliacao.js"></script>
   <script src="js/drive.js"></script>
   <script src="js/app.js"></script>
 </body>

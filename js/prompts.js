@@ -264,16 +264,23 @@ Prompts.labels = {
 
 /* Regras de formatação do material-alvo, sem depender de campos de formulário. */
 const CHAIN_RULES = {
+  /* O formato das questões e o título "## Gabarito" são fixos de propósito:
+     é por eles que o app separa a folha do aluno do gabarito e monta as
+     versões embaralhadas da prova. */
   atividade: `Crie uma atividade de fixação coerente com o material base.
 - Comece com título, objetivo da atividade e tempo estimado.
-- 8 a 10 questões numeradas, variando entre múltipla escolha (A–D), dissertativa e verdadeiro/falso. Nas de múltipla escolha, escreva CADA alternativa em sua própria linha (A), B), C)...), uma por linha.
-- Ao final, inclua a seção **Gabarito comentado** com a resposta e uma breve justificativa de cada questão.`,
+- 8 a 10 questões, variando entre múltipla escolha (A–D), dissertativa e verdadeiro/falso.
+- Cada questão começa numa linha própria, exatamente assim: **Questão N** — e o enunciado vem na linha seguinte.
+- Nas de múltipla escolha, escreva CADA alternativa em sua própria linha (A), B), C)...), uma por linha.
+- Ao final, crie a seção com o título exato \`## Gabarito\` e, dentro dela, a resposta e uma breve justificativa de cada questão. Nada de respostas antes dessa seção.`,
 
   prova: `Crie uma prova formal de múltipla escolha coerente com o material base.
 - Comece com cabeçalho (linhas para nome, turma e data) e instruções breves.
-- 10 questões, 5 alternativas (A–E), apenas uma correta, distratores plausíveis. Escreva CADA alternativa em sua própria linha (A), B), C), D), E)), uma por linha.
-- Distribua a pontuação (total 10 pontos) e indique o valor de cada questão.
-- Ao final, após uma linha "---", inclua o **Gabarito** em tabela (questão × resposta) com justificativa curta.`,
+- 10 questões, 5 alternativas (A–E), apenas uma correta, distratores plausíveis.
+- Cada questão começa numa linha própria, exatamente assim: **Questão N** (X pontos) — e o enunciado vem na linha seguinte.
+- Escreva CADA alternativa em sua própria linha (A), B), C), D), E)), uma por linha.
+- Distribua a pontuação (total 10 pontos).
+- Ao final, crie a seção com o título exato \`## Gabarito\` e, dentro dela, uma tabela \`| Questão | Resposta | Justificativa |\` com uma linha por questão (número da questão e a letra correta). Nada de respostas antes dessa seção.`,
 
   /* O texto vai direto para o editor de slides (js/slides.js), que separa os
      slides pelo `---` e lê a PRIMEIRA LINHA do bloco como título. Qualquer

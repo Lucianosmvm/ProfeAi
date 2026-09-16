@@ -122,7 +122,7 @@
     try {
       for await (const chunk of Api.stream(promptText)) {
         texto += chunk;
-        $('#result-content').innerHTML = marked.parse(texto);
+        $('#result-content').innerHTML = Seguro.md(texto);
       }
       const usage = Api.lastUsage;
       const id = Date.now().toString(36);
@@ -140,6 +140,7 @@
         usage,
       });
       refreshUcList();
+      prepararVista();
       if (Api.truncou()) avisarTruncado();
     } catch (err) {
       mostrarErro(err, texto);
@@ -164,6 +165,8 @@
     $('#result-content').innerHTML = '';
     $('#result-status').hidden = false;
     setStatus('Gerando…');
+    $('#vista-impressao').hidden = true;
+    setVista('completo');
     renderUsage(null);
     location.hash = '#/resultado';
   }
@@ -193,13 +196,14 @@
       let parcial = '';
       for await (const chunk of Api.stream(Prompts.continuar(tipo, texto))) {
         parcial += chunk;
-        $('#result-content').innerHTML = marked.parse(texto + parcial);
+        $('#result-content').innerHTML = Seguro.md(texto + parcial);
       }
       texto = texto + parcial;
       state.current.conteudo = texto;
       Storage.addUsage(Api.lastUsage?.total);
       renderUsage(Api.lastUsage);
       if (id) Storage.updateHistoryItem(id, { conteudo: texto, conteudoHtml: null });
+      prepararVista();
       if (Api.truncou()) avisarTruncado();
     } catch (err) {
       mostrarErro(err, texto);
@@ -213,7 +217,7 @@
   function mostrarErro(err, textoParcial) {
     const msg = `<p class="erro-geracao">⚠️ ${escapeHtml(Api.friendlyError(err))}</p>`;
     $('#result-content').innerHTML = textoParcial
-      ? marked.parse(textoParcial) + msg
+      ? Seguro.md(textoParcial) + msg
       : msg;
   }
 
@@ -305,10 +309,53 @@
     return (fn && fn(c.params || {})) || c.titulo || 'documento';
   }
 
+  /* ===== Folha do aluno × gabarito =====
+     Em prova e atividade, a tela, a impressão, o Word e o Copiar seguem a
+     vista escolhida: completo, só a folha do aluno ou só o gabarito. */
+  const SUFIXO_VISTA = { completo: '', aluno: ' - folha do aluno', gabarito: ' - gabarito' };
+  state.vista = 'completo';
+
+  function setVista(vista) {
+    state.vista = vista;
+    const box = $('#result-content');
+    box.classList.toggle('vista-aluno', vista === 'aluno');
+    box.classList.toggle('vista-gabarito', vista === 'gabarito');
+    $$('#vista-impressao [data-vista]').forEach(b => b.classList.toggle('ativo', b.dataset.vista === vista));
+  }
+
+  /* Depois de o conteúdo estar na tela: acha o gabarito e mostra o seletor. */
+  function prepararVista() {
+    const tipo = state.current?.tipo;
+    const tem = (tipo === 'prova' || tipo === 'atividade') && Avaliacao.marcar($('#result-content'));
+    $('#vista-impressao').hidden = !tem;
+    if (!tem) setVista('completo');
+  }
+
+  $$('#vista-impressao [data-vista]').forEach(b => {
+    b.addEventListener('click', () => {
+      if ($('#result-content').contentEditable === 'true') return;   // editando: sempre completo
+      setVista(b.dataset.vista);
+    });
+  });
+
+  /* Conteúdo da tela na vista atual (ou na pedida), já sem avisos da interface. */
+  function recorteAtual(vista = state.vista) {
+    return Avaliacao.recorte($('#result-content'), vista);
+  }
+
+  /* innerText só respeita quebras de parágrafo num elemento que está na página. */
+  function textoDe(el) {
+    el.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;';
+    document.body.appendChild(el);
+    const texto = el.innerText.trim();
+    el.remove();
+    return texto;
+  }
+
   $('#btn-copy').addEventListener('click', async () => {
     if (!state.current?.conteudo) return;
-    // innerText reflete edições feitas no modo Editar; sem edição, é o markdown renderizado.
-    const texto = $('#result-content').innerText.trim() || state.current.conteudo;
+    // Lê a tela: inclui edições feitas no modo Editar e respeita a vista escolhida.
+    const texto = textoDe(recorteAtual()) || state.current.conteudo;
     await navigator.clipboard.writeText(texto);
     flash($('#btn-copy'), 'Copiado!', 'check');
   });
@@ -318,7 +365,7 @@
   $('#btn-word').addEventListener('click', () => {
     if (!state.current?.conteudo) return;
     // .doc aceita HTML; Word abre normalmente. Lê o DOM p/ incluir edições.
-    const corpo = $('#result-content').innerHTML || marked.parse(state.current.conteudo);
+    const corpo = recorteAtual().innerHTML || Seguro.md(state.current.conteudo);
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
       <style>body{font-family:Calibri,Arial,sans-serif;line-height:1.5}
       table{border-collapse:collapse}td,th{border:1px solid #999;padding:6px 10px}</style>
@@ -326,14 +373,63 @@
     const blob = new Blob(['﻿', html], { type: 'application/msword' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = sanitizeFilename(tituloAtual()) + '.doc';
+    a.download = sanitizeFilename(tituloAtual() + SUFIXO_VISTA[state.vista]) + '.doc';
     a.click();
     URL.revokeObjectURL(a.href);
   });
 
+  /* ===== Versão embaralhada da prova =====
+     Sem IA e sem custo: as questões e as alternativas trocam de ordem e o
+     gabarito é refeito para a nova ordem. Cada versão vira um item próprio. */
+  function gerarVersao() {
+    const atual = state.current;
+    if (!atual?.conteudo || state.generating) return;
+    const raizId = atual.params?.versaoDe || atual.id;
+    const historico = Storage.getHistory();
+    const raiz = historico.find(i => i.id === raizId) || atual;
+
+    if (raiz.conteudoHtml && !confirm('Esta prova foi editada na tela. A versão embaralhada parte do texto gerado originalmente, sem essas edições. Continuar?')) return;
+
+    const usadas = new Set(historico.filter(i => i.params?.versaoDe === raizId).map(i => i.params.versao));
+    let letra = 'B';
+    while (usadas.has(letra) && letra < 'Z') letra = String.fromCharCode(letra.charCodeAt(0) + 1);
+
+    let conteudo;
+    try {
+      conteudo = Avaliacao.embaralhar(raiz.conteudo, letra);
+    } catch (err) {
+      alert(`⚠️ ${err.message}\n\nA versão embaralhada precisa das questões numeradas e da seção "Gabarito". Provas geradas agora já saem nesse formato.`);
+      return;
+    }
+
+    const item = {
+      id: Date.now().toString(36),
+      tipo: 'prova',
+      titulo: `${raiz.titulo} (Versão ${letra})`,
+      data: new Date().toISOString(),
+      params: { ...raiz.params, versaoDe: raizId, versao: letra },
+      conteudo,
+    };
+    Storage.addHistoryItem(item);
+    openHistoryItem(item);
+  }
+
   $('#btn-regenerate').addEventListener('click', () => {
     const c = state.current;
     if (!c || state.generating) return;
+    // Versão embaralhada: embaralha de novo a partir da prova original.
+    if (c.params?.versaoDe) {
+      const raiz = Storage.getHistory().find(i => i.id === c.params.versaoDe);
+      if (!raiz) { alert('A prova original desta versão não está mais no histórico.'); return; }
+      try {
+        const conteudo = Avaliacao.embaralhar(raiz.conteudo, c.params.versao);
+        Storage.updateHistoryItem(c.id, { conteudo, conteudoHtml: null });
+        openHistoryItem(Storage.getHistory().find(i => i.id === c.id));
+      } catch (err) {
+        alert('⚠️ ' + err.message);
+      }
+      return;
+    }
     if (c.tipo === 'aula') {
       // A referência não vive no histórico: vem da UC, como na primeira geração.
       const referencia = Storage.getReferencia(c.params && c.params.uc);
@@ -377,6 +473,10 @@
     const c = $('#result-content');
     c.contentEditable = on ? 'true' : 'false';
     c.classList.toggle('editing', on);
+    // Editando, tudo fica à mostra; ao concluir, o gabarito é reconhecido de novo.
+    if (on) setVista('completo');
+    $('#vista-impressao').classList.toggle('desativado', on);
+    if (!on && state.current?.conteudo) prepararVista();
     $('#btn-edit').innerHTML = on
       ? `${ic('check')}<span class="lbl">Concluir</span>`
       : `${ic('pencil')}<span class="lbl">Editar</span>`;
@@ -439,9 +539,13 @@
     slidesOpts().hidden = true;
     box.innerHTML = targets
       .map(t => `<button class="btn-secondary" data-target="${t}">${ic(ICONE_TIPO[t] || 'file')}${rotulo(t)}</button>`)
-      .join('');
+      .join('')
+      + (tipo === 'prova'
+        ? `<button class="btn-secondary" data-target="versao" title="Mesmas questões, em outra ordem, com o gabarito refeito">${ic('shuffle')}Versão embaralhada</button>`
+        : '');
     box.querySelectorAll('button').forEach(b => {
       b.addEventListener('click', () => {
+        if (b.dataset.target === 'versao') { gerarVersao(); return; }
         // Slides abrem antes o painel de opções (quantidade e densidade).
         if (b.dataset.target === 'slides') { toggleSlidesOpts(); return; }
         generateChain(b.dataset.target);
@@ -551,7 +655,7 @@
     const src = state.current;
     const p = src.params || {};
     // innerText inclui edições feitas no modo Editar; fallback para o markdown original.
-    const srcText = $('#result-content').innerText.trim() || src.conteudo;
+    const srcText = textoDe(recorteAtual('completo')) || src.conteudo;
 
     // A adaptação inclusiva pedida na aula segue para o material derivado.
     const params = {
@@ -672,10 +776,11 @@
     };
     $('#result-title').textContent = item.titulo || Prompts.labels[item.tipo] || 'Resultado';
     setEditUI(false);
-    $('#result-content').innerHTML = item.conteudoHtml || marked.parse(item.conteudo);
+    $('#result-content').innerHTML = item.conteudoHtml ? Seguro.html(item.conteudoHtml) : Seguro.md(item.conteudo);
     togglePresentBtn(item.tipo);
     renderChain(item.tipo);
     renderUsage(item.usage);
+    prepararVista();
     location.hash = '#/resultado';
   }
 
@@ -1292,7 +1397,7 @@
       onChange: texto => {
         c.conteudo = texto;
         c.conteudoHtml = null;
-        $('#result-content').innerHTML = marked.parse(texto);
+        $('#result-content').innerHTML = Seguro.md(texto);
         if (c.id) Storage.updateHistoryItem(c.id, { conteudo: texto, conteudoHtml: null });
       },
     });

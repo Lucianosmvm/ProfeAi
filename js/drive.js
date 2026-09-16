@@ -241,8 +241,7 @@ window.Drive = (function () {
   }
 
   function blobDoc(item) {
-    const corpo = item.conteudoHtml
-      || (window.marked ? marked.parse(item.conteudo || '') : `<pre>${escapar(item.conteudo || '')}</pre>`);
+    const corpo = item.conteudoHtml ? Seguro.html(item.conteudoHtml) : Seguro.md(item.conteudo);
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapar(item.titulo || '')}</title></head><body>${corpo}</body></html>`;
     return new Blob([html], { type: 'text/html' });
   }
