@@ -123,6 +123,39 @@ body {
 .drive-chip.is-sincronizando .ic { animation: spin 1s linear infinite; }
 .drive-chip.is-reconectar, .drive-chip.is-erro { color: #b45309; }
 
+/* Instalar como app. */
+.instalar-box h3 { display: flex; align-items: center; gap: 8px; }
+.instalar-box h3 .ic { color: var(--primary); }
+.instalar-passos { font-size: .88rem; color: var(--text-muted); }
+.instalar-passos:empty { display: none; }
+.banner-instalar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 720px;
+  margin: 0 0 16px;
+  padding: 10px 8px 10px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+.banner-instalar-icone img { display: block; border-radius: 9px; }
+.banner-instalar-texto { flex: 1; font-size: .88rem; font-weight: 500; line-height: 1.35; }
+.banner-instalar .btn-secondary { flex: none; }
+.banner-instalar-fechar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  color: var(--text-soft);
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
 /* Card do Drive em Ajustes. */
 .drive-box h3 { display: flex; align-items: center; gap: 8px; }
 .drive-box h3 .ic { color: var(--primary); }

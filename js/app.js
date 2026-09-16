@@ -1575,10 +1575,68 @@
     }
   });
 
+  /* ===== Instalar como app (PWA) =====
+     Android/Chrome oferece o pedido de instalação (beforeinstallprompt); no
+     iPhone não existe pedido automático — o app mostra o caminho no Safari. */
+  let pedidoInstalar = null;
+  const CHAVE_BANNER = 'profe_banner_instalar_fechado';
+
+  function appInstalado() {
+    return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  }
+
+  function ehIos() {
+    return /iphone|ipad|ipod/i.test(navigator.userAgent)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+
+  function renderInstalar() {
+    const instalado = appInstalado();
+    $('#instalar-btn').hidden = instalado || !pedidoInstalar;
+    $('#instalar-texto').textContent = instalado
+      ? 'Você já está usando o Professor+ instalado.'
+      : 'Coloque o Professor+ na tela inicial: abre como um app, em tela cheia, e o que já foi gerado continua abrindo mesmo sem internet.';
+    $('#instalar-passos').innerHTML = instalado || pedidoInstalar ? '' : ehIos()
+      ? 'No iPhone ou iPad: abra este site no <strong>Safari</strong>, toque em <strong>Compartilhar</strong> e depois em <strong>Adicionar à Tela de Início</strong>.'
+      : 'No Chrome do celular: toque no menu <strong>⋮</strong> e depois em <strong>Instalar app</strong> (ou <strong>Adicionar à tela inicial</strong>).';
+
+    let fechado = false;
+    try { fechado = localStorage.getItem(CHAVE_BANNER) === '1'; } catch { /* sem armazenamento */ }
+    const celular = matchMedia('(pointer: coarse)').matches;
+    $('#banner-instalar').hidden = instalado || fechado || !celular || !(pedidoInstalar || ehIos());
+  }
+
+  async function instalar() {
+    if (!pedidoInstalar) { location.hash = '#/config'; return; }   // iPhone: mostra o passo a passo
+    pedidoInstalar.prompt();
+    await pedidoInstalar.userChoice;
+    pedidoInstalar = null;
+    renderInstalar();
+  }
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();          // guarda o pedido para o botão do app
+    pedidoInstalar = e;
+    renderInstalar();
+  });
+  window.addEventListener('appinstalled', () => { pedidoInstalar = null; renderInstalar(); });
+
+  $('#instalar-btn').addEventListener('click', instalar);
+  $('#banner-instalar-btn').addEventListener('click', instalar);
+  $('#banner-instalar-fechar').addEventListener('click', () => {
+    try { localStorage.setItem(CHAVE_BANNER, '1'); } catch { /* sem armazenamento */ }
+    renderInstalar();
+  });
+
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
   /* ===== Init ===== */
   // O histórico vem do IndexedDB (assíncrono): a tela só é desenhada depois.
   setModoForm('aula');
   updateKeyStatus();
+  renderInstalar();
   Storage.iniciar().then(() => {
     route();
     carregarDriveConfig();

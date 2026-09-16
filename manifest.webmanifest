@@ -1,0 +1,24 @@
+{
+  "name": "Professor+ AI",
+  "short_name": "Professor+",
+  "description": "Gere aulas, atividades, provas e slides com IA — e guarde tudo organizado por UC.",
+  "lang": "pt-BR",
+  "id": "./",
+  "start_url": "./#/",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f6f7fb",
+  "theme_color": "#ffffff",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Gerar material", "url": "./#/", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Agenda", "url": "./#/agenda", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Histórico", "url": "./#/historico", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

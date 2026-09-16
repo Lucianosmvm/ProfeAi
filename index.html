@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#ffffff">
   <title>Professor+ AI — Gere a aula em minutos</title>
+  <!-- App instalável (PWA) -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Professor+">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="description" content="Gere a aula completa com IA e, a partir dela, a atividade, a prova e os slides. Preencha um formulário, receba material pronto.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -93,6 +101,13 @@
       <section class="view" id="view-aula">
         <h1 id="greeting">Gerar material</h1>
         <p class="subtitle">Descreva a aula e receba o conteúdo pronto para ministrar — ou cole o conteúdo de uma aula antiga e gere direto a atividade ou a prova.</p>
+
+        <div class="banner-instalar no-print" id="banner-instalar" hidden>
+          <span class="banner-instalar-icone"><img src="icons/icon-192.png" alt="" width="36" height="36"></span>
+          <span class="banner-instalar-texto">Instale o Professor+ na tela inicial do celular.</span>
+          <button type="button" class="btn-secondary" id="banner-instalar-btn">Instalar</button>
+          <button type="button" class="banner-instalar-fechar" id="banner-instalar-fechar" aria-label="Não mostrar de novo"><svg class="ic"><use href="#i-x"/></svg></button>
+        </div>
 
         <p class="aviso-chave" id="aviso-chave" hidden>
           <svg class="ic"><use href="#i-key"/></svg>
@@ -244,6 +259,13 @@
           <p id="usage-summary" class="usage-summary"></p>
           <small>As APIs não informam o saldo/quota restante. Este é o total já consumido neste navegador.</small>
         </div>
+        <div class="usage-box instalar-box" id="instalar-box">
+          <h3><svg class="ic"><use href="#i-download"/></svg>Instalar no celular</h3>
+          <p id="instalar-texto">Coloque o Professor+ na tela inicial: abre como um app, em tela cheia, e o que já foi gerado continua abrindo mesmo sem internet.</p>
+          <button type="button" class="btn-primary" id="instalar-btn" hidden><svg class="ic"><use href="#i-download"/></svg>Instalar app</button>
+          <p class="instalar-passos" id="instalar-passos"></p>
+        </div>
+
         <div class="usage-box drive-box" id="drive-box">
           <h3><svg class="ic"><use href="#i-cloud"/></svg>Google Drive</h3>
           <p>Salve cada material no seu Drive, em pastas por UC com <strong>Aulas</strong>, <strong>Atividades</strong>, <strong>Provas</strong> e <strong>Slides</strong> separados — e use o mesmo histórico no celular e no PC. Grátis, no espaço do seu próprio Google Drive.</p>

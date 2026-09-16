@@ -37,6 +37,15 @@ Plataforma web para professores gerarem a **aula** com IA — e, a partir dela, 
 
 A chave fica salva **apenas no seu navegador** (localStorage) e é enviada somente para o provedor de IA escolhido. Nenhum dado passa por servidor próprio.
 
+## Instalar no celular
+
+O app é um PWA: dá para instalar e abrir pelo ícone da tela inicial, em tela cheia.
+
+- **Android (Chrome):** aparece o aviso **Instalar** na tela inicial do app (ou em **Ajustes → Instalar no celular**). Também dá pelo menu **⋮ → Instalar app**.
+- **iPhone/iPad:** abra o site no **Safari**, toque em **Compartilhar → Adicionar à Tela de Início**.
+
+Precisa estar publicado em HTTPS (o GitHub Pages já é). O `sw.js` guarda os arquivos do app: com internet, sempre busca a versão nova; sem internet, abre a cópia guardada — o histórico e os materiais já gerados continuam acessíveis (gerar precisa de internet). Os ícones ficam em `icons/`.
+
 ## Google Drive
 
 Grátis e sem servidor: o login é feito pelo Google Identity Services direto no navegador, e o app usa só os escopos `drive.file` (enxerga apenas os arquivos que ele mesmo criou) e `drive.appdata` (o arquivo oculto de sincronização).
