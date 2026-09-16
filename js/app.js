@@ -93,15 +93,75 @@
     const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
     $('#greeting').textContent = nome ? `${saudacao}, ${nome}` : 'Gerar material';
 
+    const hoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+    $('#saudacao-data').textContent = hoje.charAt(0).toUpperCase() + hoje.slice(1);
+
     $('#aviso-chave').hidden = !!Storage.getApiKey();
     updateAulaHint();
-
-    const recent = Storage.getHistory().slice(0, 3);
-    const box = $('#home-recent');
-    if (!recent.length) { box.innerHTML = ''; return; }
-    box.innerHTML = '<h2>Recentes</h2>' + recent.map(historyItemHtml).join('');
-    bindHistoryActions(box);
+    renderPainelSemana();
   }
+
+  /* ===== Painel da semana (tela Gerar) =====
+     Próximas aulas marcadas na Agenda e os materiais mais recentes: no PC ocupa
+     a coluna da direita; no celular vem depois do formulário. */
+  const PROXIMAS_MAX = 5;
+  const RECENTES_MAX = 5;
+
+  function renderPainelSemana() {
+    const hojeISO = toISO(new Date());
+    const agendaMap = Storage.getAgenda();
+    const aulas = Cronograma.mapa();
+    const proximas = Object.keys(agendaMap)
+      .filter(iso => iso >= hojeISO && agendaMap[iso])
+      .sort()
+      .slice(0, PROXIMAS_MAX);
+
+    const boxProx = $('#painel-proximas');
+    boxProx.innerHTML = proximas.length
+      ? proximas.map(iso => {
+        const d = fromISO(iso);
+        const quando = iso === hojeISO
+          ? 'Hoje'
+          : d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '');
+        const aula = aulas[iso];
+        return `<button type="button" class="painel-item painel-aula" data-date="${iso}" style="--uc-cor:${corDaUc(agendaMap[iso])}">
+          <span class="painel-item-meta">${escapeHtml(quando)} · ${escapeHtml(agendaMap[iso])}</span>
+          <span class="painel-item-titulo${aula ? '' : ' pendente'}">${aula ? escapeHtml(Cronograma.tema(aula)) : 'Aula ainda não gerada'}</span>
+        </button>`;
+      }).join('')
+      : '<p class="painel-vazio">Nenhuma aula marcada daqui para frente. <a href="#/agenda">Montar o cronograma</a></p>';
+
+    const recentes = Storage.getHistory().slice(0, RECENTES_MAX);
+    const boxRec = $('#home-recent');
+    boxRec.innerHTML = recentes.length
+      ? recentes.map(item => `<button type="button" class="painel-item painel-recente" data-id="${item.id}">
+          <span class="painel-item-icone">${ic(ICONE_TIPO[item.tipo] || 'file')}</span>
+          <span class="painel-item-texto">
+            <span class="painel-item-titulo">${escapeHtml(item.titulo)}</span>
+            <span class="painel-item-meta">${rotulo(item.tipo)}${ucOf(item) ? ' · ' + escapeHtml(ucOf(item)) : ''}</span>
+          </span>
+        </button>`).join('')
+      : '<p class="painel-vazio">O que você gerar aparece aqui.</p>';
+  }
+
+  // Dia da Agenda: abre a aula pronta ou leva o dia para o formulário.
+  $('#painel-proximas').addEventListener('click', e => {
+    const btn = e.target.closest('.painel-aula');
+    if (!btn) return;
+    const info = Cronograma.info(btn.dataset.date);
+    if (!info) return;
+    if (info.aula) openHistoryItem(info.aula);
+    else {
+      prefillAulaDaAgenda(btn.dataset.date, info);
+      $('#form-aula').elements.pedido.focus();
+    }
+  });
+
+  $('#home-recent').addEventListener('click', e => {
+    const btn = e.target.closest('.painel-recente');
+    const item = btn && Storage.getHistory().find(i => i.id === btn.dataset.id);
+    if (item) openHistoryItem(item);
+  });
 
   /* Checkboxes de adaptação inclusiva, montados a partir da lista de prompts. */
   (function montarAdaptacoes() {
