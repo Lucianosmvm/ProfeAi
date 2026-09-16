@@ -312,16 +312,49 @@ window.Drive = (function () {
       history: Storage.getHistory(),
       excluidos: Storage.getExcluidos(),
       agenda: Storage.getAgenda(),
+      agendaTempos: Storage.getAgendaTempos(),
       agendaEm: Storage.getAgendaEm(),
       referencias: Storage.getReferencias(),
+      referenciasTempos: Storage.getReferenciasTempos(),
       referenciasEm: Storage.getReferenciasEm(),
     };
+  }
+
+  /* Mescla chave a chave (dia da agenda, UC da referência): vence a mudança
+     mais recente daquela chave, seja marcar, trocar ou desmarcar. Chave sem
+     instante próprio (dados de antes desta regra) usa o instante do mapa
+     inteiro (`em`) — assim, na primeira sincronização, o que só existe de um
+     lado é somado ao outro em vez de apagado. */
+  function mesclarPorChave(local, remoto) {
+    const lados = [local, remoto].map(l => ({
+      mapa: l.mapa || {},
+      tempos: l.tempos || {},
+      em: l.em || 0,
+    }));
+    const quando = (lado, k) => lado.tempos[k] || (k in lado.mapa ? lado.em : 0);
+
+    const mapa = {};
+    const tempos = {};
+    const limite = Date.now() - EXCLUIDOS_DIAS * 86400000;
+    const chaves = new Set(lados.flatMap(l => [...Object.keys(l.mapa), ...Object.keys(l.tempos)]));
+    chaves.forEach(k => {
+      // Empate: o lado local vence (é o que está na tela deste aparelho).
+      const [loc, rem] = lados;
+      const vencedor = quando(rem, k) > quando(loc, k) ? rem : loc;
+      const t = quando(vencedor, k);
+      const valor = vencedor.mapa[k];
+      if (valor) mapa[k] = valor;
+      // Desmarcação antiga não precisa mais ser lembrada.
+      if (t && (valor || t >= limite)) tempos[k] = t;
+    });
+    return { mapa, tempos };
   }
 
   /* ===== Mesclagem =====
      Item: vence o `atualizadoEm` maior; o vínculo com o arquivo do Drive
      (`drive`) é aproveitado de qualquer um dos lados. Exclusão: apaga o item
-     se for mais recente que ele. Agenda e referências: vence a mais recente. */
+     se for mais recente que ele. Agenda e referências: dia a dia e UC a UC
+     (mesclarPorChave). */
   function mesclar(local, remoto) {
     const vale = i => i.atualizadoEm || Date.parse(i.data) || 0;
     const melhorDrive = (a, b) => (!a ? b : !b ? a : ((a.versao || 0) >= (b.versao || 0) ? a : b));
@@ -360,15 +393,21 @@ window.Drive = (function () {
     });
     history.sort((a, b) => new Date(b.data) - new Date(a.data));
 
-    const agendaRemota = (remoto.agendaEm || 0) > (local.agendaEm || 0);
-    const refsRemotas = (remoto.referenciasEm || 0) > (local.referenciasEm || 0);
+    const agenda = mesclarPorChave(
+      { mapa: local.agenda, tempos: local.agendaTempos, em: local.agendaEm },
+      { mapa: remoto.agenda, tempos: remoto.agendaTempos, em: remoto.agendaEm },
+    );
+    const referencias = mesclarPorChave(
+      { mapa: local.referencias, tempos: local.referenciasTempos, em: local.referenciasEm },
+      { mapa: remoto.referencias, tempos: remoto.referenciasTempos, em: remoto.referenciasEm },
+    );
     return {
       history,
       excluidos,
-      agenda: agendaRemota ? remoto.agenda : null,
-      agendaEm: remoto.agendaEm,
-      referencias: refsRemotas ? remoto.referencias : null,
-      referenciasEm: remoto.referenciasEm,
+      agenda: agenda.mapa,
+      agendaTempos: agenda.tempos,
+      referencias: referencias.mapa,
+      referenciasTempos: referencias.tempos,
     };
   }
 

@@ -62,7 +62,7 @@ Como funciona:
 
 - Cada material vira um arquivo em `Professor+ AI / <UC> / <tipo>`; sem UC, vai para `Sem UC`. O nome começa pela data (`2026-09-08 — Modelo ER`), para ordenar.
 - Editou o material no app: a versão nova é enviada e a anterior vai para a **lixeira do Drive** (recuperável por 30 dias). Excluiu no app: o arquivo também vai para a lixeira.
-- O arquivo oculto `profeai-dados.json` (pasta de dados do app) guarda histórico, agenda e referências das UCs. Cada aparelho mescla o que tem com ele; vence a versão mais recente de cada item.
+- O arquivo oculto `profeai-dados.json` (pasta de dados do app) guarda histórico, agenda e referências das UCs. Cada aparelho mescla o que tem com ele: no histórico, vence a versão mais recente de cada material; na agenda, a mudança mais recente de cada dia (marcar, trocar ou desmarcar); nas referências, a mais recente de cada UC.
 - O token do Google dura 1 hora. Quando expira, aparece **Reconectar** no topo: um clique e as mudanças pendentes seguem para o Drive.
 - Editar o arquivo direto no Drive não volta para o app — o app é a fonte, e a próxima edição feita nele substitui o arquivo.
 

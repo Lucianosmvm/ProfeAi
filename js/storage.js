@@ -203,24 +203,42 @@ const Storage = {
   },
 
   saveAgenda(map) {
-    localStorage.setItem(this.KEYS.agenda, JSON.stringify(map));
-    // Instante da última mudança: na sincronização, a agenda mais recente vence.
-    localStorage.setItem('profe_agenda_em', String(Date.now()));
+    this._salvarComTempos(this.KEYS.agenda, 'profe_agenda_tempos', 'profe_agenda_em', this.getAgenda(), map);
+  },
+
+  /* Mapas com o instante da última mudança de CADA chave (dia da agenda, UC da
+     referência). A sincronização mescla chave a chave: vence a mudança mais
+     recente daquele dia ou daquela UC, e uma desmarcação também conta como
+     mudança. `*_em` é o instante da última mudança do mapa inteiro — ficou
+     das versões anteriores e serve de reserva para chaves sem instante. */
+  _salvarComTempos(chaveMapa, chaveTempos, chaveEm, antigo, novo) {
+    const agora = Date.now();
+    const tempos = this._lerLocal(chaveTempos, {});
+    let mudou = false;
+    new Set([...Object.keys(antigo), ...Object.keys(novo)]).forEach(k => {
+      if ((antigo[k] || '') !== (novo[k] || '')) { tempos[k] = agora; mudou = true; }
+    });
+    if (!mudou) return;
+    localStorage.setItem(chaveMapa, JSON.stringify(novo));
+    localStorage.setItem(chaveTempos, JSON.stringify(tempos));
+    localStorage.setItem(chaveEm, String(agora));
     this._avisar();
   },
 
   getAgendaEm() { return +localStorage.getItem('profe_agenda_em') || 0; },
   getReferenciasEm() { return +localStorage.getItem('profe_referencias_em') || 0; },
+  getAgendaTempos() { return this._lerLocal('profe_agenda_tempos', {}); },
+  getReferenciasTempos() { return this._lerLocal('profe_referencias_tempos', {}); },
 
-  /* Agenda e referências vindas de outro aparelho (sincronização). */
-  substituirAgendaEReferencias({ agenda, agendaEm, referencias, referenciasEm }) {
+  /* Agenda e referências já mescladas com outro aparelho (sincronização). */
+  substituirAgendaEReferencias({ agenda, agendaTempos, referencias, referenciasTempos }) {
     if (agenda) {
       localStorage.setItem(this.KEYS.agenda, JSON.stringify(agenda));
-      localStorage.setItem('profe_agenda_em', String(agendaEm || 0));
+      localStorage.setItem('profe_agenda_tempos', JSON.stringify(agendaTempos || {}));
     }
     if (referencias) {
       localStorage.setItem(this.KEYS.referencias, JSON.stringify(referencias));
-      localStorage.setItem('profe_referencias_em', String(referenciasEm || 0));
+      localStorage.setItem('profe_referencias_tempos', JSON.stringify(referenciasTempos || {}));
     }
   },
 
@@ -339,13 +357,11 @@ const Storage = {
   setReferencia(uc, texto) {
     const k = this.chaveRef(uc);
     if (!k) return;
-    const map = this.getReferencias();
+    const antigo = this.getReferencias();
+    const map = { ...antigo };
     const t = (texto || '').trim().slice(0, this.REF_MAX);
     if (t) map[k] = t; else delete map[k];
-    if (JSON.stringify(map) === localStorage.getItem(this.KEYS.referencias)) return;
-    localStorage.setItem(this.KEYS.referencias, JSON.stringify(map));
-    localStorage.setItem('profe_referencias_em', String(Date.now()));
-    this._avisar();
+    this._salvarComTempos(this.KEYS.referencias, 'profe_referencias_tempos', 'profe_referencias_em', antigo, map);
   },
 
   /* ===== Backup (export/import) ===== */
@@ -381,9 +397,9 @@ const Storage = {
     if (data.base && typeof data.base === 'object') this.setBase(data.base);
 
     if (data.referencias && typeof data.referencias === 'object') {
-      const atuais = merge ? this.getReferencias() : {};
-      localStorage.setItem(this.KEYS.referencias,
-        JSON.stringify({ ...atuais, ...data.referencias }));
+      const atuais = this.getReferencias();
+      this._salvarComTempos(this.KEYS.referencias, 'profe_referencias_tempos', 'profe_referencias_em',
+        atuais, { ...(merge ? atuais : {}), ...data.referencias });
     }
 
     if (data.agenda && typeof data.agenda === 'object') {
