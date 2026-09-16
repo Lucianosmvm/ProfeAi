@@ -874,6 +874,59 @@
     </div>`;
   }
 
+  /* ===== Histórico: busca e filtros =====
+     Filtros por UC e por tipo, e busca no título e no conteúdo. No PC ficam
+     numa coluna ao lado; no celular, em faixas roláveis acima da lista. Os
+     controles são montados uma vez só, para a busca não perder o foco a cada
+     letra digitada. */
+  let historyTipo = 'all';
+  let historyBusca = '';
+  const TIPOS_FILTRO = [
+    { id: 'aula', rotulo: 'Aulas', tipos: ['aula', 'plano'] },
+    { id: 'atividade', rotulo: 'Atividades', tipos: ['atividade'] },
+    { id: 'prova', rotulo: 'Provas', tipos: ['prova'] },
+    { id: 'slides', rotulo: 'Slides', tipos: ['slides'] },
+  ];
+
+  function semAcento(t) {
+    return String(t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  }
+
+  function montarControlesHistorico(controls) {
+    if (controls.querySelector('#hist-busca')) return;
+    controls.innerHTML = `
+      <label class="hist-busca">
+        ${ic('search')}
+        <input type="search" id="hist-busca" placeholder="Buscar materiais" autocomplete="off" aria-label="Buscar no histórico">
+      </label>
+      <div class="hist-filtro">
+        <span class="hist-filtro-titulo">UC</span>
+        <div class="hist-chips" id="hist-ucs"></div>
+      </div>
+      <div class="hist-filtro">
+        <span class="hist-filtro-titulo">Tipo</span>
+        <div class="hist-chips" id="hist-tipos"></div>
+      </div>`;
+    $('#hist-busca').value = historyBusca;
+    $('#hist-busca').addEventListener('input', e => {
+      historyBusca = e.target.value;
+      renderHistory();
+    });
+    $('#hist-ucs').addEventListener('click', e => {
+      const b = e.target.closest('[data-uc]');
+      if (b) { historyFilter = b.dataset.uc; renderHistory(); }
+    });
+    $('#hist-tipos').addEventListener('click', e => {
+      const b = e.target.closest('[data-tipo]');
+      if (b) { historyTipo = b.dataset.tipo; renderHistory(); }
+    });
+  }
+
+  function chipFiltro(attr, valor, rotulo, qtd, ativo) {
+    return `<button type="button" class="hist-chip${ativo ? ' ativo' : ''}" data-${attr}="${escapeHtml(valor)}">
+      <span>${escapeHtml(rotulo)}</span><span class="hist-chip-qtd">${qtd}</span></button>`;
+  }
+
   function renderHistory() {
     const list = Storage.getHistory();
     const box = $('#history-list');
@@ -881,6 +934,7 @@
 
     if (!list.length) {
       controls.innerHTML = '';
+      controls.hidden = true;
       box.innerHTML = `<div class="empty-state">
         <span class="empty-icon">${ic('inbox')}</span>
         <h3>Nada gerado ainda</h3>
@@ -889,15 +943,27 @@
       </div>`;
       return;
     }
+    controls.hidden = false;
+    montarControlesHistorico(controls);
+
+    // Busca e tipo valem para tudo; as contagens de UC já refletem os dois.
+    const termo = semAcento(historyBusca.trim());
+    const bateBusca = item => !termo
+      || semAcento(item.titulo).includes(termo)
+      || semAcento(item.conteudo).includes(termo);
+    const tipoAtual = TIPOS_FILTRO.find(t => t.id === historyTipo);
+    const bateTipo = item => !tipoAtual || tipoAtual.tipos.includes(item.tipo);
+
+    const buscados = list.filter(bateBusca);
+    const filtrados = buscados.filter(bateTipo);
 
     // Agrupa por UC preservando a ordem (histórico já vem do mais novo p/ o mais antigo).
     const groups = new Map(); // chave -> { label, items: [] }
     list.forEach(item => {
-      const raw = ucOf(item);
-      const k = ucKey(raw);
-      if (!groups.has(k)) groups.set(k, { label: raw || 'Sem UC', items: [] });
-      groups.get(k).items.push(item);
+      const k = ucKey(ucOf(item));
+      if (!groups.has(k)) groups.set(k, { label: ucOf(item) || 'Sem UC', items: [] });
     });
+    filtrados.forEach(item => groups.get(ucKey(ucOf(item))).items.push(item));
 
     // Ordena os grupos: UCs nomeadas por ordem natural, "Sem UC" por último.
     const keys = [...groups.keys()].sort((a, b) => {
@@ -906,31 +972,41 @@
       return groups.get(a).label.localeCompare(
         groups.get(b).label, 'pt-BR', { numeric: true, sensitivity: 'base' });
     });
-
-    // Filtro (dropdown). Se a UC filtrada sumiu, volta p/ "todas".
     if (historyFilter !== 'all' && !groups.has(historyFilter)) historyFilter = 'all';
-    controls.innerHTML =
-      '<label class="uc-filter">Ver UC: ' +
-      '<select id="uc-filter">' +
-      `<option value="all"${historyFilter === 'all' ? ' selected' : ''}>Todas (${list.length})</option>` +
-      keys.map(k => {
-        const g = groups.get(k);
-        const sel = historyFilter === k ? ' selected' : '';
-        return `<option value="${escapeHtml(k)}"${sel}>${escapeHtml(g.label)} (${g.items.length})</option>`;
-      }).join('') +
-      '</select></label>';
-    $('#uc-filter').addEventListener('change', e => {
-      historyFilter = e.target.value;
-      renderHistory();
-    });
 
-    const visible = historyFilter === 'all' ? keys : [historyFilter];
+    $('#hist-ucs').innerHTML = chipFiltro('uc', 'all', 'Todas', filtrados.length, historyFilter === 'all')
+      + keys.map(k => chipFiltro('uc', k, groups.get(k).label, groups.get(k).items.length, historyFilter === k)).join('');
+
+    const tiposPresentes = TIPOS_FILTRO.filter(t => list.some(i => t.tipos.includes(i.tipo)));
+    $('#hist-tipos').innerHTML = chipFiltro('tipo', 'all', 'Todos', buscados.length, historyTipo === 'all')
+      + tiposPresentes.map(t => chipFiltro('tipo', t.id, t.rotulo,
+        buscados.filter(i => t.tipos.includes(i.tipo)).length, historyTipo === t.id)).join('');
+
+    const visible = (historyFilter === 'all' ? keys : [historyFilter])
+      .filter(k => groups.get(k).items.length);
+    if (!visible.length) {
+      box.innerHTML = `<div class="empty-state hist-sem-resultado">
+        <span class="empty-icon">${ic('search')}</span>
+        <h3>Nenhum material encontrado</h3>
+        <p>Tente outra palavra ou limpe os filtros.</p>
+        <button type="button" class="btn-secondary" id="hist-limpar">Limpar filtros</button>
+      </div>`;
+      $('#hist-limpar').addEventListener('click', () => {
+        historyFilter = 'all';
+        historyTipo = 'all';
+        historyBusca = '';
+        $('#hist-busca').value = '';
+        renderHistory();
+      });
+      return;
+    }
+
     box.innerHTML = visible.map(k => {
       const g = groups.get(k);
       const badge = k === '__none__' ? 'Sem UC' : escapeHtml(g.label);
       return `<div class="uc-group">
         <h2 class="uc-group-title">${badge} <span class="uc-count">${g.items.length}</span></h2>
-        ${g.items.map(historyItemHtml).join('')}
+        <div class="uc-group-itens">${g.items.map(historyItemHtml).join('')}</div>
       </div>`;
     }).join('');
     bindHistoryActions(box);

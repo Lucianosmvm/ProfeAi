@@ -209,6 +209,8 @@
         <h1>Agenda</h1>
         <p class="subtitle">Seu cronograma: marque os dias de cada UC e gere a aula de cada dia.</p>
 
+        <div class="agenda-layout">
+        <div class="agenda-calendario">
         <div class="agenda-toolbar no-print">
           <div class="agenda-nav">
             <button type="button" class="btn-secondary btn-icon" id="agenda-prev" aria-label="Mês anterior"><svg class="ic"><use href="#i-chev-left"/></svg></button>
@@ -234,20 +236,27 @@
         <div class="agenda-grid" id="agenda-grid"></div>
 
         <div class="agenda-legend" id="agenda-legend"></div>
+        </div>
 
+        <!-- No PC, coluna ao lado do calendário; no celular, vem logo abaixo. -->
+        <div class="agenda-lateral">
         <div class="agenda-detail" id="agenda-detail" hidden></div>
 
         <!-- Lista dos dias marcados no mês: no celular o grid é pequeno demais
-             para mostrar o tema da aula, então a lista faz esse papel. -->
+             para mostrar o tema da aula; no PC, dá a visão do mês de relance. -->
         <div class="agenda-lista" id="agenda-lista"></div>
+        </div>
+        </div>
       </section>
 
       <!-- Histórico -->
       <section class="view" id="view-historico">
         <h1>Histórico</h1>
         <p class="subtitle">Tudo o que você gerou, agrupado por UC. Fica salvo neste navegador — e no seu Google Drive, se conectar em Ajustes.</p>
-        <div id="history-controls" class="history-controls no-print"></div>
-        <div id="history-list"></div>
+        <div class="historico-layout">
+          <div id="history-controls" class="history-controls no-print"></div>
+          <div id="history-list"></div>
+        </div>
       </section>
 
       <!-- Configurações -->
