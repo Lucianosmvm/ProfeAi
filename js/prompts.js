@@ -346,6 +346,43 @@ ${(d.conteudoBase || '').trim()}
 === FIM DO CONTEÚDO ===`;
 };
 
+/* Ajuste de um trecho do material pronto (js/ajuste.js aplica a resposta).
+   A IA devolve só o que muda, em blocos de substituição: sai mais barato que
+   gerar de novo e o resto do material fica intacto. */
+Prompts.FORMATO_AJUSTE = {
+  prova: '- Mantenha o formato: cada questão começa com **Questão N** (X pontos), alternativas uma por linha (A), B)...) e respostas só na seção `## Gabarito`. Mudou, acrescentou ou removeu uma questão: ajuste também o gabarito, a numeração das questões seguintes e a pontuação total.',
+  atividade: '- Mantenha o formato: cada questão começa com **Questão N**, alternativas uma por linha e respostas só na seção `## Gabarito`. Mudou, acrescentou ou removeu uma questão: ajuste também o gabarito e a numeração das questões seguintes.',
+  slides: '- Mantenha o formato dos slides: cada slide separado por uma linha só com `---`, a primeira linha do slide é o título em texto puro, listas com `- `, destaques com `**negrito**`.',
+  aula: '- Mantenha o formato da aula: seções com `## Título`, sem minutos ou horários no material.',
+};
+
+Prompts.ajuste = function (tipo, material, pedido) {
+  return `Você vai AJUSTAR um material didático que já está pronto, conforme o pedido do professor. Mude só o que o pedido exige: todo o resto do material fica exatamente como está.
+
+PEDIDO DO PROFESSOR:
+${(pedido || '').trim()}
+
+Responda SOMENTE com blocos de substituição, neste formato exato — um bloco para cada trecho que muda:
+
+<<<<<<< ORIGINAL
+(trecho copiado do material atual, idêntico, com linhas inteiras)
+=======
+(como o trecho deve ficar)
+>>>>>>> NOVO
+
+Regras dos blocos:
+- O trecho ORIGINAL precisa existir no material exatamente como está escrito e aparecer uma vez só: copie linhas inteiras e inclua contexto suficiente para não haver dúvida (ex.: a linha da questão e o enunciado dela).
+- Para ACRESCENTAR conteúdo: use como ORIGINAL a última linha antes do ponto onde o conteúdo entra e, no NOVO, repita essa linha seguida do acréscimo.
+- Para REMOVER: deixe o NOVO vazio.
+- Blocos pequenos: não copie o material inteiro para mudar uma parte.
+${Prompts.FORMATO_AJUSTE[tipo] || ''}
+- Nenhum texto fora dos blocos: sem introdução, sem explicação, sem cercas de código.
+
+=== MATERIAL ATUAL ===
+${material}
+=== FIM DO MATERIAL ===`;
+};
+
 /* Quais alvos cada material pode gerar. */
 Prompts.chainTargets = {
   aula: ['atividade', 'prova', 'slides'],

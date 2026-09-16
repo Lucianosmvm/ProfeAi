@@ -147,6 +147,7 @@
     } finally {
       $('#result-status').hidden = true;
       state.generating = false;
+      mostrarAjuste();
     }
   }
 
@@ -166,6 +167,9 @@
     $('#result-status').hidden = false;
     setStatus('Gerando…');
     $('#vista-impressao').hidden = true;
+    $('#ajuste-form').hidden = true;
+    avisoAjuste('');
+    $('#ajuste-pedido').value = '';
     setVista('completo');
     renderUsage(null);
     location.hash = '#/resultado';
@@ -210,6 +214,7 @@
     } finally {
       $('#result-status').hidden = true;
       state.generating = false;
+      mostrarAjuste();
     }
   }
 
@@ -414,6 +419,108 @@
     openHistoryItem(item);
   }
 
+  /* ===== Ajustar um trecho com IA =====
+     A IA devolve só os trechos que mudam (js/ajuste.js aplica). O estado
+     anterior fica guardado para um "Desfazer" — um nível, nesta sessão. */
+  const SUGESTOES_AJUSTE = {
+    aula: ['Linguagem mais simples', 'Mais um exemplo prático em cada seção', 'Mais exercícios no final'],
+    atividade: ['Questões mais fáceis', 'Mais 2 questões', 'Justificativas mais curtas no gabarito'],
+    prova: ['Deixe mais difícil', 'Mais 2 questões', 'Troque a questão 1 por outra do mesmo tema'],
+    slides: ['Menos texto por slide', 'Mais um slide de exemplo', 'Títulos mais curtos'],
+  };
+
+  function mostrarAjuste() {
+    const c = state.current;
+    const form = $('#ajuste-form');
+    form.hidden = !c?.conteudo || state.generating;
+    if (form.hidden) return;
+    $('#ajuste-sugestoes').innerHTML = (SUGESTOES_AJUSTE[c.tipo] || [])
+      .map(s => `<button type="button" class="ajuste-chip">${escapeHtml(s)}</button>`).join('');
+    $('#ajuste-desfazer').hidden = !(state.desfazer && state.desfazer.id === c.id);
+  }
+
+  function avisoAjuste(msg, tipo = 'ok') {
+    const el = $('#ajuste-msg');
+    el.hidden = !msg;
+    el.className = `ajuste-msg is-${tipo}`;
+    el.textContent = msg || '';
+  }
+
+  /* Troca o conteúdo do material atual na tela e no histórico. */
+  function trocarConteudo(conteudo, conteudoHtml) {
+    const c = state.current;
+    c.conteudo = conteudo;
+    c.conteudoHtml = conteudoHtml || null;
+    if (c.id) Storage.updateHistoryItem(c.id, { conteudo, conteudoHtml: c.conteudoHtml });
+    $('#result-content').innerHTML = c.conteudoHtml ? Seguro.html(c.conteudoHtml) : Seguro.md(conteudo);
+    prepararVista();
+  }
+
+  $('#ajuste-sugestoes').addEventListener('click', e => {
+    const chip = e.target.closest('.ajuste-chip');
+    if (!chip) return;
+    $('#ajuste-pedido').value = chip.textContent;
+    $('#ajuste-pedido').focus();
+  });
+
+  $('#ajuste-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const c = state.current;
+    const pedido = $('#ajuste-pedido').value.trim();
+    if (!c?.conteudo || state.generating) return;
+    if (!pedido) { $('#ajuste-pedido').focus(); return; }
+    if ($('#result-content').contentEditable === 'true') { avisoAjuste('Conclua a edição antes de pedir um ajuste.', 'erro'); return; }
+    if (c.conteudoHtml && !confirm('Este material foi editado na tela. O ajuste parte do texto gerado, e essas edições feitas à mão serão perdidas. Continuar?')) return;
+
+    state.generating = true;
+    avisoAjuste('');
+    $('#ajuste-enviar').disabled = true;
+    $('#result-status').hidden = false;
+    setStatus('Ajustando…');
+    let resposta = '';
+    try {
+      for await (const chunk of Api.stream(Prompts.ajuste(c.tipo, c.conteudo, pedido))) resposta += chunk;
+      Storage.addUsage(Api.lastUsage?.total);
+
+      if (Api.truncou()) {
+        avisoAjuste('A resposta da IA foi cortada no meio; nada foi alterado. Tente um pedido menor.', 'erro');
+        return;
+      }
+      const blocos = Ajuste.ler(resposta);
+      if (!blocos.length) {
+        avisoAjuste('A IA não devolveu o ajuste no formato esperado. Tente descrever o pedido de outro jeito.', 'erro');
+        return;
+      }
+      const r = Ajuste.aplicar(c.conteudo, blocos);
+      if (!r.aplicados) {
+        avisoAjuste('Não encontrei no material os trechos que a IA quis mudar; nada foi alterado. Tente de novo.', 'erro');
+        return;
+      }
+      state.desfazer = { id: c.id, conteudo: c.conteudo, conteudoHtml: c.conteudoHtml || null };
+      trocarConteudo(r.texto, null);
+      $('#ajuste-pedido').value = '';
+      avisoAjuste(`${r.aplicados} ${r.aplicados === 1 ? 'trecho ajustado' : 'trechos ajustados'}.`
+        + (r.falhas ? ` ${r.falhas} ${r.falhas === 1 ? 'trecho não foi encontrado e ficou' : 'trechos não foram encontrados e ficaram'} como estava.` : ''),
+        r.falhas ? 'erro' : 'ok');
+    } catch (err) {
+      avisoAjuste(Api.friendlyError(err), 'erro');
+    } finally {
+      state.generating = false;
+      $('#ajuste-enviar').disabled = false;
+      $('#result-status').hidden = true;
+      mostrarAjuste();
+    }
+  });
+
+  $('#ajuste-desfazer').addEventListener('click', () => {
+    const d = state.desfazer;
+    if (!d || d.id !== state.current?.id || state.generating) return;
+    trocarConteudo(d.conteudo, d.conteudoHtml);
+    state.desfazer = null;
+    avisoAjuste('Ajuste desfeito.');
+    mostrarAjuste();
+  });
+
   $('#btn-regenerate').addEventListener('click', () => {
     const c = state.current;
     if (!c || state.generating) return;
@@ -476,6 +583,7 @@
     // Editando, tudo fica à mostra; ao concluir, o gabarito é reconhecido de novo.
     if (on) setVista('completo');
     $('#vista-impressao').classList.toggle('desativado', on);
+    $('#ajuste-form').classList.toggle('desativado', on);
     if (!on && state.current?.conteudo) prepararVista();
     $('#btn-edit').innerHTML = on
       ? `${ic('check')}<span class="lbl">Concluir</span>`
@@ -781,6 +889,9 @@
     renderChain(item.tipo);
     renderUsage(item.usage);
     prepararVista();
+    avisoAjuste('');
+    $('#ajuste-pedido').value = '';
+    mostrarAjuste();
     location.hash = '#/resultado';
   }
 
