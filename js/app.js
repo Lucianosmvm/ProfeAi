@@ -54,9 +54,18 @@
   /* ===== Roteamento ===== */
   const routes = ['aula', 'agenda', 'historico', 'config', 'resultado'];
 
+  let rotaAnterior = '';
+
   function route() {
     const hash = location.hash.replace('#/', '') || 'aula';
     const name = routes.includes(hash) ? hash : 'aula';
+
+    // O CSS do celular troca a barra de abas pela barra de ações no Resultado.
+    if (document.body.dataset.rota && document.body.dataset.rota !== name) rotaAnterior = document.body.dataset.rota;
+    document.body.dataset.rota = name;
+    fecharGaveta();
+    // Trocou de tela: a barra de abas volta, mesmo que um campo tenha perdido o foco sem aviso.
+    document.body.classList.remove('digitando');
 
     $$('.view').forEach(v => v.classList.remove('active'));
     $(`#view-${name}`).classList.add('active');
@@ -124,12 +133,16 @@
           ? 'Hoje'
           : d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '');
         const aula = aulas[iso];
-        return `<button type="button" class="painel-item painel-aula" data-date="${iso}" style="--uc-cor:${corDaUc(agendaMap[iso])}">
+        return `<button type="button" class="painel-item painel-aula${iso === hojeISO ? ' hoje' : ''}" data-date="${iso}" style="--uc-cor:${corDaUc(agendaMap[iso])}">
           <span class="painel-item-meta">${escapeHtml(quando)} · ${escapeHtml(agendaMap[iso])}</span>
           <span class="painel-item-titulo${aula ? '' : ' pendente'}">${aula ? escapeHtml(Cronograma.tema(aula)) : 'Aula ainda não gerada'}</span>
         </button>`;
       }).join('')
       : '<p class="painel-vazio">Nenhuma aula marcada daqui para frente. <a href="#/agenda">Montar o cronograma</a></p>';
+
+    // Celular: sem aula marcada, a faixa do topo some em vez de mostrar o aviso.
+    boxProx.closest('.painel-bloco').classList.toggle('vazio', !proximas.length);
+    $('#view-aula').classList.toggle('tem-historico', Storage.getHistory().length > 0);
 
     const recentes = Storage.getHistory().slice(0, RECENTES_MAX);
     const boxRec = $('#home-recent');
@@ -535,6 +548,7 @@
     state.generating = true;
     avisoAjuste('');
     $('#ajuste-enviar').disabled = true;
+    $('#ajuste-enviar').innerHTML = `<span class="spinner"></span>Ajustando…`;
     $('#result-status').hidden = false;
     setStatus('Ajustando…');
     let resposta = '';
@@ -567,6 +581,7 @@
     } finally {
       state.generating = false;
       $('#ajuste-enviar').disabled = false;
+      $('#ajuste-enviar').innerHTML = `${ic('wand')}Ajustar`;
       $('#result-status').hidden = true;
       mostrarAjuste();
     }
@@ -640,6 +655,7 @@
     const c = $('#result-content');
     c.contentEditable = on ? 'true' : 'false';
     c.classList.toggle('editing', on);
+    atualizarBarraEdicao();
     // Editando, tudo fica à mostra; ao concluir, o gabarito é reconhecido de novo.
     if (on) setVista('completo');
     $('#vista-impressao').classList.toggle('desativado', on);
@@ -1631,7 +1647,90 @@
 
   function togglePresentBtn(tipo) {
     $('#btn-present').hidden = tipo !== 'slides';
+    renderBarraResultado(tipo);
   }
+
+  /* ===== Celular: barra de ações e gavetas do Resultado =====
+     Os botões da barra só repassam o clique aos botões de verdade do painel
+     de ações — nenhuma ação é duplicada. "Ajustar" e "Mais" abrem esse mesmo
+     painel como gaveta, cada um mostrando só a sua parte. */
+  function renderBarraResultado(tipo) {
+    $('#resultado-painel').dataset.tipo = tipo || '';
+    const itens = tipo === 'slides'
+      ? [['#btn-present', 'present', 'Slides'], ['#btn-edit', 'pencil', 'Editar'], ['#btn-print', 'printer', 'PDF']]
+      : [['#btn-edit', 'pencil', 'Editar'], ['#btn-print', 'printer', 'PDF'], ['#btn-word', 'file', 'Word']];
+    $('#resultado-barra').innerHTML = itens
+      .map(([alvo, icone, rotuloBtn]) => `<button type="button" data-proxy="${alvo}">${ic(icone)}<span>${rotuloBtn}</span></button>`)
+      .join('')
+      + `<button type="button" data-gaveta="ajuste">${ic('wand')}<span>Ajustar</span></button>`
+      + `<button type="button" data-gaveta="mais">${ic('dots')}<span>Mais</span></button>`;
+    atualizarBarraEdicao();
+  }
+
+  function atualizarBarraEdicao() {
+    const b = $('#resultado-barra [data-proxy="#btn-edit"]');
+    if (!b) return;
+    const editando = $('#result-content').contentEditable === 'true';
+    b.innerHTML = editando ? `${ic('check')}<span>Concluir</span>` : `${ic('pencil')}<span>Editar</span>`;
+    b.classList.toggle('ativo', editando);
+  }
+
+  function abrirGaveta(modo) {
+    if (modo === 'ajuste' && $('#ajuste-form').hidden) return;   // gerando: nada a ajustar ainda
+    const painel = $('#resultado-painel');
+    painel.dataset.gaveta = modo;
+    $('#gaveta-titulo').textContent = modo === 'ajuste' ? 'Ajustar com IA' : 'Mais ações';
+    $('#gaveta-fundo').hidden = false;
+    document.body.classList.add('gaveta-aberta');
+    if (modo === 'ajuste') setTimeout(() => $('#ajuste-pedido').focus(), 250);
+  }
+
+  function fecharGaveta() {
+    const painel = $('#resultado-painel');
+    if (!painel || !painel.dataset.gaveta) return;
+    delete painel.dataset.gaveta;
+    $('#gaveta-fundo').hidden = true;
+    document.body.classList.remove('gaveta-aberta');
+  }
+
+  $('#resultado-barra').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.gaveta) { abrirGaveta(b.dataset.gaveta); return; }
+    const alvo = $(b.dataset.proxy);
+    if (alvo) alvo.click();
+    atualizarBarraEdicao();
+  });
+  $('#gaveta-fundo').addEventListener('click', fecharGaveta);
+  $('#gaveta-fechar').addEventListener('click', fecharGaveta);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharGaveta(); });
+
+  // Na gaveta "Mais": ação escolhida, a gaveta fecha e o material aparece.
+  $('#resultado-painel').addEventListener('click', e => {
+    if ($('#resultado-painel').dataset.gaveta !== 'mais') return;
+    const b = e.target.closest('.result-actions button, #chain-actions button, #vista-impressao [data-vista], #slides-gerar');
+    // Slides abrem antes o painel de opções: esse fica aberto para escolher.
+    if (b && b.dataset.target !== 'slides') fecharGaveta();
+  });
+
+  $('#btn-voltar').addEventListener('click', () => {
+    if (rotaAnterior && rotaAnterior !== 'resultado') history.back();
+    else location.hash = '#/historico';
+  });
+
+  /* ===== Celular: barra de abas some enquanto digita =====
+     Com o teclado aberto, a barra fixa sobe junto e rouba espaço do campo. */
+  const CAMPO_DIGITAVEL = 'textarea, [contenteditable="true"], input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"])';
+  document.addEventListener('focusin', e => {
+    if (e.target.matches && e.target.matches(CAMPO_DIGITAVEL)) document.body.classList.add('digitando');
+  });
+  document.addEventListener('focusout', () => {
+    // Espera o próximo foco: pular de um campo para outro não pisca a barra.
+    setTimeout(() => {
+      const ativo = document.activeElement;
+      if (!(ativo && ativo.matches && ativo.matches(CAMPO_DIGITAVEL))) document.body.classList.remove('digitando');
+    }, 50);
+  });
 
   function abrirSlides() {
     const c = state.current;

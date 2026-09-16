@@ -1712,6 +1712,191 @@ textarea { resize: vertical; line-height: 1.5; }
   .agenda-lista:empty { display: none; }
 }
 
+/* ===== Celular: Resultado com barra de ações e gavetas; Gerar com a faixa
+   das próximas aulas no topo; barra de abas escondida enquanto digita. ===== */
+.btn-voltar, .resultado-barra, .gaveta-topo { display: none; }
+
+@media (max-width: 760px) {
+  body.digitando .sidebar,
+  body.digitando .resultado-barra { display: none !important; }
+  body.gaveta-aberta { overflow: hidden; }
+
+  /* ---- Resultado ---- */
+  body[data-rota="resultado"] .sidebar { display: none; }
+  body[data-rota="resultado"] .resultado-barra {
+    display: flex;
+    position: fixed;
+    z-index: 50;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    background: rgba(255, 255, 255, .97);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    border-top: 1px solid var(--border);
+  }
+  .resultado-barra button {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-height: 52px;
+    padding: 6px 2px;
+    font: inherit;
+    font-size: .7rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .resultado-barra .ic { width: 22px; height: 22px; }
+  .resultado-barra button.ativo { color: var(--primary); font-weight: 600; }
+  .resultado-barra button:active { background: var(--surface-2); }
+
+  .result-header { flex-wrap: nowrap; align-items: flex-start; gap: 4px; margin-bottom: 12px; }
+  .btn-voltar {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 40px;
+    height: 40px;
+    margin: -6px 0 0 -10px;
+    color: var(--text);
+    background: none;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .btn-voltar .ic { width: 22px; height: 22px; }
+  .result-header h1 { flex: 1; min-width: 0; font-size: 1.2rem; line-height: 1.3; }
+
+  /* O painel de ações vira gaveta que sobe de baixo. */
+  .resultado-painel { display: none; }
+  .resultado-painel[data-gaveta] {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    position: fixed;
+    z-index: 70;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 85vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0 16px calc(18px + env(safe-area-inset-bottom));
+    background: var(--surface);
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -8px 30px rgba(16, 34, 63, .18);
+    animation: gaveta-sobe .22s ease;
+  }
+  @keyframes gaveta-sobe { from { transform: translateY(48px); opacity: .5; } to { transform: none; opacity: 1; } }
+  .gaveta-topo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 18px 0 6px;
+    background: var(--surface);
+  }
+  .gaveta-alca {
+    position: absolute;
+    top: 7px;
+    left: 50%;
+    width: 36px;
+    height: 4px;
+    margin-left: -18px;
+    border-radius: 999px;
+    background: var(--border-strong);
+  }
+  .gaveta-titulo { flex: 1; font-family: var(--serif); font-size: 1.15rem; }
+  .gaveta-fechar {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    color: var(--text-muted);
+    background: var(--surface-2);
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .gaveta-fundo { position: fixed; inset: 0; z-index: 60; background: rgba(16, 34, 63, .45); }
+
+  /* Cada gaveta mostra só a sua parte. */
+  .resultado-painel[data-gaveta="ajuste"] > :not(.gaveta-topo):not(#ajuste-form) { display: none !important; }
+  .resultado-painel[data-gaveta="mais"] #ajuste-form,
+  .resultado-painel[data-gaveta="mais"] #btn-edit,
+  .resultado-painel[data-gaveta="mais"] #btn-print,
+  .resultado-painel[data-gaveta="mais"] #btn-present,
+  .resultado-painel[data-gaveta="mais"]:not([data-tipo="slides"]) #btn-word { display: none !important; }
+  .resultado-painel .result-actions { grid-template-columns: repeat(3, 1fr); }
+  .resultado-painel .result-chain,
+  .resultado-painel .vista-impressao,
+  .resultado-painel .chain-opts { margin: 0; }
+  .resultado-painel .ajuste { margin: 0; padding: 0; border: none; box-shadow: none; background: none; }
+
+  /* ---- Gerar: próximas aulas no topo, recentes no fim ---- */
+  #view-aula .gerar-layout { display: flex; flex-direction: column; }
+  #view-aula .gerar-principal,
+  #view-aula .painel-semana { display: contents; }
+  #view-aula .gerar-principal > * { order: 1; }
+  #view-aula .painel-bloco:first-child { order: 2; }
+  #view-aula #form-aula { order: 3; }
+  #view-aula .painel-bloco:last-child { order: 4; margin-top: 24px; }
+  #view-aula.tem-historico .subtitle { display: none; }
+
+  #view-aula .painel-bloco:first-child {
+    margin: 0 0 18px;
+    padding: 0;
+    background: none;
+    border: none;
+    box-shadow: none;
+  }
+  #view-aula .painel-bloco:first-child.vazio { display: none; }
+  #view-aula .painel-bloco:first-child .painel-titulo { margin: 0 0 8px; font-size: 1rem; }
+  #painel-proximas {
+    display: flex;
+    gap: 10px;
+    margin: 0 -16px;
+    padding: 2px 16px 6px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+  #painel-proximas::-webkit-scrollbar { display: none; }
+  #painel-proximas .painel-aula {
+    flex: 0 0 72%;
+    justify-content: center;
+    min-height: 74px;
+    margin: 0;
+    padding: 12px 14px;
+    scroll-snap-align: start;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--uc-cor);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+  }
+  #painel-proximas .painel-aula.hoje { background: var(--primary-soft); border-color: var(--primary-line); border-left-color: var(--uc-cor); }
+  #painel-proximas .painel-item-titulo {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  #form-aula textarea[name="pedido"] { height: 190px; }
+  #form-aula textarea[name="conteudo"] { height: 220px; }
+}
+
 /* ===== Impressão (PDF) ===== */
 @media print {
   .sidebar, .topbar, .no-print, .deck-overlay { display: none !important; }
