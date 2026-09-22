@@ -77,16 +77,19 @@ Contexto adicional da turma/aluno: ${d.adaptobs.trim()}` : ''}
      experiente prefere tela limpa. A escolha é feita na hora de gerar. */
   SLIDES_DENSIDADES: {
     enxuto: {
+      palavras: 35,
       lista: 'No máximo 5 itens por slide, cada um com no máximo 12 palavras.',
       conteudo: `- Cada slide cabe numa tela projetada: pouco texto, frase curta, um conceito por slide. O que não couber vira um segundo slide com o mesmo tema.
 - LIMITE DE TELA: no máximo 35 palavras por slide. Nada de parágrafo longo — o professor fala o resto.`,
     },
     equilibrado: {
+      palavras: 60,
       lista: 'No máximo 5 itens por slide, cada um com no máximo 14 palavras.',
       conteudo: `- Cada slide de conteúdo traz os tópicos e, abaixo, um parágrafo curto (1 a 2 linhas) que explica ou exemplifica o ponto principal.
 - Um conceito por slide. LIMITE DE TELA: no máximo 60 palavras por slide — o que não couber vira um segundo slide com o mesmo tema.`,
     },
     detalhado: {
+      palavras: 90,
       lista: 'No máximo 6 itens por slide, cada um com no máximo 16 palavras.',
       conteudo: `- Cada slide de conteúdo precisa dar ao professor O QUE FALAR: depois dos tópicos, escreva um parágrafo de 2 a 4 linhas explicando o conceito em linguagem simples e, em outro parágrafo curto, um exemplo concreto do cotidiano ou do mundo do trabalho.
 - Escreva as definições por extenso e explique ali mesmo, no slide, todo termo técnico e toda sigla — quem conduz a aula está dando esse conteúdo pela primeira vez.
@@ -287,23 +290,31 @@ const CHAIN_RULES = {
      desvio do formato vira slide errado — por isso as regras são literais. */
   slides: d => `Crie os SLIDES de uma apresentação de aula, em texto puro.
 
-FORMATO DE SAÍDA — siga ao pé da letra, o texto vai direto para um gerador de slides:
-- Separe CADA slide com uma linha contendo APENAS três hifens: \`---\`
-- A PRIMEIRA LINHA de cada slide é o título dele, em texto puro. Sem \`#\`, sem \`##\`, sem numeração, sem asteriscos, sem dois-pontos no fim.
-- O corpo do slide vem nas linhas seguintes.
-- O PRIMEIRO slide é a capa: só o título da aula, nada no corpo.
-- Listas: uma linha por item, começando com \`- \`. ${Prompts.slidesDensidade(d).lista}
-- Destaque um termo com \`**negrito**\` — não use itálico, links, notas de rodapé nem emojis. Endereços, comandos, valores e nomes técnicos no meio do texto também vão em \`**negrito**\`, NUNCA entre crases.
-- Deixe uma LINHA EM BRANCO entre a lista e o parágrafo (ou entre dois parágrafos). É a linha em branco que separa os blocos do slide.
-- Tabelas: markdown normal, uma linha por linha da tabela, ex.: \`| Camada | Função |\`, com a linha de traços \`| --- | --- |\` logo abaixo do cabeçalho. No máximo 5 linhas.
-- Código: numa linha só com \`\`\` antes e outra igual depois.
-- NÃO escreva notas do apresentador, NÃO escreva "Slide 1", "Note:" nem comentário nenhum fora dos slides.
+${Prompts.formatoSlides(d)}
 
 CONTEÚDO:
 - Converta a aula do material base em slides, preservando a sequência das seções: capa, objetivos, slides de conteúdo, um slide de atividade/pergunta e um de encerramento/resumo.
 ${Prompts.regraSlides(d)}
 
-EXEMPLO do formato (siga a forma, não o conteúdo):
+${Prompts.EXEMPLO_SLIDES}`,
+};
+
+/* Formato que o editor de slides (js/slides.js) lê: separa os slides pelo
+   `---` e toma a PRIMEIRA LINHA do bloco como título. Qualquer desvio vira
+   slide errado — por isso as regras são literais. */
+Prompts.formatoSlides = d => `FORMATO DE SAÍDA — siga ao pé da letra, o texto vai direto para um gerador de slides:
+- Separe CADA slide com uma linha contendo APENAS três hifens: \`---\`
+- A PRIMEIRA LINHA de cada slide é o título dele, em texto puro. Sem \`#\`, sem \`##\`, sem numeração, sem asteriscos, sem dois-pontos no fim.
+- O corpo do slide vem nas linhas seguintes.
+- O PRIMEIRO slide é a capa: só o título da aula, nada no corpo.
+- Listas: uma linha por item, começando com \`- \`. ${Prompts.slidesDensidade(d).lista}
+- Destaque um termo com \`**negrito**\` — não use itálico, links, notas de rodapé nem emojis. Endereços, comandos, valores e nomes técnicos no meio do texto também vão em \`**negrito**\`, NUNCA entre crases. Os asteriscos colam na palavra (\`**termo**\`, nunca \`** termo **\`) e sempre fecham na mesma linha.
+- Deixe uma LINHA EM BRANCO entre a lista e o parágrafo (ou entre dois parágrafos). É a linha em branco que separa os blocos do slide.
+- Tabelas: markdown normal, uma linha por linha da tabela, ex.: \`| Camada | Função |\`, com a linha de traços \`| --- | --- |\` logo abaixo do cabeçalho. No máximo 5 linhas.
+- Código: numa linha só com \`\`\` antes e outra igual depois.
+- NÃO escreva notas do apresentador, NÃO escreva "Slide 1", "Note:" nem comentário nenhum fora dos slides.`;
+
+Prompts.EXEMPLO_SLIDES = `EXEMPLO do formato (siga a forma, não o conteúdo):
 
 Modelo Entidade-Relacionamento
 ---
@@ -321,13 +332,13 @@ Tipos de cardinalidade
 | Tipo | Exemplo |
 | --- | --- |
 | Um para um | Pessoa e CPF |
-| Um para muitos | Cliente e locações |`,
-};
+| Um para muitos | Cliente e locações |`;
 
 /* Atividade ou prova direto de um conteúdo colado pelo professor, sem aula
    gerada antes — ex.: a prova de uma aula antiga. O conteúdo pode vir completo
    ou só como tópicos, e as instruções do professor vencem o formato padrão. */
 Prompts.avulso = function (target, d) {
+  if (target === 'slides') return Prompts.slidesAvulso(d);
   const instrucoes = (d.instrucoes || '').trim();
   return `Você vai criar um material de avaliação a partir do conteúdo que o professor já trabalhou com a turma. Esse conteúdo, no fim deste pedido, é o material base.
 
@@ -342,6 +353,38 @@ Sobre o conteúdo:
 - Distribua as questões pelos tópicos do conteúdo, sem concentrar tudo num só.${Prompts.blocoAdaptacao(d)}
 
 === CONTEÚDO TRABALHADO COM A TURMA ===
+${(d.conteudoBase || '').trim()}
+=== FIM DO CONTEÚDO ===`;
+};
+
+/* Slides a partir de um texto que o professor já tem (apostila, resumo, aula
+   antiga). O pedido aqui é DIAGRAMAR, não escrever: o modelo, solto, "melhora"
+   o texto — resume, troca termos, inventa exemplo e slide de objetivos. As
+   regras abaixo existem para impedir isso; o limite de palavras continua
+   valendo, mas o excesso vira outro slide, nunca corte. */
+Prompts.slidesAvulso = function (d) {
+  const instrucoes = (d.instrucoes || '').trim();
+  const dens = Prompts.slidesDensidade(d);
+  const min = Prompts.slidesMinimo(d);
+  return `Organize em SLIDES, em texto puro, o conteúdo que o professor já tem pronto (no fim deste pedido). Seu trabalho é DIAGRAMAR esse conteúdo em slides, não escrever uma aula nova.
+
+${Prompts.formatoSlides(d)}
+
+COMO ORGANIZAR:
+- Use SOMENTE o que está no conteúdo. Não acrescente conceitos, exemplos, dados, definições nem slides de objetivos, atividade ou encerramento que o conteúdo não tenha.
+- Preserve as palavras do professor: termos, definições, números e exemplos ficam como estão. Pode dividir frases longas, transformar parágrafo em tópicos e corrigir a formatação — sem mudar o sentido e sem resumir a ponto de perder informação.
+- Mantenha a ORDEM do conteúdo. Títulos e seções que ele já tiver viram os títulos dos slides; onde não houver título, crie um curto a partir do próprio trecho.
+- O primeiro slide é a capa, com um título tirado do conteúdo.
+- Tabela do conteúdo continua tabela. Com mais de 5 linhas, divida em slides com o MESMO título, repetindo o cabeçalho.
+- LIMITE DE TELA: no máximo ${dens.palavras} palavras por slide. ${dens.lista} O que não couber vai para o slide seguinte, com o MESMO título e sem numerar — nunca corte conteúdo para caber.
+- ${min ? `Gere cerca de ${min} slides, contando a capa; se o conteúdo precisar de mais para respeitar o limite de tela, gere mais.` : 'A quantidade de slides é a que o conteúdo pedir.'}${instrucoes ? `
+
+INSTRUÇÕES DO PROFESSOR — prevalecem sobre as regras de organização acima (não sobre o formato de saída):
+${instrucoes}` : ''}${Prompts.blocoAdaptacao(d, { semResumo: true })}
+
+${Prompts.EXEMPLO_SLIDES}
+
+=== CONTEÚDO DO PROFESSOR ===
 ${(d.conteudoBase || '').trim()}
 === FIM DO CONTEÚDO ===`;
 };

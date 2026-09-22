@@ -337,12 +337,20 @@ h2, h3 { letter-spacing: -.01em; }
 }
 .tipo-material label:has(input:focus-visible) { outline: 2px solid var(--primary); outline-offset: 1px; }
 .tipo-material .ic { width: 17px; height: 17px; }
+/* Quatro opções no celular: sem o ícone, o texto cabe inteiro. */
+@media (max-width: 480px) {
+  .tipo-material label { padding: 6px 4px; font-size: .85rem; }
+  .tipo-material .ic { display: none; }
+}
 
 /* Campos de um modo só: somem no outro (o JS também os desabilita). */
 #form-aula[data-modo="aula"] [data-so="avulso"],
 #form-aula[data-modo="avulso"] [data-so="aula"],
-#form-aula[data-modo="avulso"] #aula-agenda-hint { display: none !important; }
+#form-aula[data-modo="avulso"] #aula-agenda-hint,
+#form-aula:not([data-tipo="slides"]) [data-so="slides"] { display: none !important; }
 #form-aula[data-modo="avulso"] .grid-2 { grid-template-columns: 1fr; }
+/* Quantidade e densidade dos slides cabem lado a lado. */
+#form-aula[data-tipo="slides"] .grid-2[data-so="slides"] { grid-template-columns: 1fr 1fr; }
 
 label {
   display: flex;

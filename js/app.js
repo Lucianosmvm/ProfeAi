@@ -325,23 +325,54 @@
     return data;
   }
 
-  /* ===== Formulário: Aula | Atividade | Prova =====
-     Atividade e prova avulsas saem de um conteúdo colado, sem aula antes.
-     Os campos do outro modo ficam escondidos (CSS) e desabilitados, para não
-     cobrarem `required` nem entrarem no FormData. */
-  const ROTULO_ENVIAR = { aula: 'Gerar Aula', atividade: 'Gerar Atividade', prova: 'Gerar Prova' };
+  /* ===== Formulário: Aula | Atividade | Prova | Slides =====
+     Atividade, prova e slides avulsos saem de um conteúdo colado, sem aula
+     antes. Os campos do outro modo ficam escondidos (CSS) e desabilitados, para
+     não cobrarem `required` nem entrarem no FormData. Blocos `data-so="slides"`
+     valem só para os slides, dentro do modo avulso. */
+  const ROTULO_ENVIAR = { aula: 'Gerar Aula', atividade: 'Gerar Atividade', prova: 'Gerar Prova', slides: 'Gerar Slides' };
+
+  // Nos slides o conteúdo colado não é fonte de questões: é o próprio texto
+  // que vai para a tela. As dicas dos campos mudam para dizer isso.
+  const DICAS_AVULSO = {
+    questoes: {
+      conteudo: 'As questões saem só daqui: pode ser o texto completo, um resumo ou a lista de tópicos.',
+      instrucoes: 'Quantidade, tipo de questão, nível… Sem instruções, segue o padrão do app.',
+      placeholder: 'Ex.: 15 questões, só dissertativas, nível fácil',
+    },
+    slides: {
+      conteudo: 'O texto é organizado em slides sem ser reescrito: nada é inventado, a ordem e as palavras são mantidas.',
+      instrucoes: 'Ex.: um slide por seção, manter a tabela inteira. Sem instruções, segue o padrão do app.',
+      placeholder: 'Ex.: um slide por tópico, manter as tabelas',
+    },
+  };
 
   function setModoForm(tipo) {
     const form = $('#form-aula');
     const avulso = tipo !== 'aula';
     form.dataset.modo = avulso ? 'avulso' : 'aula';
+    form.dataset.tipo = tipo;
     form.querySelector(`input[name="tipo"][value="${tipo}"]`).checked = true;
     form.querySelectorAll('[data-so]').forEach(bloco => {
-      const ativo = bloco.dataset.so === form.dataset.modo;
-      bloco.querySelectorAll('input, textarea').forEach(c => { c.disabled = !ativo; });
+      const ativo = bloco.dataset.so === 'slides'
+        ? tipo === 'slides'
+        : bloco.dataset.so === form.dataset.modo;
+      bloco.querySelectorAll('input, textarea, select').forEach(c => { c.disabled = !ativo; });
     });
+    const dica = DICAS_AVULSO[tipo === 'slides' ? 'slides' : 'questoes'];
+    $('#conteudo-dica').textContent = dica.conteudo;
+    $('#instrucoes-dica').textContent = dica.instrucoes;
+    form.elements.instrucoes.placeholder = dica.placeholder;
+    // Densidade: a última escolhida, a mesma do painel de slides do Resultado.
+    if (tipo === 'slides' && !form.elements.densidade.dataset.tocado) {
+      form.elements.densidade.value = Storage.getSlidesOpts().densidade || 'equilibrado';
+    }
     $('#form-aula-enviar').textContent = ROTULO_ENVIAR[tipo];
   }
+
+  $('#form-aula').elements.densidade.addEventListener('change', e => {
+    e.target.dataset.tocado = '1';
+  });
 
   $('#form-aula').querySelectorAll('input[name="tipo"]').forEach(r => {
     r.addEventListener('change', () => setModoForm(r.value));
@@ -363,6 +394,8 @@
         adaptacoes: params.adaptacoes || [],
         adaptobs: params.adaptobs || '',
         origem: 'avulso',
+        // Vazio = a quantidade que o conteúdo pedir (Prompts.slidesMinimo → 0).
+        ...(tipo === 'slides' ? { minSlides: params.minSlides || '', densidade: params.densidade || 'equilibrado' } : {}),
       };
       runGeneration(tipo, avulso, Prompts.avulso(tipo, avulso), Prompts.titulo[tipo](avulso));
       return;
@@ -685,7 +718,7 @@
       );
       return;
     }
-    // Atividade/prova avulsa: o conteúdo de base está no próprio item.
+    // Atividade/prova/slides avulsos: o conteúdo de base está no próprio item.
     if (c.params?.origem === 'avulso') {
       runGeneration(c.tipo, c.params, Prompts.avulso(c.tipo, c.params), c.titulo);
       return;
@@ -1153,13 +1186,17 @@
     updateAulaHint();
   }
 
-  /* Leva uma atividade/prova avulsa de volta ao formulário (Duplicar). */
+  /* Leva uma atividade/prova/slides avulsos de volta ao formulário (Duplicar). */
   function preencherFormAvulso(tipo, params) {
     const form = $('#form-aula');
     setModoForm(tipo);
     form.elements.uc.value = params.uc || '';
     form.elements.conteudo.value = params.conteudoBase || '';
     form.elements.instrucoes.value = params.instrucoes || '';
+    if (tipo === 'slides') {
+      form.elements.minSlides.value = params.minSlides || '';
+      form.elements.densidade.value = params.densidade || 'equilibrado';
+    }
     form.elements.adaptobs.value = params.adaptobs || '';
     const marcadas = Prompts.adaptacoes(params);
     form.querySelectorAll('input[name="adaptacoes"]').forEach(c => {

@@ -104,7 +104,7 @@
         <div class="gerar-principal">
         <p class="saudacao-data" id="saudacao-data"></p>
         <h1 id="greeting">Gerar material</h1>
-        <p class="subtitle">Descreva a aula e receba o conteúdo pronto para ministrar — ou cole o conteúdo de uma aula antiga e gere direto a atividade ou a prova.</p>
+        <p class="subtitle">Descreva a aula e receba o conteúdo pronto para ministrar — ou cole um conteúdo pronto e gere direto a atividade, a prova ou os slides.</p>
 
         <div class="banner-instalar no-print" id="banner-instalar" hidden>
           <span class="banner-instalar-icone"><img src="icons/icon-192.png" alt="" width="36" height="36"></span>
@@ -119,13 +119,14 @@
         </p>
 
         <form class="gen-form" id="form-aula">
-          <!-- O que gerar. Atividade e prova também saem direto de um conteúdo
-               colado (ex.: aula antiga), sem precisar gerar a aula antes. -->
+          <!-- O que gerar. Atividade, prova e slides também saem direto de um
+               conteúdo colado (ex.: aula antiga), sem precisar gerar a aula antes. -->
           <div class="form-col form-principal">
           <div class="tipo-material" role="radiogroup" aria-label="O que você quer gerar">
             <label><input type="radio" name="tipo" value="aula" checked><svg class="ic"><use href="#i-book"/></svg>Aula</label>
             <label><input type="radio" name="tipo" value="atividade"><svg class="ic"><use href="#i-pencil"/></svg>Atividade</label>
             <label><input type="radio" name="tipo" value="prova"><svg class="ic"><use href="#i-file"/></svg>Prova</label>
+            <label><input type="radio" name="tipo" value="slides"><svg class="ic"><use href="#i-present"/></svg>Slides</label>
           </div>
 
 
@@ -136,12 +137,12 @@
 
           <label data-so="avulso">Conteúdo da aula
             <textarea name="conteudo" rows="10" required disabled maxlength="30000" placeholder="Cole o conteúdo que a turma estudou. Ex.:&#10;&#10;- o texto de uma aula antiga&#10;- um resumo ou o capítulo do livro&#10;- ou só os tópicos: Modelo ER — entidades, atributos, chaves primária e estrangeira, cardinalidade"></textarea>
-            <small>As questões saem só daqui: pode ser o texto completo, um resumo ou a lista de tópicos.</small>
+            <small id="conteudo-dica">As questões saem só daqui: pode ser o texto completo, um resumo ou a lista de tópicos.</small>
           </label>
 
           <label data-so="avulso">Instruções (opcional)
             <input type="text" name="instrucoes" disabled placeholder="Ex.: 15 questões, só dissertativas, nível fácil">
-            <small>Quantidade, tipo de questão, nível… Sem instruções, segue o padrão do app.</small>
+            <small id="instrucoes-dica">Quantidade, tipo de questão, nível… Sem instruções, segue o padrão do app.</small>
           </label>
 
           </div>
@@ -157,6 +158,21 @@
             </label>
           </div>
           <p class="form-hint" id="aula-agenda-hint" hidden></p>
+
+          <div class="grid-2" data-so="slides">
+            <label>Quantidade de slides
+              <input type="number" name="minSlides" min="2" max="60" step="1" placeholder="Automática" disabled>
+              <small>Em branco: o que o conteúdo pedir</small>
+            </label>
+            <label>Texto no slide
+              <select name="densidade" disabled>
+                <option value="enxuto">Enxuto</option>
+                <option value="equilibrado">Equilibrado</option>
+                <option value="detalhado">Detalhado</option>
+              </select>
+              <small>Passou do limite, vira outro slide — nada é cortado</small>
+            </label>
+          </div>
 
           <details class="form-avancado" id="aula-referencia" data-so="aula">
             <summary><svg class="ic"><use href="#i-paperclip"/></svg>Referência da UC <small>ementa, PDT, capítulo (opcional)</small></summary>

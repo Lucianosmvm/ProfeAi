@@ -366,10 +366,27 @@ window.Deck = (function () {
     return (t || '').replace(/\*\*(.+?)\*\*/g, '$1');
   }
 
+  /* "** termo **" vira "**termo**" e o ** sem par some — senão o asterisco
+     aparece no slide, na miniatura e no PPTX (é comum em texto colado do
+     ChatGPT e em célula de tabela). Mesma regra de Seguro.negrito, mas o
+     resultado continua em **…**, que é o que o resto do parser lê.
+     A régua "***" entre slides fica intacta. O marcador provisório é o caractere
+     U+E000 (uso privado), não o U+0000 — esse já marca os blocos de código. */
+  function negritoPareado(text) {
+    return text.split('\n').map(linha => {
+      if (/^\s*\*{3,}\s*$/.test(linha)) return linha;
+      return linha
+        .replace(/\*\*\s*([^*\n]*?[^*\s][^*\n]*?)\s*\*\*/g, '\uE000$1\uE000')
+        .replace(/\*\*/g, '')
+        .replace(/\uE000/g, '**');
+    }).join('\n');
+  }
+
   function parseSlides(raw) {
     const extraido = extractCodeBlocks(raw || '');
     const codes = extraido.codes;
-    const semCodigo = crasesParaNegrito(extraido.text);
+    // Roda depois de extractCodeBlocks: um 2**3 dentro de ``` não é mexido.
+    const semCodigo = negritoPareado(crasesParaNegrito(extraido.text));
     return splitSlideBlocks(semCodigo).map(block => {
       const lines = block.split('\n');
       const title = cleanTitle(lines.shift());
