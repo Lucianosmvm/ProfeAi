@@ -223,7 +223,8 @@
       });
       refreshUcList();
       prepararVista();
-      if (Api.truncou()) avisarTruncado();
+      const falta = diagnosticoIncompleto(tipo, texto, params);
+      if (falta) avisarIncompleto(falta);
     } catch (err) {
       mostrarErro(err, texto);
     } finally {
@@ -258,21 +259,49 @@
     location.hash = '#/resultado';
   }
 
-  /* Avisa que a IA parou no limite de tamanho e oferece a retomada.
+  /* O material saiu incompleto? Devolve o que avisar, ou null.
+
+     Dois jeitos de ficar pela metade. A API avisa quando corta no limite de
+     tamanho (MAX_TOKENS), e aí é só ler o motivo. Mas o modelo também para
+     sozinho antes da hora — entrega 6 dos 14 slides pedidos e fecha a resposta
+     como se tivesse terminado. Esse segundo caso só aparece contando os slides;
+     sem isso o professor só descobre na hora de apresentar. */
+  function contarSlides(texto) {
+    if (window.Deck && Deck.parseSlides) return Deck.parseSlides(texto).length;
+    return String(texto || '').split(/^\s*---\s*$/m).filter(b => b.trim()).length;
+  }
+
+  function diagnosticoIncompleto(tipo, texto, params) {
+    if (Api.truncou()) {
+      return { msg: 'A IA parou no limite de tamanho da resposta — o material está incompleto.' };
+    }
+    if (tipo !== 'slides') return null;
+    // Sem mínimo pedido ("Automática") não há com o que comparar.
+    const min = Prompts.slidesMinimo(params || {});
+    if (!min) return null;
+    const tem = contarSlides(texto);
+    if (tem >= min) return null;
+    return {
+      faltam: min - tem,
+      msg: `Saíram ${tem} dos ${min} slides pedidos — a IA parou antes do fim.`,
+    };
+  }
+
+  /* Avisa que o material está incompleto e oferece a retomada.
      Sem isso, um material cortado no meio parece completo. */
-  function avisarTruncado() {
+  function avisarIncompleto(info) {
     const aviso = document.createElement('div');
     aviso.className = 'aviso-truncado no-print';
-    aviso.innerHTML = '<p>⚠️ A IA parou no limite de tamanho da resposta — o material está incompleto.</p>'
+    aviso.innerHTML = `<p>⚠️ ${escapeHtml(info.msg)} Continuar aproveita o que já saiu; gerar de novo escreve tudo outra vez.</p>`
       + `<button type="button" class="btn-primary" id="btn-continuar">${ic('arrow-right')}Continuar de onde parou</button>`;
     $('#result-content').appendChild(aviso);
-    $('#btn-continuar').addEventListener('click', continuarGeracao);
+    $('#btn-continuar').addEventListener('click', () => continuarGeracao(info));
   }
 
   /* Emenda a continuação no material já gerado. */
-  async function continuarGeracao() {
+  async function continuarGeracao(info) {
     if (state.generating || !state.current?.conteudo) return;
-    const { tipo, id } = state.current;
+    const { tipo, id, params } = state.current;
     state.generating = true;
     $('#result-status').hidden = false;
     setStatus('Continuando de onde parou…');
@@ -281,17 +310,18 @@
     let texto = state.current.conteudo;
     try {
       let parcial = '';
-      for await (const chunk of Api.stream(Prompts.continuar(tipo, texto))) {
+      for await (const chunk of Api.stream(Prompts.continuar(tipo, texto, info))) {
         parcial += chunk;
-        $('#result-content').innerHTML = Seguro.md(texto + parcial);
+        $('#result-content').innerHTML = Seguro.md(emendar(texto, parcial, info));
       }
-      texto = texto + parcial;
+      texto = emendar(texto, parcial, info);
       state.current.conteudo = texto;
       Storage.addUsage(Api.lastUsage?.total);
       renderUsage(Api.lastUsage);
       if (id) Storage.updateHistoryItem(id, { conteudo: texto, conteudoHtml: null });
       prepararVista();
-      if (Api.truncou()) avisarTruncado();
+      const falta = diagnosticoIncompleto(tipo, texto, params);
+      if (falta) avisarIncompleto(falta);
     } catch (err) {
       mostrarErro(err, texto);
     } finally {
@@ -299,6 +329,14 @@
       state.generating = false;
       mostrarAjuste();
     }
+  }
+
+  /* Junta a continuação ao material. Cortado no meio, emenda direto (a última
+     linha pode estar pela metade); parado sozinho, entra em linha nova — senão
+     o `---` do próximo slide cola no fim do slide anterior. */
+  function emendar(texto, parcial, info) {
+    if (!info || !info.faltam) return texto + parcial;
+    return `${texto.replace(/\s+$/, '')}\n${parcial.replace(/^\s+/, '')}`;
   }
 
   /* Mostra o erro SEM apagar o que já tinha sido gerado. */

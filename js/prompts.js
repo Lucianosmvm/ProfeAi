@@ -223,15 +223,33 @@ Regras:
     return limpa.length > 70 ? limpa.slice(0, 70).trimEnd() + '…' : limpa;
   },
 
-  /* Retomada de um material que a IA cortou no limite de tamanho. */
-  continuar(tipo, textoParcial) {
-    return `O material abaixo (${this.labels[tipo] || tipo}) foi cortado no meio porque a resposta atingiu o limite de tamanho.
+  /* Retomada de um material incompleto. Dois casos, com instruções diferentes:
+     a resposta foi CORTADA no limite de tamanho (pode ter parado no meio de uma
+     frase) ou o modelo PAROU sozinho antes de entregar tudo o que foi pedido
+     (o texto termina inteiro, só falta o resto). */
+  continuar(tipo, textoParcial, info) {
+    const faltam = (info && info.faltam) || 0;
+    const motivo = faltam
+      ? `O material abaixo (${this.labels[tipo] || tipo}) está incompleto: você parou antes do fim e ainda faltam cerca de ${faltam} ${faltam === 1 ? 'slide' : 'slides'}.`
+      : `O material abaixo (${this.labels[tipo] || tipo}) foi cortado no meio porque a resposta atingiu o limite de tamanho.`;
+    // Nos slides a emenda é literal: sem o `---`, a continuação cola dentro do
+    // último slide e o gerador junta tudo numa tela só.
+    const formato = tipo === 'slides'
+      ? `
+- Formato dos slides: cada slide separado por uma linha com APENAS \`---\`; a primeira linha do slide é o título em texto puro; listas com \`- \`; destaques com \`**negrito**\`.
+- ${faltam
+    ? 'O último slide acima está completo: comece sua resposta com uma linha contendo apenas `---` e siga com os slides que faltam.'
+    : 'Se o último slide acima ficou pela metade, termine-o primeiro (sem repetir o título) e só então abra o próximo com `---`.'}
+- Siga a sequência do material: não volte a temas já apresentados e feche a apresentação com o slide de encerramento.`
+      : `
+- Mantenha o mesmo formato, o mesmo nível de linguagem e a mesma numeração.`;
+
+    return `${motivo}
 
 Continue EXATAMENTE de onde parou:
-- Não repita nada do que já está escrito e não reescreva o começo.
-- Se a última linha estiver incompleta, complete-a — o texto será emendado direto no final.
-- Não escreva nenhuma introdução, aviso ou comentário: só a continuação do material.
-- Mantenha o mesmo formato, o mesmo nível de linguagem e a mesma numeração.
+- Não repita nada do que já está escrito e não reescreva o começo.${faltam ? '' : `
+- Se a última linha estiver incompleta, complete-a — o texto será emendado direto no final.`}
+- Não escreva nenhuma introdução, aviso ou comentário: só a continuação do material.${formato}
 
 === MATERIAL ATÉ AQUI ===
 ${textoParcial}
