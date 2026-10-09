@@ -21,6 +21,7 @@ const APP = [
   './js/api.js',
   './js/imagens.js',
   './js/vendor/pptxgen.bundle.js',
+  './js/icones.js',
   './js/temas.js',
   './js/slides.js',
   './js/avaliacao.js',

@@ -221,7 +221,8 @@
   min-height: 0;
 }
 .slide-title {
-  font-size: 2.6em;
+  font-family: Poppins, "Segoe UI", Arial, sans-serif;
+  font-size: 2.4em;
   font-weight: 800;
   color: var(--slide-titulo, #3d4a5c);
   margin: 0 0 .1em 0;
@@ -259,7 +260,14 @@
   border-radius: 2px;
   background: var(--slide-destaque, var(--slide-titulo, #3d4a5c));
 }
-.slide-body b, .slide-body strong { color: var(--slide-texto, #3d4a5c); }
+.slide-body b, .slide-body strong { color: var(--slide-destaque, var(--slide-texto, #3d4a5c)); }
+
+/* Ícone ao lado do título ([icone: nome]), na cor de destaque. Igual ao PRINT_CSS. */
+.slide-icone {
+  display: inline-block; width: .95em; height: .95em; margin-right: .35em;
+  vertical-align: -.12em; color: var(--slide-destaque, currentColor);
+}
+.slide-icone svg { width: 100%; height: 100%; display: block; }
 
 /* Caixa de destaque: a explicação que vem depois dos tópicos. */
 .slide-body .slide-callout {

@@ -313,9 +313,16 @@ ${Prompts.formatoSlides(d)}
 CONTEÚDO:
 - Converta a aula do material base em slides, preservando a sequência das seções: capa, objetivos, slides de conteúdo, um slide de atividade/pergunta e um de encerramento/resumo.
 ${Prompts.regraSlides(d)}
+${Prompts.ICONES_SLIDES}
 ${Prompts.mascoteSlides(d)}
 ${Prompts.EXEMPLO_SLIDES}`,
 };
+
+/* Ícone ao lado do título, em todos os estilos (js/icones.js). A lista é
+   fechada: nome fora dela é ignorado pelo editor. */
+Prompts.ICONES_SLIDES = `
+ÍCONES: em cada slide de conteúdo, escreva logo abaixo do título uma linha com o ícone que combina com o assunto, ex.: \`[icone: rede]\`. Use SOMENTE um destes nomes: livro, rede, escudo, raio, alvo, ideia, codigo, terminal, banco, nuvem, cadeado, chave, engrenagem, grafico, pessoas, relogio, calendario, pergunta, alerta, check, lupa, computador, celular, mundo, pasta, lista, foguete, trofeu, mensagem, estrela. A capa não leva ícone.
+`;
 
 /* Estilo "Dev Sobrevivente" (js/temas.js): o modelo escolhe a pose do mascote
    de cada slide. A linha some do texto nos outros estilos (js/slides.js), então

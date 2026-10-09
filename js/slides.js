@@ -386,6 +386,14 @@ window.Deck = (function () {
      `[mascote: nenhum]`, numa linha própria em qualquer ponto do slide. */
   const MASCOTE_RE = /^\[\s*mascote\s*:\s*([a-zà-ú]+)(?:\s+["“'](.+?)["”'])?\s*\]$/i;
 
+  /* `[icone: rede]` numa linha própria: ícone ao lado do título (js/icones.js). */
+  const ICONE_RE = /^\[\s*[ií]cone\s*:\s*([a-zà-ú-]+)\s*\]$/i;
+
+  function iconeHtml(s) {
+    if (!s.icone || !window.Icones || !Icones.existe(s.icone)) return '';
+    return `<span class="slide-icone">${Icones.svg(s.icone)}</span>`;
+  }
+
   function parseSlides(raw) {
     const extraido = extractCodeBlocks(raw || '');
     const codes = extraido.codes;
@@ -395,7 +403,10 @@ window.Deck = (function () {
       // A linha do mascote sai do texto em qualquer estilo: nos que não têm o
       // personagem ela só some, em vez de aparecer escrita no slide.
       let mascote = null;
+      let icone = '';
       const lines = block.split('\n').filter(l => {
+        const ic = l.trim().match(ICONE_RE);
+        if (ic) { icone = ic[1].toLowerCase(); return false; }
         const m = l.trim().match(MASCOTE_RE);
         if (!m) return true;
         const pose = m[1].toLowerCase();
@@ -446,7 +457,7 @@ window.Deck = (function () {
         });
       });
 
-      return { title, bodyHtml: blocksHtml(blocks), blocks, isTitleSlide: chunks.length === 0, mascote };
+      return { title, bodyHtml: blocksHtml(blocks), blocks, isTitleSlide: chunks.length === 0, mascote, icone };
     });
   }
 
@@ -807,7 +818,7 @@ window.Deck = (function () {
       + '"';
     return `<div class="slide-bg"${png ? ' data-base="1"' : ''}${bgStyle(capa)}></div>
       <div class="slide-content${m ? ' com-mascote' : ''}"${vars}>
-        <h1 class="slide-title${ac ? ' com-acento' : ''}">${inlineFormat(s.title)}</h1>
+        <h1 class="slide-title${ac ? ' com-acento' : ''}">${iconeHtml(s)}${inlineFormat(s.title)}</h1>
         <div class="slide-body">${s.bodyHtml}</div>
       </div>
       ${mascoteHtml(m)}
@@ -1011,14 +1022,16 @@ window.Deck = (function () {
     repeating-linear-gradient(0deg, rgba(200,205,215,.3) 0px, rgba(200,205,215,.3) 1.5px, transparent 1.5px, transparent 40px);}
   .slide-img{display:block;max-width:100%;max-height:35%;object-fit:contain;margin:.4em auto;border-radius:6px;}
   .slide-content{position:relative;flex:1;padding:6% 7% 4% 7%;display:flex;flex-direction:column;gap:14px;z-index:1;min-height:0;}
-  .slide-title{font-size:2.6em;font-weight:800;color:var(--slide-titulo,#3d4a5c);margin:0 0 .1em 0;line-height:1.15;}
+  .slide-title{font-family:Poppins,"Segoe UI",Arial,sans-serif;font-size:2.4em;font-weight:800;color:var(--slide-titulo,#3d4a5c);margin:0 0 .1em 0;line-height:1.15;}
+  .slide-icone{display:inline-block;width:.95em;height:.95em;margin-right:.35em;vertical-align:-.12em;color:var(--slide-destaque,currentColor);}
+  .slide-icone svg{width:100%;height:100%;display:block;}
   .slide-body{font-size:1.05em;color:var(--slide-texto,#3d4a5c);line-height:1.55;}
   .slide-body p{margin:0 0 .7em 0;}
   .slide-body ul{margin:.2em 0 .9em 0;padding-left:0;list-style:none;}
   .slide-body li{position:relative;padding-left:1.3em;margin-bottom:.6em;}
   .slide-body li:last-child{margin-bottom:0;}
   .slide-body li::before{content:'';position:absolute;left:.1em;top:.53em;width:.48em;height:.48em;border-radius:2px;background:var(--slide-destaque,var(--slide-titulo,#3d4a5c));}
-  .slide-body strong{color:var(--slide-texto,#3d4a5c);}
+  .slide-body strong{color:var(--slide-destaque,var(--slide-texto,#3d4a5c));}
   .slide-title.com-acento::after{content:'';display:block;width:var(--acento-w,8%);height:.13em;margin-top:.26em;border-radius:.07em;background:linear-gradient(90deg,var(--acento-1),var(--acento-2));}
   .slide-body .slide-callout{background:rgba(0,0,0,.035);background:color-mix(in srgb,var(--slide-destaque,#3d4a5c) 9%,transparent);border-left:4px solid var(--slide-destaque,#3d4a5c);border-radius:0 8px 8px 0;padding:.6em 1em;margin:.3em 0 .7em 0;}
   .slide-body .slide-callout p:last-child{margin-bottom:0;}
@@ -1054,9 +1067,10 @@ window.Deck = (function () {
     // As cores da base entram como variáveis no :root da janela de impressão.
     const vars = `:root{--slide-titulo:${b.corTitulo};--slide-texto:${b.corTexto};}`;
     const doc = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
-<title>${escapeHtml(titulo)}</title><style>${vars}${PRINT_CSS}</style></head><body>
+<title>${escapeHtml(titulo)}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@700;800&display=swap"><style>${vars}${PRINT_CSS}</style></head><body>
 ${corpo}
-<script>window.onload=function(){setTimeout(function(){window.print();},250);};<\/script>
+<script>window.onload=function(){(document.fonts?document.fonts.ready:Promise.resolve()).then(function(){setTimeout(function(){window.print();},250);});};<\/script>
 </body></html>`;
 
     const win = window.open('', '_blank');
@@ -1093,6 +1107,8 @@ ${corpo}
     const ITEM_GAP_LINES = ITEM_GAP_PT / 72 / LINE_H;   // o mesmo respiro, em "linhas"
     const corTexto = hex(baseAtual().corTexto);
     const corDestaque = hex(baseAtual().destaque || baseAtual().corTitulo);
+    // Termo em **negrito** sai na cor de destaque, como na tela.
+    const corDe = seg => seg.bold ? corDestaque : corTexto;
     let cursorY = y;
     let pendingRuns = [];
     let estLines = 0;
@@ -1126,7 +1142,7 @@ ${corpo}
             options: {
               bold: seg.bold, breakLine: fim,
               paraSpaceAfter: fim && k < caixa.length - 1 ? 8 : 0,
-              fontSize: 15, color: corTexto, fontFace: 'Arial',
+              fontSize: 15, color: corDe(seg), fontFace: 'Arial',
             },
           });
         });
@@ -1209,7 +1225,7 @@ ${corpo}
                 breakLine: i === segs.length - 1,
                 bullet: i === 0 ? { code: '25A0' } : undefined,
                 paraSpaceAfter: ITEM_GAP_PT,
-                fontSize: 15, color: corTexto, fontFace: 'Arial',
+                fontSize: 15, color: corDe(seg), fontFace: 'Arial',
               },
             });
           });
@@ -1224,7 +1240,7 @@ ${corpo}
               bold: seg.bold,
               breakLine: i === segs.length - 1,
               paraSpaceAfter: i === segs.length - 1 ? 10 : 0,
-              fontSize: 15, color: corTexto, fontFace: 'Arial',
+              fontSize: 15, color: corDe(seg), fontFace: 'Arial',
             },
           });
         });
@@ -1285,7 +1301,8 @@ ${corpo}
     const restaura = () => { btn.disabled = false; btn.innerHTML = label; };
 
     try {
-      montarPptx(slides).writeFile({ fileName: sanitizeFilename(titulo) + '.pptx' })
+      prepararIcones(slides)
+        .then(() => montarPptx(slides).writeFile({ fileName: sanitizeFilename(titulo) + '.pptx' }))
         .then(restaura)
         .catch(() => { restaura(); alert('Não foi possível gerar o arquivo PPTX.'); });
     } catch (err) {
@@ -1307,9 +1324,19 @@ ${corpo}
     // para não mexer nas imagens do editor se ele estiver aberto.
     const doEditor = imageLibrary;
     imageLibrary = imgs;
+    await prepararIcones(lista);
     let pptx;
     try { pptx = montarPptx(lista); } finally { imageLibrary = doEditor; }
     return pptx.write({ outputType: 'blob' });
+  }
+
+  /* Rasteriza os ícones usados antes da montagem (que é síncrona). */
+  function prepararIcones(lista) {
+    if (!window.Icones) return Promise.resolve();
+    const b = baseAtual();
+    const cor = '#' + hex(b.destaque || b.corTitulo);
+    return Promise.all(lista.filter(s => s.icone && Icones.existe(s.icone))
+      .map(s => Icones.png(s.icone, cor)));
   }
 
   function montarPptx(slides) {
@@ -1349,7 +1376,7 @@ ${corpo}
           slide.addText(tituloTxt, {
             x: m ? 0.9 : 0.6, y: 0, w: m ? 13.333 * 0.56 : 13.333 - 1.2, h: 7.5 - 0.16,
             align: m ? 'left' : 'center', valign: 'middle',
-            fontSize: m ? 44 : 40, bold: true, color: corDoTitulo, fontFace: 'Arial',
+            fontSize: m ? 44 : 40, bold: true, color: corDoTitulo, fontFace: 'Poppins',
           });
         } else {
           // Sem fluxo automático: a altura do título sai do número estimado de
@@ -1357,9 +1384,13 @@ ${corpo}
           const TITULO_CHARS = 46;
           const linhasTitulo = Math.max(1, Math.ceil(tituloTxt.length / TITULO_CHARS));
           const tituloH = linhasTitulo * 0.53 + 0.15;
+          // Ícone ao lado do título: o título anda para a direita para dar lugar.
+          const icone = s.icone && window.Icones ? Icones.pngPronto(s.icone, '#' + hex(b.destaque || b.corTitulo)) : '';
+          const ICONE = 0.5, iconeDx = icone ? ICONE + 0.18 : 0;
+          if (icone) slide.addImage({ data: icone, x: 0.62, y: 0.53, w: ICONE, h: ICONE });
           slide.addText(tituloTxt, {
-            x: 0.6, y: 0.45, w: larguraUtil, h: tituloH,
-            fontSize: 32, bold: true, color: corDoTitulo, fontFace: 'Arial', valign: 'top',
+            x: 0.6 + iconeDx, y: 0.45, w: larguraUtil - iconeDx, h: tituloH,
+            fontSize: 30, bold: true, color: corDoTitulo, fontFace: 'Poppins', valign: 'top',
           });
           let corpoY = 0.45 + tituloH + 0.3;
           const ac = acentoDoSlide(b, capa);
