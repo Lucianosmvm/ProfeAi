@@ -394,6 +394,43 @@ window.Deck = (function () {
     return `<span class="slide-icone">${Icones.svg(s.icone)}</span>`;
   }
 
+  /* ---------- Cards ----------
+     Lista de 2 a 6 itens em que TODOS começam com ícone vira cards lado a lado:
+       - [icone: escudo] **Segurança** — Isola setores e limita ataques
+     O título do card é o **negrito** do começo (ou o que vem antes de " — " ou
+     ": "); o resto é a descrição. Item sem ícone: continua lista comum. */
+  const CARD_RE = /^\[\s*[ií]cone\s*:\s*([a-zà-ú-]+)\s*\]\s*(.*)$/i;
+
+  function lerCards(items) {
+    if (items.length < 2 || items.length > 6 || !window.Icones) return null;
+    const cards = [];
+    for (const item of items) {
+      const m = item.match(CARD_RE);
+      if (!m || !Icones.existe(m[1].toLowerCase())) return null;
+      const resto = m[2].trim();
+      let titulo, texto;
+      const neg = resto.match(/^\*\*(.+?)\*\*\s*[—–:-]?\s*(.*)$/);
+      const sep = resto.match(/^(.+?)\s+[—–-]\s+(.*)$/) || resto.match(/^([^:]{1,40}):\s+(.*)$/);
+      if (neg) [titulo, texto] = [neg[1], neg[2]];
+      else if (sep) [titulo, texto] = [sep[1], sep[2]];
+      else [titulo, texto] = [resto, ''];
+      cards.push({ icone: m[1].toLowerCase(), titulo: titulo.trim(), texto: texto.trim() });
+    }
+    return cards;
+  }
+
+  /* 2, 3 colunas; 4 vira 2x2; 5 e 6, 3 colunas. */
+  function colunasCards(n) {
+    return n === 4 ? 2 : Math.min(n, 3);
+  }
+
+  function cardsHtml(items) {
+    return `<div class="slide-cards" style="--cols:${colunasCards(items.length)}">`
+      + items.map(c => `<div class="slide-card">${Icones.svg(c.icone)}`
+        + `<b>${inlineFormat(c.titulo)}</b>${c.texto ? `<span>${inlineFormat(c.texto)}</span>` : ''}</div>`).join('')
+      + '</div>';
+  }
+
   function parseSlides(raw) {
     const extraido = extractCodeBlocks(raw || '');
     const codes = extraido.codes;
@@ -444,7 +481,9 @@ window.Deck = (function () {
         }
 
         if (chunkLines.every(l => BULLET_RE.test(l))) {
-          blocks.push({ type: 'ul', items: chunkLines.map(l => l.replace(BULLET_RE, '')) });
+          const items = chunkLines.map(l => l.replace(BULLET_RE, ''));
+          const cards = lerCards(items);
+          blocks.push(cards ? { type: 'cards', items: cards } : { type: 'ul', items });
           return;
         }
 
@@ -477,6 +516,7 @@ window.Deck = (function () {
       // A imagem posicionada não entra no fluxo: é desenhada solta por cima.
       else if (b.type === 'img') { if (!b.positioned) html += imgTagHtml(b.id); }
       else if (b.type === 'table') html += tableHtml(b.head, b.rows);
+      else if (b.type === 'cards') html += cardsHtml(b.items);
       else if (b.type === 'ul') html += '<ul>' + b.items.map(t => `<li>${inlineFormat(t)}</li>`).join('') + '</ul>';
       else html += `<p>${inlineFormat(b.text)}</p>`;
     });
@@ -738,7 +778,7 @@ window.Deck = (function () {
     if (m && m.placa) return { pose: 'placa', placa: m.placa };
     if (m && MASCOTE_POSES[m.pose]) return { pose: m.pose, placa: '' };
     if (s.isTitleSlide) return { pose: 'apontando', placa: '' };
-    if (s.blocks.some(x => x.type === 'table' || x.type === 'code' || x.type === 'img')) return null;
+    if (s.blocks.some(x => x.type === 'table' || x.type === 'code' || x.type === 'img' || x.type === 'cards')) return null;
     const chars = s.blocks.reduce((n, x) => n + (x.text || '').length
       + (x.items || []).reduce((k, t) => k + t.length, 0), 0);
     if (chars > MASCOTE_MAX_CHARS) return null;
@@ -1025,6 +1065,12 @@ window.Deck = (function () {
   .slide-title{font-family:Poppins,"Segoe UI",Arial,sans-serif;font-size:2.4em;font-weight:800;color:var(--slide-titulo,#3d4a5c);margin:0 0 .1em 0;line-height:1.15;}
   .slide-icone{display:inline-block;width:.95em;height:.95em;margin-right:.35em;vertical-align:-.12em;color:var(--slide-destaque,currentColor);}
   .slide-icone svg{width:100%;height:100%;display:block;}
+  .slide-cards{display:grid;grid-template-columns:repeat(var(--cols,3),1fr);gap:.8em;margin:.4em 0 .9em 0;}
+  .slide-card{background:rgba(127,127,127,.06);background:color-mix(in srgb,var(--slide-destaque,#3d4a5c) 8%,transparent);border:1px solid rgba(127,127,127,.25);border-color:color-mix(in srgb,var(--slide-destaque,#3d4a5c) 32%,transparent);border-radius:.6em;padding:.8em .9em;line-height:1.3;}
+  .slide-card svg{width:1.7em;height:1.7em;display:block;margin-bottom:.45em;color:var(--slide-destaque,currentColor);}
+  .slide-card b{display:block;font-family:Poppins,"Segoe UI",Arial,sans-serif;font-size:1.1em;font-weight:800;color:var(--slide-titulo,#3d4a5c);margin-bottom:.2em;}
+  .slide-card span{display:block;font-size:.92em;color:var(--slide-texto,#3d4a5c);}
+  .slide-card span strong{color:var(--slide-destaque,var(--slide-texto,#3d4a5c));}
   .slide-body{font-size:1.05em;color:var(--slide-texto,#3d4a5c);line-height:1.55;}
   .slide-body p{margin:0 0 .7em 0;}
   .slide-body ul{margin:.2em 0 .9em 0;padding-left:0;list-style:none;}
@@ -1214,6 +1260,9 @@ ${corpo}
           margin: 4, autoPage: false,
         });
         cursorY += (block.rows.length + 1) * ROW_H + PARA_GAP;
+      } else if (block.type === 'cards') {
+        flushText();
+        cursorY = renderPptxCards(slide, block.items, x, cursorY, w) + PARA_GAP;
       } else if (block.type === 'ul') {
         block.items.forEach(item => {
           const segs = mdRuns(item);
@@ -1330,13 +1379,57 @@ ${corpo}
     return pptx.write({ outputType: 'blob' });
   }
 
-  /* Rasteriza os ícones usados antes da montagem (que é síncrona). */
+  /* Rasteriza os ícones usados (título e cards) antes da montagem, que é
+     síncrona e só lê o cache. */
   function prepararIcones(lista) {
     if (!window.Icones) return Promise.resolve();
     const b = baseAtual();
     const cor = '#' + hex(b.destaque || b.corTitulo);
-    return Promise.all(lista.filter(s => s.icone && Icones.existe(s.icone))
-      .map(s => Icones.png(s.icone, cor)));
+    const nomes = new Set();
+    lista.forEach(s => {
+      if (s.icone && Icones.existe(s.icone)) nomes.add(s.icone);
+      s.blocks.forEach(x => { if (x.type === 'cards') x.items.forEach(c => nomes.add(c.icone)); });
+    });
+    return Promise.all([...nomes].map(n => Icones.png(n, cor)));
+  }
+
+  /* Cards em grade, como na tela. Devolve o y logo abaixo da última fileira. */
+  function renderPptxCards(slide, items, x, y, w) {
+    const b = baseAtual();
+    const destaque = hex(b.destaque || b.corTitulo);
+    const corTitulo = hex(b.corTitulo), corTexto = hex(b.corTexto);
+    const cols = colunasCards(items.length);
+    const GAP = 0.2, PAD = 0.18, ICONE = 0.42, TIT_H = 0.36, LINHA = 0.23;
+    const cw = (w - GAP * (cols - 1)) / cols;
+    const charsLinha = Math.max(12, Math.round(cw * 11));
+    for (let i = 0; i < items.length; i += cols) {
+      const fila = items.slice(i, i + cols);
+      const linhas = Math.max(0, ...fila.map(c => c.texto ? Math.ceil(semMarcas(c.texto).length / charsLinha) : 0));
+      const h = PAD * 2 + ICONE + 0.1 + TIT_H + linhas * LINHA;
+      fila.forEach((c, k) => {
+        const cx = x + k * (cw + GAP);
+        slide.addShape('roundRect', {
+          x: cx, y, w: cw, h, rectRadius: 0.1,
+          fill: { color: destaque, transparency: 92 }, line: { color: destaque, transparency: 65, width: 0.75 },
+        });
+        const png = Icones.pngPronto(c.icone, '#' + destaque);
+        if (png) slide.addImage({ data: png, x: cx + PAD, y: y + PAD, w: ICONE, h: ICONE });
+        slide.addText(semMarcas(c.titulo), {
+          x: cx + PAD, y: y + PAD + ICONE + 0.1, w: cw - PAD * 2, h: TIT_H,
+          fontSize: 16, bold: true, color: corTitulo, fontFace: 'Poppins', valign: 'top', margin: 0,
+        });
+        if (c.texto) {
+          slide.addText(mdRuns(c.texto).map(seg => ({
+            text: seg.text, options: { bold: seg.bold, color: seg.bold ? destaque : corTexto },
+          })), {
+            x: cx + PAD, y: y + PAD + ICONE + 0.1 + TIT_H, w: cw - PAD * 2, h: linhas * LINHA + 0.05,
+            fontSize: 13, fontFace: 'Arial', valign: 'top', margin: 0,
+          });
+        }
+      });
+      y += h + GAP;
+    }
+    return y - GAP;
   }
 
   function montarPptx(slides) {

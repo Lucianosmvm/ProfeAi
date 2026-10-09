@@ -322,6 +322,7 @@ ${Prompts.EXEMPLO_SLIDES}`,
    fechada: nome fora dela é ignorado pelo editor. */
 Prompts.ICONES_SLIDES = `
 ÍCONES: em cada slide de conteúdo, escreva logo abaixo do título uma linha com o ícone que combina com o assunto, ex.: \`[icone: rede]\`. Use SOMENTE um destes nomes: livro, rede, escudo, raio, alvo, ideia, codigo, terminal, banco, nuvem, cadeado, chave, engrenagem, grafico, pessoas, relogio, calendario, pergunta, alerta, check, lupa, computador, celular, mundo, pasta, lista, foguete, trofeu, mensagem, estrela. A capa não leva ícone.
+- CARDS: quando o slide compara ou apresenta de 2 a 6 itens paralelos (vantagens, tipos, etapas), faça uma lista em que CADA item começa com ícone, título curto em negrito e descrição de até 10 palavras, ex.: \`- [icone: escudo] **Segurança** — Isola setores e limita ataques\`. Use no máximo um bloco de cards por slide.
 `;
 
 /* Estilo "Dev Sobrevivente" (js/temas.js): o modelo escolhe a pose do mascote
