@@ -31,6 +31,19 @@ const APP = [
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',
   './icons/favicon-32.png',
+  // Poses do mascote (estilo Dev Sobrevivente)
+  './assets/mascote/apontando.png',
+  './assets/mascote/explicando.png',
+  './assets/mascote/pensando.png',
+  './assets/mascote/ideia.png',
+  './assets/mascote/comemorando.png',
+  './assets/mascote/lupa.png',
+  './assets/mascote/placa.png',
+  './assets/mascote/digitando.png',
+  './assets/mascote/surpreso.png',
+  './assets/mascote/confiante.png',
+  './assets/mascote/acenando.png',
+  './assets/mascote/cafe.png',
 ];
 
 const CDN = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];

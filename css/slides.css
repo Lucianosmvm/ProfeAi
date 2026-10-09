@@ -323,10 +323,26 @@
   color: #2f3b4c;
   border-bottom: 2px solid #b9c2cf;
 }
-.slide-body .slide-table tbody tr:nth-child(even) td { background: #fafbfc; }
+.slide-body .slide-table tbody tr:nth-child(even) td { background: rgba(127,127,127,.06); }
 
 .title-slide .slide-content { align-items: center; justify-content: center; text-align: center; }
 .title-slide .slide-title { font-size: 2.7em; }
+
+/* Mascote do estilo Dev Sobrevivente: no canto direito, apoiado embaixo; o
+   texto encolhe para a coluna da esquerda. Igual ao PRINT_CSS de slides.js. */
+.slide-mascote {
+  position: absolute; right: 3%; bottom: 0; height: 82%; z-index: 2;
+  filter: drop-shadow(0 .6em .8em rgba(0,0,0,.45)); pointer-events: none;
+}
+.slide-mascote img { height: 100%; display: block; }
+.mascote-placa {
+  position: absolute; left: 5.4%; top: 37.4%; width: 88.8%; height: 37.9%;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  font-weight: 900; color: #1d2416; line-height: 1.05; overflow-wrap: anywhere;
+}
+.slide-content.com-mascote { padding-right: 33%; }
+.title-slide .slide-content.com-mascote { align-items: flex-start; text-align: left; padding-right: 40%; }
+.title-slide .com-mascote .slide-title { font-size: 3em; }
 
 .bar { height: 16px; width: 100%; display: flex; z-index: 1; flex: none; }
 .bar div { flex: 1; }

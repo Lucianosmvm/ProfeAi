@@ -44,6 +44,12 @@ window.Temas = (function () {
       <circle cx="4" cy="4" r="3.2" fill="${cor}" opacity="0.5"/></pattern>`;
   }
 
+  /* Grade fina de fundo (quadriculado de caderno). */
+  function grade(id, cor) {
+    return `<pattern id="${id}" width="64" height="64" patternUnits="userSpaceOnUse">
+      <path d="M64 0 L0 0 L0 64" fill="none" stroke="${cor}" stroke-width="1.5" opacity="0.13"/></pattern>`;
+  }
+
   /* Margem do texto: .slide-content tem padding de 7%, então o texto começa em
      112px e termina em 1488px. É por eles que os acentos se alinham. */
   const TX = 112;
@@ -154,6 +160,21 @@ window.Temas = (function () {
         <rect x="0" y="520" width="420" height="380" fill="url(#pt)" opacity="0.16"/>
         <circle cx="1300" cy="700" r="240" fill="#ffffff" opacity="0.05"/>`,
     },
+
+    /* Fundo do "Dev Sobrevivente" (o mesmo das imagens do blog): roxo escuro
+       com brilho no canto e grade fina. Não tem gradiente de capa: a capa é o
+       mesmo fundo, com mais brilho — quem dá a cara dela é o mascote. */
+    dev: {
+      acento: 140,
+      conteudo: p => `<defs>${lg('g1', p.d1, p.d2, 'r')}${rg('b1', p.d2, 0.30)}${grade('gr', p.d2)}</defs>
+        <rect width="${W}" height="${H}" fill="${p.fundo}"/>
+        <circle cx="1250" cy="270" r="900" fill="url(#b1)"/>
+        <rect width="${W}" height="${H}" fill="url(#gr)"/>`,
+      capa: p => `<defs>${lg('g1', p.d1, p.d2, 'r')}${rg('b1', p.d2, 0.45)}${grade('gr', p.d2)}</defs>
+        <rect width="${W}" height="${H}" fill="${p.fundo}"/>
+        <circle cx="1250" cy="270" r="1000" fill="url(#b1)"/>
+        <rect width="${W}" height="${H}" fill="url(#gr)"/>`,
+    },
   };
 
   /* ---------- Catálogo ---------- */
@@ -200,10 +221,22 @@ window.Temas = (function () {
       fundo: '#0f172a', destaque: '#22d3ee', destaque2: '#818cf8',
       corTitulo: '#ffffff', corTexto: '#cbd5e1', capaCor: '#ffffff',
     },
+    /* Único com o mascote: quem não quer o personagem escolhe outro estilo. */
+    {
+      id: 'dev', nome: 'Dev Sobrevivente', layout: 'dev', mascote: true,
+      fundo: '#14111f', destaque: '#fbbf24', destaque2: '#a78bfa',
+      corTitulo: '#f4f1ff', corTexto: '#d9d4ee', capaCor: '#f4f1ff',
+    },
   ];
 
   function get(id) {
     return LISTA.find(t => t.id === id) || null;
+  }
+
+  /* O estilo leva o mascote nos slides? */
+  function temMascote(id) {
+    const t = get(id);
+    return !!(t && t.mascote);
   }
 
   /* Cores efetivas: as do tema, sobrescritas pelo que estiver na base — é isso
@@ -265,5 +298,5 @@ window.Temas = (function () {
     };
   }
 
-  return { W, H, LISTA, get, desenho, svgCompleto, previewUrl, patchBase, acentoInfo };
+  return { W, H, LISTA, get, desenho, svgCompleto, previewUrl, patchBase, acentoInfo, temMascote };
 })();

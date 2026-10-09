@@ -313,9 +313,20 @@ ${Prompts.formatoSlides(d)}
 CONTEÚDO:
 - Converta a aula do material base em slides, preservando a sequência das seções: capa, objetivos, slides de conteúdo, um slide de atividade/pergunta e um de encerramento/resumo.
 ${Prompts.regraSlides(d)}
-
+${Prompts.mascoteSlides(d)}
 ${Prompts.EXEMPLO_SLIDES}`,
 };
+
+/* Estilo "Dev Sobrevivente" (js/temas.js): o modelo escolhe a pose do mascote
+   de cada slide. A linha some do texto nos outros estilos (js/slides.js), então
+   trocar de estilo depois não deixa nada escrito no slide. */
+Prompts.mascoteSlides = d => (d && d.tema === 'dev') ? `
+MASCOTE: os slides têm um mascote ao lado do texto. Em cada slide de conteúdo, escolha a pose que combina com ele e escreva-a numa linha própria, logo abaixo do título:
+- \`[mascote: explicando]\` conceito; \`[mascote: pensando]\` pergunta ou reflexão; \`[mascote: ideia]\` dica ou sacada; \`[mascote: lupa]\` análise ou detalhe; \`[mascote: digitando]\` prática no computador; \`[mascote: confiante]\` objetivo ou resumo; \`[mascote: surpreso]\` curiosidade ou erro comum; \`[mascote: comemorando]\` conquista; \`[mascote: cafe]\` pausa; \`[mascote: acenando]\` encerramento.
+- Para um aviso curto, use a placa: \`[mascote: placa "Atenção!"]\` (no máximo 3 palavras).
+- Slide com tabela ou código: escreva \`[mascote: nenhum]\` — ele precisa da largura toda.
+- A capa não leva a linha do mascote.
+` : '';
 
 /* Formato que o editor de slides (js/slides.js) lê: separa os slides pelo
    `---` e toma a PRIMEIRA LINHA do bloco como título. Qualquer desvio vira

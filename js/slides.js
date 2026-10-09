@@ -382,13 +382,26 @@ window.Deck = (function () {
     }).join('\n');
   }
 
+  /* `[mascote: pensando]`, `[mascote: placa "Faça no lab!"]` ou
+     `[mascote: nenhum]`, numa linha própria em qualquer ponto do slide. */
+  const MASCOTE_RE = /^\[\s*mascote\s*:\s*([a-zà-ú]+)(?:\s+["“'](.+?)["”'])?\s*\]$/i;
+
   function parseSlides(raw) {
     const extraido = extractCodeBlocks(raw || '');
     const codes = extraido.codes;
     // Roda depois de extractCodeBlocks: um 2**3 dentro de ``` não é mexido.
     const semCodigo = negritoPareado(crasesParaNegrito(extraido.text));
     return splitSlideBlocks(semCodigo).map(block => {
-      const lines = block.split('\n');
+      // A linha do mascote sai do texto em qualquer estilo: nos que não têm o
+      // personagem ela só some, em vez de aparecer escrita no slide.
+      let mascote = null;
+      const lines = block.split('\n').filter(l => {
+        const m = l.trim().match(MASCOTE_RE);
+        if (!m) return true;
+        const pose = m[1].toLowerCase();
+        mascote = pose === 'nenhum' ? { nenhum: true } : { pose, placa: (m[2] || '').trim() };
+        return false;
+      });
       const title = cleanTitle(lines.shift());
       const rest = repairTables(lines.join('\n').trim());
 
@@ -433,7 +446,7 @@ window.Deck = (function () {
         });
       });
 
-      return { title, bodyHtml: blocksHtml(blocks), blocks, isTitleSlide: chunks.length === 0 };
+      return { title, bodyHtml: blocksHtml(blocks), blocks, isTitleSlide: chunks.length === 0, mascote };
     });
   }
 
@@ -680,6 +693,60 @@ window.Deck = (function () {
       : '';
   }
 
+  /* ===================== Mascote (estilo Dev Sobrevivente) =====================
+     Só aparece no estilo que tem `mascote: true` em js/temas.js. As poses são
+     as do blog (BloggerPostCreator), reduzidas, em assets/mascote/. O número é
+     largura/altura do PNG — o PPTX precisa dele para não achatar a figura. */
+  const MASCOTE_POSES = {
+    apontando: 0.645, explicando: 0.559, pensando: 0.406, ideia: 0.321,
+    comemorando: 0.590, lupa: 0.592, placa: 0.572, digitando: 0.493,
+    surpreso: 0.608, confiante: 0.457, acenando: 0.510, cafe: 0.415,
+  };
+  const MASCOTE_AUTO = ['explicando', 'pensando', 'ideia', 'lupa', 'digitando', 'confiante'];
+  /* Área branca da placa em placa.png, em % da figura (igual ao blog). */
+  const PLACA = { x: 5.4, y: 37.4, w: 88.8, h: 37.9 };
+  /* Altura da figura e coluna que ela ocupa, em % do slide (iguais ao CSS). */
+  const MASCOTE_H = 82;
+  const MASCOTE_COLUNA = 31;
+  /* Acima disso o texto não cabe na coluna estreita: o mascote automático sai. */
+  const MASCOTE_MAX_CHARS = 380;
+
+  function mascoteUrl(pose) {
+    // Endereço absoluto: a janela de impressão é about:blank.
+    return new URL('assets/mascote/' + pose + '.png', location.href).href;
+  }
+
+  /* Pose do slide i, ou null. Sem a linha [mascote: …], a capa aponta para o
+     título e os slides só de texto curto ganham uma pose em rodízio; tabela,
+     código e imagem precisam da largura toda e ficam sem. */
+  function mascoteDoSlide(s, i) {
+    const b = baseAtual();
+    if (b.origem === 'imagem' || !window.Temas || !Temas.temMascote(b.tema)) return null;
+    const m = s.mascote;
+    if (m && m.nenhum) return null;
+    if (m && m.placa) return { pose: 'placa', placa: m.placa };
+    if (m && MASCOTE_POSES[m.pose]) return { pose: m.pose, placa: '' };
+    if (s.isTitleSlide) return { pose: 'apontando', placa: '' };
+    if (s.blocks.some(x => x.type === 'table' || x.type === 'code' || x.type === 'img')) return null;
+    const chars = s.blocks.reduce((n, x) => n + (x.text || '').length
+      + (x.items || []).reduce((k, t) => k + t.length, 0), 0);
+    if (chars > MASCOTE_MAX_CHARS) return null;
+    return { pose: MASCOTE_AUTO[i % MASCOTE_AUTO.length], placa: '' };
+  }
+
+  /* Texto da placa encolhe conforme o tamanho, para caber na área branca. */
+  function placaFonte(txt) {
+    return Math.min(1.6, 11 / Math.max(6, txt.length));
+  }
+
+  function mascoteHtml(m) {
+    if (!m) return '';
+    const placa = m.placa
+      ? `<div class="mascote-placa" style="font-size:${placaFonte(m.placa).toFixed(2)}em">${escapeHtml(m.placa)}</div>`
+      : '';
+    return `<div class="slide-mascote"><img src="${mascoteUrl(m.pose)}" alt="">${placa}</div>`;
+  }
+
   /* ===================== Preview ===================== */
 
   function barHtml() {
@@ -712,12 +779,12 @@ window.Deck = (function () {
   const CONTEUDO_W_PCT = 86;
 
   /* "3 / 14" no rodapé; a capa não leva número. */
-  function numeroHtml(opts, capa) {
+  function numeroHtml(opts, capa, comMascote) {
     if (capa || !opts || !opts.total) return '';
     const b = baseAtual();
     const fundo = b.origem === 'imagem' ? '#ffffff' : (b.fundo || '#ffffff');
     // Com a faixa colorida do rodapé, o número sobe para não ficar em cima dela.
-    const bottom = b.barra ? 'bottom:6.5%;' : '';
+    const bottom = (b.barra ? 'bottom:6.5%;' : '') + (comMascote ? 'left:3%;right:auto;' : '');
     return `<div class="slide-num" style="background:${fundo};color:${b.corTexto};${bottom}">`
       + `${opts.num}<span> / ${opts.total}</span></div>`;
   }
@@ -734,16 +801,18 @@ window.Deck = (function () {
     // janela de impressão herda a mesma regra sem depender do :root.
     const c = coresDoSlide(b, capa);
     const ac = acentoDoSlide(b, capa);
+    const m = mascoteDoSlide(s, opts && opts.num ? opts.num - 1 : slides.indexOf(s));
     const vars = ` style="--slide-titulo:${c.titulo};--slide-texto:${c.texto};--slide-destaque:${b.destaque || c.titulo};`
       + (ac ? `--acento-w:${(ac.largura / CONTEUDO_W_PCT * 100).toFixed(2)}%;--acento-1:${ac.d1};--acento-2:${ac.d2};` : '')
       + '"';
     return `<div class="slide-bg"${png ? ' data-base="1"' : ''}${bgStyle(capa)}></div>
-      <div class="slide-content"${vars}>
+      <div class="slide-content${m ? ' com-mascote' : ''}"${vars}>
         <h1 class="slide-title${ac ? ' com-acento' : ''}">${inlineFormat(s.title)}</h1>
         <div class="slide-body">${s.bodyHtml}</div>
       </div>
+      ${mascoteHtml(m)}
       ${soltas}
-      ${numeroHtml(opts, capa)}
+      ${numeroHtml(opts, capa, !!m)}
       ${barHtml()}`;
   }
 
@@ -960,9 +1029,15 @@ window.Deck = (function () {
   .slide-body .slide-table{width:100%;border-collapse:collapse;margin:.5em 0 .8em 0;font-size:.92em;line-height:1.35;}
   .slide-body .slide-table th,.slide-body .slide-table td{border:1px solid #d8dde4;padding:.38em .6em;text-align:left;vertical-align:top;}
   .slide-body .slide-table thead th{background:#eef1f5;font-weight:700;color:#2f3b4c;border-bottom:2px solid #b9c2cf;}
-  .slide-body .slide-table tbody tr:nth-child(even) td{background:#fafbfc;}
+  .slide-body .slide-table tbody tr:nth-child(even) td{background:rgba(127,127,127,.06);}
   .title-slide .slide-content{align-items:center;justify-content:center;text-align:center;}
   .title-slide .slide-title{font-size:2.7em;}
+  .slide-mascote{position:absolute;right:3%;bottom:0;height:82%;z-index:2;filter:drop-shadow(0 .6em .8em rgba(0,0,0,.45));}
+  .slide-mascote img{height:100%;display:block;}
+  .mascote-placa{position:absolute;left:5.4%;top:37.4%;width:88.8%;height:37.9%;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:900;color:#1d2416;line-height:1.05;overflow-wrap:anywhere;}
+  .slide-content.com-mascote{padding-right:33%;}
+  .title-slide .slide-content.com-mascote{align-items:flex-start;text-align:left;padding-right:40%;}
+  .title-slide .com-mascote .slide-title{font-size:3em;}
   .bar{height:5%;width:100%;display:flex;z-index:1;flex:0 0 auto;}
   .bar div{flex:1;}
   @media print{body{background:#fff;}.pageBox{max-width:none;}}
@@ -1009,7 +1084,8 @@ ${corpo}
   function hex(c) { return String(c || '').replace('#', '').toUpperCase() || '3D4A5C'; }
 
   function renderPptxBody(slide, blocks, x, y, w) {
-    const CHARS_PER_LINE = 85;
+    // 85 caracteres por linha na largura cheia; ao lado do mascote a coluna é mais estreita.
+    const CHARS_PER_LINE = Math.round(85 * w / (13.333 - 1.2));
     const LINE_H = 0.25;
     const PARA_GAP = 0.12;
     const IMG_MAX_H = 2.6;
@@ -1180,6 +1256,23 @@ ${corpo}
     });
   }
 
+  /* Mascote no canto direito, apoiado na borda de baixo, como na tela. */
+  function renderPptxMascote(slide, m) {
+    const SLIDE_W = 13.333, SLIDE_H = 7.5;
+    const h = SLIDE_H * MASCOTE_H / 100;
+    const w = h * MASCOTE_POSES[m.pose];
+    const x = SLIDE_W * 0.97 - w, y = SLIDE_H - h;
+    slide.addImage({ path: mascoteUrl(m.pose), x, y, w, h });
+    if (m.placa) {
+      slide.addText(m.placa, {
+        x: x + w * PLACA.x / 100, y: y + h * PLACA.y / 100,
+        w: w * PLACA.w / 100, h: h * PLACA.h / 100,
+        align: 'center', valign: 'middle', margin: 2,
+        fontSize: Math.round(16 * placaFonte(m.placa)), bold: true, color: '1D2416', fontFace: 'Arial',
+      });
+    }
+  }
+
   function exportPptx() {
     if (!slides.length) { alert('Sem slides para exportar.'); return; }
     if (!window.PptxGenJS) { alert('A biblioteca de exportação PPTX não carregou.'); return; }
@@ -1229,6 +1322,8 @@ ${corpo}
       slides.forEach((s, i) => {
         const slide = pptx.addSlide();
         const capa = !!s.isTitleSlide;
+        const m = mascoteDoSlide(s, i);
+        const larguraUtil = 13.333 - 1.2 - (m ? 13.333 * (MASCOTE_COLUNA - 3) / 100 : 0);
         const corDoTitulo = hex(coresDoSlide(b, capa).titulo);
         slide.background = { color: hex(b.fundo) };
 
@@ -1252,9 +1347,9 @@ ${corpo}
         const tituloTxt = semMarcas(s.title);   // título já sai todo em negrito
         if (capa) {
           slide.addText(tituloTxt, {
-            x: 0.6, y: 0, w: 13.333 - 1.2, h: 7.5 - 0.16,
-            align: 'center', valign: 'middle',
-            fontSize: 40, bold: true, color: corDoTitulo, fontFace: 'Arial',
+            x: m ? 0.9 : 0.6, y: 0, w: m ? 13.333 * 0.56 : 13.333 - 1.2, h: 7.5 - 0.16,
+            align: m ? 'left' : 'center', valign: 'middle',
+            fontSize: m ? 44 : 40, bold: true, color: corDoTitulo, fontFace: 'Arial',
           });
         } else {
           // Sem fluxo automático: a altura do título sai do número estimado de
@@ -1263,7 +1358,7 @@ ${corpo}
           const linhasTitulo = Math.max(1, Math.ceil(tituloTxt.length / TITULO_CHARS));
           const tituloH = linhasTitulo * 0.53 + 0.15;
           slide.addText(tituloTxt, {
-            x: 0.6, y: 0.45, w: 13.333 - 1.2, h: tituloH,
+            x: 0.6, y: 0.45, w: larguraUtil, h: tituloH,
             fontSize: 32, bold: true, color: corDoTitulo, fontFace: 'Arial', valign: 'top',
           });
           let corpoY = 0.45 + tituloH + 0.3;
@@ -1277,7 +1372,7 @@ ${corpo}
             });
             corpoY = acY + 0.36;
           }
-          renderPptxBody(slide, s.blocks, 0.6, corpoY, 13.333 - 1.2);
+          renderPptxBody(slide, s.blocks, 0.6, corpoY, larguraUtil);
 
           // Número do slide no rodapé, como na tela.
           const NUM_W = 0.95, NUM_H = 0.3;
@@ -1286,13 +1381,14 @@ ${corpo}
             { text: ` / ${slides.length}`, options: { bold: false } },
           ], {
             shape: 'roundRect', rectRadius: NUM_H / 2,
-            x: 13.333 * 0.97 - NUM_W, y: 7.5 * (b.barra ? 0.935 : 0.976) - NUM_H, w: NUM_W, h: NUM_H,
+            x: m ? 13.333 * 0.03 : 13.333 * 0.97 - NUM_W, y: 7.5 * (b.barra ? 0.935 : 0.976) - NUM_H, w: NUM_W, h: NUM_H,
             align: 'center', valign: 'middle', margin: 0,
             fontSize: 11, color: hex(b.corTexto), fontFace: 'Arial',
             fill: { color: b.origem === 'imagem' ? 'FFFFFF' : hex(b.fundo) },
             line: { color: 'DDDDDD', width: 0.5 },
           });
         }
+        if (m) renderPptxMascote(slide, m);
         renderPptxPosicionadas(slide, s.blocks);
       });
 
