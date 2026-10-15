@@ -70,7 +70,9 @@ window.Deck = (function () {
   /* ---------- Blocos de código ----------
      Retirados do texto ANTES de qualquer outra análise: assim --- , | e * que
      estejam dentro do código não viram separador, tabela ou lista. */
-  const FENCE_RE = /^(?:`{3,}|~{3,})\s*[A-Za-z0-9_+#.-]*$/;
+  // ```python  ou  ```python main.py  (linguagem e, opcional, nome do arquivo)
+  const FENCE_RE = /^(?:`{3,}|~{3,})\s*(?:[A-Za-z0-9_+#.-]*(?:\s+[\w.\/-]+)?)?$/;
+  const FENCE_INFO_RE = /^(?:`{3,}|~{3,})\s*([A-Za-z0-9_+#.-]*)(?:\s+([\w.\/-]+))?$/;
   const CODE_TOKEN_RE = /^\u0000CODE(\d+)\u0000$/;
 
   function extractCodeBlocks(text) {
@@ -86,7 +88,8 @@ window.Deck = (function () {
           const body = lines.slice(i + 1, j).join('\n').replace(/^\s*\n+|\n+\s*$/g, '');
           if (body.trim()) {
             out.push('', '\u0000CODE' + codes.length + '\u0000', '');
-            codes.push(body);
+            const info = lines[i].trim().match(FENCE_INFO_RE) || [];
+            codes.push({ text: body, lang: (info[1] || '').toLowerCase(), arquivo: info[2] || '' });
           }
           i = j + 1;
           continue;
@@ -98,8 +101,58 @@ window.Deck = (function () {
     return { text: out.join('\n'), codes };
   }
 
-  function codeHtml(code) {
-    return `<pre class="slide-code"><code>${escapeHtml(code)}</code></pre>`;
+  /* Cores do código (fundo escuro, como num editor). */
+  const COR_CODIGO = { fundo: '1E293B', texto: 'E2E8F0', k: 'C4B5FD', s: '86EFAC', c: '94A3B8', n: 'FDBA74', f: '7DD3FC' };
+
+  const PALAVRAS = new Set(('def class return if elif else for while in not and or is import from as try except finally raise with '
+    + 'lambda pass break continue yield global del assert async await function var let const new this typeof instanceof '
+    + 'switch case default do throw catch extends implements interface public private protected static void int float double '
+    + 'char long boolean bool string String true false null undefined None True False self super print fn mut use impl struct '
+    + 'enum match pub func package select where join group order by insert into values update delete create table '
+    + 'echo fi then done').split(' '));
+
+  /* Quebra o código em linhas de pedaços {t, k}: k = tipo (k palavra, s texto,
+     c comentário, n número, f chamada de função) ou '' para o resto. */
+  function tokensCodigo(code, lang) {
+    const semCor = /^(html|xml|text|txt|plain|json)$/.test(lang);
+    const hash = /^(py|python|sh|bash|shell|ruby|rb|yaml|yml|r|perl)$/.test(lang);
+    const barra = /^(js|javascript|ts|typescript|java|c|cpp|c\+\+|cs|csharp|go|rust|rs|php|kotlin|swift|css|scss|dart)$/.test(lang);
+    const sql = lang === 'sql';
+    const com = hash ? '#[^\\n]*' : sql ? '--[^\\n]*' : barra ? '\\/\\/[^\\n]*|\\/\\*[\\s\\S]*?\\*\\/'
+      : '#[^\\n]*|\\/\\/[^\\n]*|\\/\\*[\\s\\S]*?\\*\\/';
+    const re = new RegExp('(' + com + ')|("(?:\\\\.|[^"\\\\\\n])*"|\'(?:\\\\.|[^\'\\\\\\n])*\'|`(?:\\\\.|[^`\\\\])*`)'
+      + '|\\b(\\d+(?:\\.\\d+)?)\\b|([A-Za-z_]\\w*)', 'g');
+    const pecas = [];
+    let ult = 0, m;
+    const resto = ate => { if (ate > ult) pecas.push({ t: code.slice(ult, ate), k: '' }); };
+    while (!semCor && (m = re.exec(code))) {
+      resto(m.index);
+      let k = '';
+      if (m[1] !== undefined) k = 'c';
+      else if (m[2] !== undefined) k = 's';
+      else if (m[3] !== undefined) k = 'n';
+      else if (PALAVRAS.has(m[4]) || (sql && PALAVRAS.has(m[4].toLowerCase()))) k = 'k';
+      else if (code[m.index + m[0].length] === '(') k = 'f';
+      pecas.push({ t: m[0], k });
+      ult = m.index + m[0].length;
+    }
+    resto(code.length);
+    // Divide nas quebras de linha (comentário e texto de várias linhas inclusos).
+    const linhas = [[]];
+    pecas.forEach(p => p.t.split('\n').forEach((parte, i) => {
+      if (i > 0) linhas.push([]);
+      if (parte) linhas[linhas.length - 1].push({ t: parte, k: p.k });
+    }));
+    return linhas;
+  }
+
+  function codeHtml(code, lang, arquivo) {
+    const corpo = tokensCodigo(code, lang || '').map(l =>
+      l.map(p => p.k ? `<span class="tk-${p.k}">${escapeHtml(p.t)}</span>` : escapeHtml(p.t)).join('')).join('\n');
+    const rotulo = arquivo || lang || '';
+    return `<div class="slide-code-wrap"><div class="slide-code-bar"><i></i><i></i><i></i>`
+      + `${rotulo ? `<span>${escapeHtml(rotulo)}</span>` : ''}</div>`
+      + `<pre class="slide-code"><code>${corpo}</code></pre></div>`;
   }
 
   /* ---------- Imagens ----------
@@ -460,7 +513,7 @@ window.Deck = (function () {
 
         const codeMatch = chunkLines.length === 1 && chunkLines[0].match(CODE_TOKEN_RE);
         if (codeMatch) {
-          blocks.push({ type: 'code', text: codes[Number(codeMatch[1])] });
+          blocks.push({ type: 'code', ...codes[Number(codeMatch[1])] });
           return;
         }
 
@@ -468,6 +521,13 @@ window.Deck = (function () {
         const imgInfo = tagImg ? parseImgTagInner(tagImg[1].trim()) : null;
         if (imgInfo) {
           blocks.push({ type: 'img', ...imgInfo });
+          return;
+        }
+
+        if (window.Icones && Icones.ehDiagrama(chunkLines)) {
+          const dg = Icones.lerDiagrama(chunkLines);
+          if (dg) { blocks.push({ type: 'diagrama', ...dg }); return; }
+          // Diagrama inválido: some em vez de aparecer como texto cru.
           return;
         }
 
@@ -502,6 +562,8 @@ window.Deck = (function () {
 
   /* HTML do corpo. Os parágrafos seguidos da caixa de destaque saem numa
      <div> só, para a caixa não virar uma pilha de caixinhas. */
+  let dgSeq = 0;   // id do marcador de seta: único por diagrama na página
+
   function blocksHtml(blocks) {
     let html = '';
     let caixa = '';
@@ -512,11 +574,14 @@ window.Deck = (function () {
     blocks.forEach(b => {
       if (b.type === 'p' && b.callout) { caixa += `<p>${inlineFormat(b.text)}</p>`; return; }
       fechaCaixa();
-      if (b.type === 'code') html += codeHtml(b.text);
+      if (b.type === 'code') html += codeHtml(b.text, b.lang, b.arquivo);
       // A imagem posicionada não entra no fluxo: é desenhada solta por cima.
       else if (b.type === 'img') { if (!b.positioned) html += imgTagHtml(b.id); }
       else if (b.type === 'table') html += tableHtml(b.head, b.rows);
       else if (b.type === 'cards') html += cardsHtml(b.items);
+      else if (b.type === 'diagrama') {
+        html += `<div class="slide-diagrama">${Icones.svgDiagrama(b, 'var(--slide-destaque,#3d4a5c)', 'var(--slide-titulo,#3d4a5c)', ++dgSeq)}</div>`;
+      }
       else if (b.type === 'ul') html += '<ul>' + b.items.map(t => `<li>${inlineFormat(t)}</li>`).join('') + '</ul>';
       else html += `<p>${inlineFormat(b.text)}</p>`;
     });
@@ -778,7 +843,7 @@ window.Deck = (function () {
     if (m && m.placa) return { pose: 'placa', placa: m.placa };
     if (m && MASCOTE_POSES[m.pose]) return { pose: m.pose, placa: '' };
     if (s.isTitleSlide) return { pose: 'apontando', placa: '' };
-    if (s.blocks.some(x => x.type === 'table' || x.type === 'code' || x.type === 'img' || x.type === 'cards')) return null;
+    if (s.blocks.some(x => x.type === 'table' || x.type === 'code' || x.type === 'img' || x.type === 'cards' || x.type === 'diagrama')) return null;
     const chars = s.blocks.reduce((n, x) => n + (x.text || '').length
       + (x.items || []).reduce((k, t) => k + t.length, 0), 0);
     if (chars > MASCOTE_MAX_CHARS) return null;
@@ -1067,6 +1132,8 @@ window.Deck = (function () {
   .slide-icone svg{width:100%;height:100%;display:block;}
   .slide-cards{display:grid;grid-template-columns:repeat(var(--cols,3),1fr);gap:.8em;margin:.4em 0 .9em 0;}
   .slide-card{background:rgba(127,127,127,.06);background:color-mix(in srgb,var(--slide-destaque,#3d4a5c) 8%,transparent);border:1px solid rgba(127,127,127,.25);border-color:color-mix(in srgb,var(--slide-destaque,#3d4a5c) 32%,transparent);border-radius:.6em;padding:.8em .9em;line-height:1.3;}
+  .slide-diagrama{margin:.4em 0 .9em 0;}
+  .slide-diagrama svg{display:block;width:100%;height:auto;max-height:15em;margin:0 auto;}
   .slide-card svg{width:1.7em;height:1.7em;display:block;margin-bottom:.45em;color:var(--slide-destaque,currentColor);}
   .slide-card b{display:block;font-family:Poppins,"Segoe UI",Arial,sans-serif;font-size:1.1em;font-weight:800;color:var(--slide-titulo,#3d4a5c);margin-bottom:.2em;}
   .slide-card span{display:block;font-size:.92em;color:var(--slide-texto,#3d4a5c);}
@@ -1083,8 +1150,14 @@ window.Deck = (function () {
   .slide-body .slide-callout p:last-child{margin-bottom:0;}
   .slide-num{position:absolute;right:3%;bottom:2.4%;z-index:2;font-size:.78em;font-weight:700;line-height:1.4;padding:.15em .7em;border-radius:999px;box-shadow:0 0 0 1px rgba(0,0,0,.07);}
   .slide-num span{font-weight:400;opacity:.6;}
-  .slide-body .slide-code{background:#f4f6f8;border:1px solid #e2e6ec;border-left:3px solid #9aa5b4;border-radius:4px;padding:.5em .7em;margin:.5em 0 .8em 0;overflow-x:auto;}
-  .slide-body .slide-code code{font-family:Consolas,"Courier New",monospace;font-size:.88em;line-height:1.45;white-space:pre;color:#2f3b4c;display:block;}
+  .slide-body .slide-code-wrap{background:#1e293b;border-radius:8px;margin:.5em 0 .8em 0;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.18);}
+  .slide-body .slide-code-bar{display:flex;align-items:center;gap:.35em;background:#0f172a;padding:.35em .7em;}
+  .slide-body .slide-code-bar i{width:.6em;height:.6em;border-radius:50%;background:#475569;display:block;}
+  .slide-body .slide-code-bar i:nth-child(1){background:#f87171;}.slide-body .slide-code-bar i:nth-child(2){background:#fbbf24;}.slide-body .slide-code-bar i:nth-child(3){background:#4ade80;}
+  .slide-body .slide-code-bar span{margin-left:.6em;font-family:Consolas,"Courier New",monospace;font-size:.78em;color:#94a3b8;}
+  .slide-body .slide-code{background:transparent;border:0;margin:0;padding:.6em .9em;overflow-x:auto;}
+  .slide-body .slide-code code{font-family:Consolas,"Courier New",monospace;font-size:.92em;line-height:1.5;white-space:pre;color:#e2e8f0;display:block;}
+  .slide-body .tk-k{color:#c4b5fd;}.slide-body .tk-s{color:#86efac;}.slide-body .tk-c{color:#94a3b8;font-style:italic;}.slide-body .tk-n{color:#fdba74;}.slide-body .tk-f{color:#7dd3fc;}
   .slide-body .slide-table{width:100%;border-collapse:collapse;margin:.5em 0 .8em 0;font-size:.92em;line-height:1.35;}
   .slide-body .slide-table th,.slide-body .slide-table td{border:1px solid #d8dde4;padding:.38em .6em;text-align:left;vertical-align:top;}
   .slide-body .slide-table thead th{background:#eef1f5;font-weight:700;color:#2f3b4c;border-bottom:2px solid #b9c2cf;}
@@ -1235,11 +1308,19 @@ ${corpo}
         flushText();
         const nLinhas = block.text.split('\n').length;
         const h = Math.max(0.45, nLinhas * 0.24 + 0.22);
-        slide.addText(block.text, {
+        const runs = [];
+        tokensCodigo(block.text, block.lang || '').forEach(linha => {
+          if (!linha.length) { runs.push({ text: ' ', options: { breakLine: true } }); return; }
+          linha.forEach((p, i) => runs.push({
+            text: p.t,
+            options: { color: COR_CODIGO[p.k] || COR_CODIGO.texto, italic: p.k === 'c', breakLine: i === linha.length - 1 },
+          }));
+        });
+        slide.addText(runs, {
           x, y: cursorY, w, h,
-          fontSize: 12, fontFace: 'Consolas', color: '2F3B4C',
-          fill: { color: 'F4F6F8' }, line: { color: 'E2E6EC', width: 0.5 },
-          valign: 'top', margin: 6,
+          fontSize: 12, fontFace: 'Consolas', color: COR_CODIGO.texto,
+          fill: { color: COR_CODIGO.fundo }, line: { type: 'none' },
+          valign: 'top', margin: 8,
         });
         cursorY += h + PARA_GAP;
       } else if (block.type === 'table') {
@@ -1263,6 +1344,15 @@ ${corpo}
       } else if (block.type === 'cards') {
         flushText();
         cursorY = renderPptxCards(slide, block.items, x, cursorY, w) + PARA_GAP;
+      } else if (block.type === 'diagrama') {
+        flushText();
+        const png = Icones.pngDiagramaPronto(block, '#' + corDestaque, '#' + hex(baseAtual().corTitulo));
+        if (png) {
+          const prop = Icones.proporcaoDiagrama(block);
+          const dh = Math.min(3.4, w * prop), dw = dh / prop;
+          slide.addImage({ data: png, x: x + (w - dw) / 2, y: cursorY, w: dw, h: dh });
+          cursorY += dh + PARA_GAP;
+        }
       } else if (block.type === 'ul') {
         block.items.forEach(item => {
           const segs = mdRuns(item);
@@ -1390,7 +1480,10 @@ ${corpo}
       if (s.icone && Icones.existe(s.icone)) nomes.add(s.icone);
       s.blocks.forEach(x => { if (x.type === 'cards') x.items.forEach(c => nomes.add(c.icone)); });
     });
-    return Promise.all([...nomes].map(n => Icones.png(n, cor)));
+    const tit = '#' + hex(b.corTitulo);
+    const diagramas = [];
+    lista.forEach(s => s.blocks.forEach(x => { if (x.type === 'diagrama') diagramas.push(Icones.pngDiagrama(x, cor, tit)); }));
+    return Promise.all([...[...nomes].map(n => Icones.png(n, cor)), ...diagramas]);
   }
 
   /* Cards em grade, como na tela. Devolve o y logo abaixo da última fileira. */

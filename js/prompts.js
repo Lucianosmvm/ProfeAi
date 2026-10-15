@@ -321,7 +321,23 @@ ${Prompts.EXEMPLO_SLIDES}`,
 /* Ícone ao lado do título, em todos os estilos (js/icones.js). A lista é
    fechada: nome fora dela é ignorado pelo editor. */
 Prompts.ICONES_SLIDES = `
-ÍCONES: em cada slide de conteúdo, escreva logo abaixo do título uma linha com o ícone que combina com o assunto, ex.: \`[icone: rede]\`. Use SOMENTE um destes nomes: livro, rede, escudo, raio, alvo, ideia, codigo, terminal, banco, nuvem, cadeado, chave, engrenagem, grafico, pessoas, relogio, calendario, pergunta, alerta, check, lupa, computador, celular, mundo, pasta, lista, foguete, trofeu, mensagem, estrela. A capa não leva ícone.
+ÍCONES: em cada slide de conteúdo, escreva logo abaixo do título uma linha com o ícone que combina com o assunto, ex.: \`[icone: rede]\`. Use SOMENTE um destes nomes: livro, rede, escudo, raio, alvo, ideia, codigo, terminal, banco, nuvem, cadeado, chave, engrenagem, grafico, pessoas, relogio, calendario, pergunta, alerta, check, lupa, computador, celular, mundo, pasta, lista, foguete, trofeu, mensagem, estrela, roteador, servidor, switch, wifi, antena, firewall, impressora, notebook, usuario, email, documento, dinheiro, predio, maleta, telefone, carrinho, fala, altofalante, microfone, bandeira, teclado, mouse, pendrive, hd, caneta. Escolha o que combina com a matéria (ex.: idiomas → fala, altofalante, bandeira; administrativo → documento, dinheiro, predio, maleta; informática básica → teclado, mouse, pendrive, hd). A capa não leva ícone.
+- DIAGRAMA: quando o assunto for uma estrutura ou fluxo que se entende melhor desenhando (topologia de rede, cliente e servidor, etapas ligadas, arquitetura), em vez de descrever em texto monte um diagrama de 2 a 8 elementos. Formato EXATO, todas as linhas coladas (sem linha em branco no meio): primeiro \`[diagrama]\`, depois um elemento por linha \`id: icone "Rótulo"\` (id curto sem espaço; icone da lista acima), depois uma ligação por linha: \`a - b\` (cabo), \`a -> b\` (seta) ou \`a <-> b\` (seta dupla). Exemplo:
+[diagrama]
+pc1: computador "PC 1"
+pc2: notebook "Notebook"
+sw: switch "Switch"
+rt: roteador "Roteador"
+net: nuvem "Internet"
+pc1 - sw
+pc2 - sw
+sw - rt
+rt - net
+- CAIXAS: para estruturas de dados e valores (vetor/array, lista ligada, pilha), use \`[caixas: vetor]\`, \`[caixas: lista]\` ou \`[caixas: pilha]\` e, nas linhas seguintes (coladas), os valores separados por \`|\`, com rótulo opcional antes de dois-pontos. Vetor mostra os índices; lista mostra ponteiros até \`null\`; pilha vem do topo para a base e aceita uma linha só. Máximo 10 valores no vetor, 6 na lista e na pilha. Exemplo:
+[caixas: vetor]
+notas: 7 | 9 | 5 | 10
+- CÓDIGO: use bloco de código com a linguagem e, se fizer sentido, o nome do arquivo, ex.: \`\`\`python main.py. O código sai colorido num quadro escuro; mantenha até 12 linhas.
+No máximo um diagrama ou bloco de caixas por slide; pode vir acompanhado de um parágrafo curto de explicação depois dele (separado por linha em branco).
 - CARDS: quando o slide compara ou apresenta de 2 a 6 itens paralelos (vantagens, tipos, etapas), faça uma lista em que CADA item começa com ícone, título curto em negrito e descrição de até 10 palavras, ex.: \`- [icone: escudo] **Segurança** — Isola setores e limita ataques\`. Use no máximo um bloco de cards por slide.
 `;
 

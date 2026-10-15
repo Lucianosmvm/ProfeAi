@@ -5,7 +5,7 @@
    - Bibliotecas e fontes de CDN: cópia guardada primeiro, atualizada em
      segundo plano.
    - IA, Google Drive e login: nunca passam pelo cache. */
-const CACHE = 'profeai-v1';
+const CACHE = 'profeai-v2';
 
 // Arquivo novo em js/ ou css/: inclua aqui, senão ele não abre sem internet.
 const APP = [
