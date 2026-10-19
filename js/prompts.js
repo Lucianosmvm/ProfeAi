@@ -237,6 +237,7 @@ Regras:
     const formato = tipo === 'slides'
       ? `
 - Formato dos slides: cada slide separado por uma linha com APENAS \`---\`; a primeira linha do slide é o título em texto puro; listas com \`- \`; destaques com \`**negrito**\`.
+- Continue usando os mesmos recursos do material acima: linha \`[icone: nome]\` abaixo do título, cards, \`[diagrama]\`, \`[caixas: …]\` e blocos de código com linguagem${/\[mascote:/i.test(textoParcial || '') ? ', e a linha `[mascote: pose]` em cada slide de conteúdo' : ''}.
 - ${faltam
     ? 'O último slide acima está completo: comece sua resposta com uma linha contendo apenas `---` e siga com os slides que faltam.'
     : 'Se o último slide acima ficou pela metade, termine-o primeiro (sem repetir o título) e só então abra o próximo com `---`.'}
@@ -434,7 +435,8 @@ COMO ORGANIZAR:
 
 INSTRUÇÕES DO PROFESSOR — prevalecem sobre as regras de organização acima (não sobre o formato de saída):
 ${instrucoes}` : ''}${Prompts.blocoAdaptacao(d, { semResumo: true })}
-
+${Prompts.ICONES_SLIDES}
+${Prompts.mascoteSlides(d)}
 ${Prompts.EXEMPLO_SLIDES}
 
 === CONTEÚDO DO PROFESSOR ===
